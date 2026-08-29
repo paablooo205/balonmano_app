@@ -40,6 +40,12 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,svg,png,webp,woff2}"],
+        // Por defecto el precaché del service worker rechaza archivos de más de 2 MiB
+        // (falla el build entero, no solo los omite) — las 4 imágenes de fondo
+        // estacionales (public/hero/*.png) llegan a 2.64 MB. Subir el límite a 3 MiB
+        // desbloquea el build; comprimir esas imágenes sigue siendo buena idea aparte,
+        // para no cachear tanto peso offline.
+        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
         runtimeCaching: [
           {
             urlPattern: ({ url }) => url.hostname.endsWith("supabase.co"),
