@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useEquipo } from "@/hooks/useEquipo";
 import { JugadoresSection } from "@/components/equipo/JugadoresSection";
+import { FichasOficialesCard } from "@/components/equipo/FichasOficialesCard";
 
 export function EquipoPage() {
   const { equipo, equipoId } = useEquipo();
@@ -33,6 +34,7 @@ export function EquipoPage() {
           {asistenciaMedia !== null ? ` · asistencia media ${asistenciaMedia}%` : ""}
         </div>
       </div>
+      <FichasOficialesCard equipoId={equipoId} />
       <JugadoresSection equipoId={equipoId} />
     </div>
   );

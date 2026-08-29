@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronRight, Trophy } from "lucide-react";
+import { ChevronRight, FileText, Trophy } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
+import { urlFirmada } from "@/lib/storage";
 import { useEquipo } from "@/hooks/useEquipo";
 import { useEntrenador } from "@/hooks/useEntrenador";
 import { microcicloDeFecha, mesocicloDeMicrociclo } from "@/hooks/useCalendarData";
@@ -141,6 +142,7 @@ export function InicioPage() {
         slotHoy={slotHoy}
         mesociclo={mesocicloHoy}
         microciclo={microcicloHoy}
+        fichasOficialesUrl={equipo?.fichas_oficiales_url ?? null}
         microcicloId={microcicloHoy?.id ?? null}
         equipoId={equipoId}
         diaSemana={hoy.getDay() as DiaSemana}
@@ -278,6 +280,7 @@ function TarjetaHoy({
   slotHoy,
   mesociclo,
   microciclo,
+  fichasOficialesUrl,
   microcicloId,
   equipoId,
   diaSemana,
@@ -291,6 +294,7 @@ function TarjetaHoy({
   slotHoy: HorarioRecurrenteRow | null;
   mesociclo: MesociclosRow | null;
   microciclo: MicrociclosRow | null;
+  fichasOficialesUrl: string | null;
   microcicloId: string | null;
   equipoId: string;
   diaSemana: DiaSemana;
@@ -328,6 +332,20 @@ function TarjetaHoy({
             <span className="text-[13px] font-semibold text-white">Ver ficha del partido</span>
           </div>
         </button>
+        {fichasOficialesUrl && (
+          <button
+            onClick={async () => {
+              try {
+                window.open(await urlFirmada(fichasOficialesUrl), "_blank", "noopener,noreferrer");
+              } catch {
+                alert("No se pudo abrir el archivo.");
+              }
+            }}
+            className="card-surface mt-2 flex w-full items-center justify-center gap-2 py-3 text-sm font-medium text-[var(--color-ink)]"
+          >
+            <FileText size={16} /> Fichas oficiales
+          </button>
+        )}
       </div>
     );
   }

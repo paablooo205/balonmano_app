@@ -5,6 +5,7 @@ import type { EquiposRow } from "@/types/database";
 import { SideNav } from "./SideNav";
 import { BottomNav } from "./BottomNav";
 import { SyncStatusBadge } from "./SyncStatusBadge";
+import { OnboardingChecklist } from "./OnboardingChecklist";
 import { comprobarNotificaciones } from "@/lib/notifications";
 import { usePreferenciaMenu } from "@/hooks/usePreferenciaMenu";
 import { cn } from "@/lib/utils";
@@ -113,6 +114,7 @@ export function EquipoLayout() {
           modo === "lateral" && "pb-8",
         )}
       >
+        <OnboardingChecklist equipoId={equipoId!} />
         <Outlet context={{ equipo }} />
       </main>
       <BottomNav modo={modo} />

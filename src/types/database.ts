@@ -13,6 +13,9 @@ export type EquiposRow = {
   id: UUID;
   nombre: string;
   temporada: string;
+  /** Ruta de Storage (bucket "adjuntos") con las fichas oficiales de toda la
+   * plantilla en un solo archivo. Ver 0016_fichas_oficiales_equipo.sql. */
+  fichas_oficiales_url: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -273,7 +276,7 @@ type TableDef<
 export type Database = {
   public: {
     Tables: {
-      equipos: TableDef<EquiposRow, "id" | "created_at" | "updated_at">;
+      equipos: TableDef<EquiposRow, "id" | "fichas_oficiales_url" | "created_at" | "updated_at">;
       entrenadores: TableDef<EntrenadoresRow, "id" | "created_at" | "updated_at">;
       entrenadores_equipos: TableDef<EntrenadoresEquiposRow, "created_at">;
       invitaciones_equipo: TableDef<

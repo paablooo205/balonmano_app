@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
-import { ChevronLeft, LogIn, LogOut, Undo2 } from "lucide-react";
+import { ChevronLeft, LogIn, LogOut, Pause, Play, Undo2 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { encolarOperacion, esErrorDeRed } from "@/lib/offline/queue";
+import { useFullscreenHorizontal } from "@/hooks/useFullscreenHorizontal";
+import { useMovilHorizontal } from "@/hooks/useMovilHorizontal";
 import {
   ACCIONES,
   ETIQUETAS_EVENTO,
@@ -20,8 +22,11 @@ import type { EventoPartido, JugadoresRow, PartidosRow } from "@/types/database"
 /**
  * Marcador en vivo — calcado del estado "isLive" del prototipo de Claude
  * Design: reloj por partes, selector de jugador/a por chips, 9 acciones y
- * cronología. Pantalla oscura de pantalla completa (dentro de una tarjeta
- * contenida, igual que el resto de "hero" de la app).
+ * cronología. Ocupa toda la pantalla (overlay `fixed inset-0`, fuera del
+ * `<main>` con nav/paddings) e intenta forzar horizontal + pantalla completa
+ * del navegador vía `useFullscreenHorizontal` (mejor esfuerzo: no soportado
+ * en iOS Safari). En horizontal en móvil (viewport bajo) cambia a un layout
+ * compacto en dos columnas — el vertical de siempre no cabe apaisado.
  */
 export function ContadoresEnVivo({
   partido,
@@ -36,6 +41,8 @@ export function ContadoresEnVivo({
   onActualizado: (p: PartidosRow) => void;
   onBack: () => void;
 }) {
+  useFullscreenHorizontal();
+  const compacto = useMovilHorizontal();
   const [tick, setTick] = useState(0);
   const [jugadorSel, setJugadorSel] = useState<string | null>(null);
   const cronometro = partido.estadisticas.cronometro;
@@ -95,8 +102,152 @@ export function ContadoresEnVivo({
   const corriendo = !!cronometro?.corriendo;
   const estado = corriendo ? "En juego" : eventos.length > 0 ? "Pausado" : "Sin empezar";
 
+  const jugadorBlock = (
+    <div>
+      <div className="mb-2.5 flex items-center justify-between px-4">
+        <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-white/35">Jugador</span>
+        <div className="flex gap-1.5">
+          <button
+            onClick={() => registrarSustitucion("entra_pista")}
+            className="flex h-7 items-center gap-1 rounded-full bg-white/[.08] px-2.5 text-[11px] font-medium text-[#4ddc8a]"
+          >
+            <LogIn size={12} /> Entra
+          </button>
+          <button
+            onClick={() => registrarSustitucion("sale_pista")}
+            className="flex h-7 items-center gap-1 rounded-full bg-white/[.08] px-2.5 text-[11px] font-medium text-white/60"
+          >
+            <LogOut size={12} /> Sale
+          </button>
+        </div>
+      </div>
+      <div className="flex gap-1.5 overflow-x-auto px-4">
+        <ChipJugador nombre="Sin asignar" numero="—" activo={jugadorSel === null} onClick={() => setJugadorSel(null)} />
+        {jugadores.map((j) => (
+          <ChipJugador
+            key={j.id}
+            nombre={j.nombre.split(" ")[0]}
+            numero={j.dorsal != null ? String(j.dorsal) : "—"}
+            activo={jugadorSel === j.id}
+            onClick={() => setJugadorSel(j.id)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+
+  const accionesBlock = (
+    <div className={cn("grid gap-1.5", compacto ? "grid-cols-4" : "grid-cols-3")}>
+      {ACCIONES.map((a) => (
+        <button
+          key={a.tipo}
+          onClick={() => registrar(a.tipo)}
+          className={cn(
+            "flex flex-col items-center justify-center gap-1 rounded-xl border border-white/[.09] bg-white/[.05] px-1.5 text-center active:scale-[0.96]",
+            compacto ? "h-[46px]" : "h-[60px]",
+          )}
+        >
+          <span className={cn("leading-[1.15] text-white/85", compacto ? "text-[9px]" : "text-[11px]")}>{a.label}</span>
+          <span className="stat-number text-sm" style={{ color: a.color }}>
+            {eventos.filter((e) => e.tipo === a.tipo).length}
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+
+  const cronologiaBlock = (
+    <div className="min-h-0">
+      <div className="mb-2.5 flex items-baseline justify-between">
+        <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-white/35">Cronología</span>
+        <span className="text-[10px] text-white/30">{eventos.length} acciones</span>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        {eventosDesc.length === 0 && (
+          <div className="rounded-xl border border-dashed border-white/[.14] px-3.5 py-5 text-center text-xs text-white/35">
+            Sin acciones registradas. Arranca el cronómetro y pulsa una acción.
+          </div>
+        )}
+        {eventosDesc.map((e, i) => (
+          <EventoRow key={e.id} evento={e} rival={partido.rival} jugadores={jugadores} marcador={marcadorHasta(eventosDesc, i)} />
+        ))}
+      </div>
+    </div>
+  );
+
+  if (compacto) {
+    return (
+      <div
+        className="fixed inset-0 z-50 flex flex-col bg-[#0d0d0f]"
+        style={{ paddingLeft: "env(safe-area-inset-left)", paddingRight: "env(safe-area-inset-right)" }}
+      >
+        <div className="flex shrink-0 items-center gap-2 border-b border-white/[.09] bg-[var(--color-ink)] px-3 py-2">
+          <button onClick={onBack} aria-label="Volver a Partido" className="shrink-0 text-white/55 hover:text-white/80">
+            <ChevronLeft size={18} className="text-[var(--color-accent)]" />
+          </button>
+          <span
+            className="h-1.5 w-1.5 shrink-0 rounded-full"
+            style={{ backgroundColor: corriendo ? "#4ddc8a" : "#8a8a92" }}
+          />
+
+          <div className="flex flex-1 items-center justify-center gap-4">
+            <div className="min-w-0 text-center">
+              <div className="truncate text-[8px] font-semibold uppercase tracking-[0.1em] text-[var(--color-accent)]">
+                {equipoNombre ?? "Nosotros"}
+              </div>
+              <div className="stat-number text-2xl leading-none text-white">{golesFavor}</div>
+            </div>
+            <div className="text-center">
+              <div className="stat-number text-lg leading-none text-white">{formatoReloj(segundosPartido(cronometro))}</div>
+              <div className="mt-0.5 text-[7px] font-semibold uppercase tracking-[0.1em] text-white/45">
+                {cronometro?.parte === 2 ? "2ª parte" : "1ª parte"}
+              </div>
+            </div>
+            <div className="min-w-0 text-center">
+              <div className="truncate text-[8px] font-semibold uppercase tracking-[0.1em] text-white/50">{partido.rival}</div>
+              <div className="stat-number text-2xl leading-none text-white/55">{golesContra}</div>
+            </div>
+          </div>
+
+          <button
+            onClick={alternarCronometro}
+            aria-label={corriendo ? "Pausar cronómetro" : "Iniciar cronómetro"}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+            style={{ backgroundColor: corriendo ? "rgba(255,255,255,.12)" : "var(--color-accent)" }}
+          >
+            {corriendo ? <Pause size={15} className="text-white" /> : <Play size={15} className="text-white" />}
+          </button>
+          <button
+            onClick={siguienteParte}
+            className="flex h-9 shrink-0 items-center justify-center rounded-lg bg-white/[.08] px-2.5 text-[11px] font-semibold text-white/75"
+          >
+            {cronometro?.parte === 2 ? "1ª" : "2ª"}
+          </button>
+          <button
+            onClick={deshacer}
+            aria-label="Deshacer último toque"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/[.08] text-white/60"
+          >
+            <Undo2 size={15} />
+          </button>
+        </div>
+
+        <div className="flex min-h-0 flex-1">
+          <div className="flex w-[44%] shrink-0 flex-col gap-2.5 overflow-y-auto border-r border-white/[.07] py-2.5">
+            {jugadorBlock}
+            <div className="px-3">{accionesBlock}</div>
+          </div>
+          <div className="flex-1 overflow-y-auto px-3 py-2.5">{cronologiaBlock}</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="overflow-hidden rounded-2xl bg-[#0d0d0f]">
+    <div
+      className="fixed inset-0 z-50 overflow-y-auto bg-[#0d0d0f]"
+      style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}
+    >
       <div className="border-b border-white/[.09] bg-[var(--color-ink)] px-4 pb-4 pt-4">
         <div className="flex items-center justify-between gap-3">
           <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-white/55 hover:text-white/80">
@@ -158,71 +309,11 @@ export function ContadoresEnVivo({
         </div>
       </div>
 
-      <div className="border-b border-white/[.07] py-3">
-        <div className="mb-2.5 flex items-center justify-between px-4">
-          <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-white/35">Jugador</span>
-          <div className="flex gap-1.5">
-            <button
-              onClick={() => registrarSustitucion("entra_pista")}
-              className="flex h-7 items-center gap-1 rounded-full bg-white/[.08] px-2.5 text-[11px] font-medium text-[#4ddc8a]"
-            >
-              <LogIn size={12} /> Entra
-            </button>
-            <button
-              onClick={() => registrarSustitucion("sale_pista")}
-              className="flex h-7 items-center gap-1 rounded-full bg-white/[.08] px-2.5 text-[11px] font-medium text-white/60"
-            >
-              <LogOut size={12} /> Sale
-            </button>
-          </div>
-        </div>
-        <div className="flex gap-1.5 overflow-x-auto px-4">
-          <ChipJugador nombre="Sin asignar" numero="—" activo={jugadorSel === null} onClick={() => setJugadorSel(null)} />
-          {jugadores.map((j) => (
-            <ChipJugador
-              key={j.id}
-              nombre={j.nombre.split(" ")[0]}
-              numero={j.dorsal != null ? String(j.dorsal) : "—"}
-              activo={jugadorSel === j.id}
-              onClick={() => setJugadorSel(j.id)}
-            />
-          ))}
-        </div>
-      </div>
+      <div className="border-b border-white/[.07] py-3">{jugadorBlock}</div>
 
-      <div className="min-h-0 px-4 pb-2 pt-3.5">
-        <div className="mb-2.5 flex items-baseline justify-between">
-          <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-white/35">Cronología</span>
-          <span className="text-[10px] text-white/30">{eventos.length} acciones</span>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          {eventosDesc.length === 0 && (
-            <div className="rounded-xl border border-dashed border-white/[.14] px-3.5 py-5 text-center text-xs text-white/35">
-              Sin acciones registradas. Arranca el cronómetro y pulsa una acción.
-            </div>
-          )}
-          {eventosDesc.map((e, i) => (
-            <EventoRow key={e.id} evento={e} rival={partido.rival} jugadores={jugadores} marcador={marcadorHasta(eventosDesc, i)} />
-          ))}
-        </div>
-      </div>
+      <div className="px-4 pb-2 pt-3.5">{cronologiaBlock}</div>
 
-      <div className="border-t border-white/[.08] bg-[#141417] p-3.5 pb-6">
-        <div className="grid grid-cols-3 gap-1.5">
-          {ACCIONES.map((a) => (
-            <button
-              key={a.tipo}
-              onClick={() => registrar(a.tipo)}
-              className="flex h-[60px] flex-col items-center justify-center gap-1 rounded-xl border border-white/[.09] bg-white/[.05] px-1.5 text-center active:scale-[0.96]"
-            >
-              <span className="text-[11px] leading-[1.15] text-white/85">{a.label}</span>
-              <span className="stat-number text-sm" style={{ color: a.color }}>
-                {eventos.filter((e) => e.tipo === a.tipo).length}
-              </span>
-            </button>
-          ))}
-        </div>
-      </div>
+      <div className="border-t border-white/[.08] bg-[#141417] p-3.5 pb-6">{accionesBlock}</div>
     </div>
   );
 }
