@@ -13,12 +13,9 @@
 # testing
 /coverage
 
-# next.js
-/.next/
-/out/
-
-# production
-/build
+# vite / pwa build output
+/dist
+/dev-dist
 
 # misc
 .DS_Store
@@ -32,10 +29,12 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
-
-# vercel
-.vercel
+!.env.example
 
 # typescript
 *.tsbuildinfo
-next-env.d.ts
+
+.vercel
+
+# MCP config (contains local API keys/headers)
+.mcp.json

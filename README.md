@@ -1,36 +1,43 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Balonmano — Planificación Deportiva (PWA)
 
-## Getting Started
+PWA para gestionar la planificación deportiva de un club de balonmano multi-equipo: React + Vite + TypeScript + Tailwind, Supabase (Postgres + Auth + Storage), instalable y con caché offline del app shell.
 
-First, run the development server:
+## Requisitos
+
+- Node.js 20+
+- Un proyecto de Supabase (URL + anon key de **Project Settings → API**)
+
+## Puesta en marcha
 
 ```bash
+npm install
+cp .env.example .env.local   # rellenar con tus credenciales de Supabase
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Base de datos
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+El esquema vive en `supabase/migrations/` (SQL versionado, con foreign keys reales y RLS). Aplícalo en tu proyecto Supabase, en orden, desde el **SQL Editor** del dashboard o con la CLI:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npx supabase link --project-ref <tu-project-ref>
+npx supabase db push
+```
 
-## Learn More
+Incluye:
+- `0001_init_schema.sql` — todas las tablas (equipos, periodos, mesociclos, microciclos, sesiones, ejercicios, sistemas defensivos, modelo de juego, jugadores, asistencia, partidos, recursos...)
+- `0002_storage.sql` — bucket `adjuntos` (fichas de jugadores, recursos)
+- `0003_seed_equipos.sql` — equipos iniciales (Infantil Masculino B, Cadete Femenino)
 
-To learn more about Next.js, take a look at the following resources:
+## Autenticación
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Un único usuario, sin roles. Crea el usuario desde **Authentication → Users** en el dashboard de Supabase (email + contraseña) — no hay alta de usuarios desde la app.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Scripts
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npm run dev      # servidor de desarrollo
+npm run build    # build de producción (type-check + vite build)
+npm run preview  # sirve el build de producción localmente
+npm run lint     # eslint
+```

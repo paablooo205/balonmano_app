@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "src/components/calendario/DayAgenda.tsx"
+        ],
+        "createdAt": "2026-08-27T20:34:42.830Z",
+        "reason": "user confirmed: approved plan (playful-knitting-russell.md) explicitly specifies 'franja/borde de acento rojo a la izquierda en tarjetas de tipo evento', reproducing the red left-edge stripe seen on the session card in the Stitch prototype's Calendario screenshot"
+      }
+    ]
+  }
+}

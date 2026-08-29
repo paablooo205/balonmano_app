@@ -1,0 +1,115 @@
+@import "tailwindcss";
+@import "@fontsource/barlow-condensed/500.css";
+@import "@fontsource/barlow-condensed/600.css";
+@import "@fontsource/barlow-condensed/700.css";
+@import "@fontsource/archivo/400.css";
+@import "@fontsource/archivo/500.css";
+@import "@fontsource/archivo/600.css";
+@import "@fontsource/archivo/700.css";
+
+@theme {
+  --color-bg: #f2f0ee;
+  --color-card: #ffffff;
+  --color-card-hover: #f6f5f3;
+  --color-border: #e3e0da;
+  --color-ink: #111114;
+  --color-accent: #e11225;
+  --color-accent-hover: #b60d1c;
+  --color-accent-dim: #fbe4e6;
+  --color-text: #111114;
+  --color-text-muted: #6e6e78;
+  --color-text-faint: #9a9aa2;
+  --color-success: #1b8a4b;
+  --color-warning: #d59200;
+  --font-sans:
+    "Archivo", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display:
+    "Barlow Condensed", "Archivo", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  overscroll-behavior: none;
+}
+
+/* ==========================================================================
+   Tarjetas — superficie sólida blanca elevada sobre el fondo crema, con
+   sombra suave (no hay fondo oscuro detrás que aporte contraste por sí solo).
+   ========================================================================== */
+.card-surface {
+  background-color: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: 0.875rem;
+  box-shadow:
+    0 1px 2px rgba(17, 17, 20, 0.05),
+    0 8px 20px -14px rgba(17, 17, 20, 0.18);
+}
+
+/* Cifras destacadas (marcador, cronómetro, %, contadores en vivo). */
+.stat-number {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Cabecera de sección a toda anchura ("hero band"): tinta oscura por
+   defecto, o roja para Partido (pasar variant="accent"). */
+.hero-band {
+  background-color: var(--color-ink);
+  color: #fff;
+  border-radius: 0 0 1.25rem 1.25rem;
+  padding: 1.25rem 1.25rem 1.5rem;
+}
+.hero-band[data-variant="accent"] {
+  background-color: var(--color-accent);
+}
+.hero-band .hero-eyebrow {
+  font: 600 0.6875rem/1 var(--font-sans);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+}
+.hero-band[data-variant="accent"] .hero-eyebrow {
+  color: rgba(255, 255, 255, 0.78);
+}
+.hero-band .hero-title {
+  font: 700 2.25rem/0.95 var(--font-display);
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  color: #fff;
+}
+
+/* Selector de pestañas, usado en Calendario y Partido. */
+.tab-pill-group {
+  display: flex;
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-border);
+  padding: 0.25rem;
+  background: var(--color-card);
+}
+.tab-pill {
+  flex: 1;
+  border-radius: 0.5rem;
+  padding: 0.375rem 0;
+  text-align: center;
+  font-size: 0.875rem;
+  transition: background-color 0.15s, color 0.15s;
+  color: var(--color-text-muted);
+}
+.tab-pill[data-active="true"] {
+  background-color: var(--color-accent);
+  color: white;
+}

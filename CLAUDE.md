@@ -1,26 +1,44 @@
-@AGENTS.md
 # CLAUDE.md — Reglas del proyecto
 
+PWA de planificación deportiva para un club de balonmano multi-equipo (un único usuario, uso desde móvil y ordenador con sincronización real).
+
 ## Stack
-- Next.js (App Router) + TypeScript + Tailwind + shadcn/ui (preset Vega)
-- Server Components por defecto. Usa 'use client' solo cuando haya interactividad real.
+- **Frontend**: React + Vite + TypeScript, `vite-plugin-pwa` (manifest + service worker, caché del app shell, `NetworkFirst` para Supabase).
+- **Estilos**: Tailwind CSS v4 (`@theme` en `src/index.css`), sin librería de componentes — utilidades propias en `src/components/ui`.
+- **Backend/datos**: Supabase (Postgres + Auth + Storage). Un único usuario, login por email/contraseña. RLS activo en todas las tablas (`auth.role() = 'authenticated'`).
+- **Rutas**: `react-router-dom`, con layout de equipo en `/equipos/:equipoId/*`.
+- **Offline**: sesión de entrenamiento y partido del día cacheados en IndexedDB; escrituras encoladas localmente hasta recuperar conexión. Sin resolución de conflictos (único escritor).
+- **Diagramas tácticos**: SVG a medida, sin librería de diagramas.
 
-## SEO y semántica (no negociable)
-- HTML semántico: <header>, <nav>, <main>, <article>, <section>, <footer>. Nada de div soup.
-- Un único <h1> por página, jerarquía lógica de h2/h3 después.
-- Metadatos (title, description, canonical, Open Graph) definidos por página, nunca genéricos.
-- Datos estructurados JSON-LD (schema.org) cuando aplique (negocio local, producto, etc.).
-- Imágenes con next/image y alt descriptivo siempre.
-- URLs limpias tipo slug, nunca query strings.
+## Base de datos
+- Esquema fuente de verdad: `supabase/migrations/*.sql`. Cualquier cambio de esquema va como migración nueva, nunca editando una ya aplicada.
+- Tipos TypeScript alineados a mano en `src/types/database.ts` (sin generador conectado); si el esquema cambia, actualizar ambos en el mismo commit.
+- **Toda tabla salvo `equipos` lleva `equipo_id` FK** — el sistema es multi-equipo desde el origen, nunca asumir un único equipo ni hardcodear IDs.
+- Todo dato de negocio (jugador, ejercicio, sesión, partido, entrada de modelo de juego...) tiene `notas_adicionales` de texto libre.
+- Todo dato es editable y borrable después de creado, no solo alta — **excepción deliberada**: `equipos`, `periodos`, `mesociclos` y `microciclos` no tienen CRUD en la app (decisión explícita del usuario). Se gestionan re-ejecutando `scripts/seed-*.ts` desde el Excel real o editando directamente en el SQL Editor de Supabase — son datos que se fijan una vez por temporada, no de uso frecuente. No construir pantallas de edición para estas tablas salvo que el usuario lo pida explícitamente.
 
-## Rendimiento
-- Lazy loading para todo lo que no esté en el viewport inicial.
-- Nada de librerías pesadas si hay alternativa nativa o más ligera.
+## Estética — no negociable
+Diseño importado del proyecto de Claude Design del usuario ("App gestión equipo balonmano", `Balonmano Club.dc.html`) — sustituye a cualquier dirección visual anterior.
+
+- **Claro, no oscuro**: fondo de página crema (`--color-bg:#f2f0ee`), tarjetas sólidas blancas (`.card-surface`, `--color-card:#ffffff`, sombra suave, `border-radius:0.875rem`). Sin fondo jaspeado, sin blobs animados, sin marca de agua — eso pertenece a una dirección visual anterior, ya retirada.
+- **Cabeceras tipo "hero band"**: cada sección lleva una cabecera de tinta oscura (`--color-ink:#111114`, componente `PageHeader`) con eyebrow rojo en mayúsculas + título condensado grande; Partido usa la variante roja (`variant="accent"`) en vez de tinta.
+- **Paleta**: negro-tinta (`--color-ink`) + rojo como acento de marca (`--color-accent:#e11225`) + blanco/crema. Excepción sancionada y deliberada: los estados de asistencia (presente=verde, justificado=ámbar, injustificado=rojo, lesión=neutro) sí usan colores semánticos — viene directamente del diseño de Claude Design, no lo trates como precedente para añadir más colores en otros sitios. Fuera de eso, un único acento, mismo estilo visual para todos los equipos.
+- **Tipografía**: titulares y cifras destacadas en Barlow Condensed (`var(--font-display)`, mayúsculas, muy condensada); cuerpo/UI en Archivo (`var(--font-sans)`). Ambas autoalojadas vía `@fontsource` (nunca CDN de Google Fonts — la PWA debe seguir funcionando offline).
+- **Forma**: radios moderados (tarjetas ~14px, botones ~15px vía `rounded-[15px]` en `Button`) — nada de `rounded-full` en botones/CTAs. Los chips/badges pequeños sí pueden ser pill.
+- **Patrón de tarjeta de evento**: barra de acento de 5px a la izquierda (rojo=partido, tinta=entrenamiento) en las tarjetas de sesión/partido del Dashboard y Calendario — es diseño explícito del mockup, mantenerlo tal cual.
+- Mobile-first: botones grandes, alto contraste, poco texto obligatorio.
+- Todo en español.
 
 ## Estructura de carpetas
-- /components → componentes de UI reutilizables
-- /modules → módulos de negocio (crm, bookings, payments) parametrizados por tenant
-- /app → rutas
+- `/src/components/ui` → componentes de UI reutilizables (estilo shadcn, sin la librería)
+- `/src/components/layout` → navegación y shell de equipo (`PageHeader` = cabecera "hero band", `SideNav`/`BottomNav`)
+- `/src/pages` → pantallas/rutas
+- `/src/lib` → cliente Supabase, utilidades, configuración de navegación
+- `/src/types` → tipos alineados con el esquema Postgres
+- `/supabase/migrations` → esquema versionado
 
-## Multi-tenant
-- Cualquier tabla o query nueva debe considerar tenant_id y respetar RLS. Nunca asumas un único cliente.
+## Notificaciones
+Solo tres casos (nada por cada entrenamiento individual): partido próximo, cambio de mesociclo, recordatorio semanal (domingos) de planificar entrenamientos. Vía Notifications/Push API del navegador — soporte en iOS es limitado, avisar explícitamente antes de dar por hecha cualquier función de push en iOS.
+
+## Desarrollo por fases
+Este proyecto se construye fase a fase (ver conversación con el usuario para el detalle de cada una). No adelantar trabajo de una fase futura salvo que el usuario lo pida explícitamente.
