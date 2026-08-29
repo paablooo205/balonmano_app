@@ -8,6 +8,7 @@ import { SyncStatusBadge } from "./SyncStatusBadge";
 import { OnboardingChecklist } from "./OnboardingChecklist";
 import { comprobarNotificaciones } from "@/lib/notifications";
 import { usePreferenciaMenu } from "@/hooks/usePreferenciaMenu";
+import { useActividadReciente } from "@/hooks/useActividadReciente";
 import { cn } from "@/lib/utils";
 
 function cacheKey(equipoId: string) {
@@ -34,6 +35,7 @@ function guardarEquipoCacheado(equipo: EquiposRow) {
 export function EquipoLayout() {
   const { equipoId } = useParams();
   const { preferencia: modo } = usePreferenciaMenu();
+  const barraActiva = useActividadReciente();
   const [equipo, setEquipo] = useState<EquiposRow | null>(null);
   // "no-encontrado": el equipo no existe de verdad (consulta con éxito, sin filas).
   // Un fallo de red (offline) NUNCA debe expulsar al usuario a "/" — es justo el
@@ -99,13 +101,13 @@ export function EquipoLayout() {
   return (
     <div
       className={cn(
-        "min-h-screen",
-        modo === "auto" && "md:pl-[18rem]",
-        modo === "lateral" && "pl-24 md:pl-[18rem]",
+        "min-h-screen transition-[padding] duration-500 ease-out",
+        modo === "auto" && (barraActiva ? "md:pl-[18rem]" : "md:pl-0"),
+        modo === "lateral" && cn("pl-24", barraActiva ? "md:pl-[18rem]" : "md:pl-0"),
       )}
     >
       <SyncStatusBadge />
-      <SideNav nombreEquipo={equipo?.nombre} modo={modo} />
+      <SideNav nombreEquipo={equipo?.nombre} modo={modo} activa={barraActiva} />
       <main
         className={cn(
           "mx-auto max-w-4xl px-4 pt-[calc(env(safe-area-inset-top)+1rem)] md:pt-8",

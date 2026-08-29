@@ -4,11 +4,17 @@ import { NAV_ITEMS } from "@/lib/navConfig";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabaseClient";
 import type { PreferenciaMenu } from "@/hooks/usePreferenciaMenu";
-import { useActividadReciente } from "@/hooks/useActividadReciente";
 
-export function SideNav({ nombreEquipo, modo }: { nombreEquipo?: string; modo: PreferenciaMenu }) {
+export function SideNav({
+  nombreEquipo,
+  modo,
+  activa,
+}: {
+  nombreEquipo?: string;
+  modo: PreferenciaMenu;
+  activa: boolean;
+}) {
   const { equipoId } = useParams();
-  const activa = useActividadReciente();
 
   if (modo === "abajo") return null;
 
