@@ -234,15 +234,13 @@ export type PartidosRow = {
 };
 
 export type EquipoOrigenEvento = "propio" | "rival";
-export type TipoEvento = "tiro" | "perdida" | "exclusion";
+export type TipoEvento = "tiro" | "perdida" | "exclusion" | "tarjeta";
 export type ResultadoTiro = "gol" | "fuera" | "parado" | "poste";
+export type OrigenLanzamiento = "ext_izq" | "lat_izq" | "central" | "lat_der" | "ext_der" | "pivote" | "9m" | "contragolpe" | "7m";
+export type ColorTarjeta = "amarilla" | "azul" | "roja";
 
 /** Evento individual de partido/entrenamiento (tabla `eventos`, ver
- * 0017_eventos.sql) — sustituye a los contadores que antes vivían en
- * `partidos.estadisticas.eventos` para los 9 tipos con equivalente directo
- * (goles, tiros, paradas, pérdidas, exclusiones). El cronómetro, las
- * sustituciones en pista y los toques "7m provocado/cometido" siguen en
- * `EstadisticasPartido` (jsonb) — no tienen fila aquí. */
+ * 0017_eventos.sql / 0018_eventos_tarjeta_origen.sql). */
 export type EventosRow = {
   id: UUID;
   equipo_id: UUID;
@@ -252,10 +250,15 @@ export type EventosRow = {
   equipo_origen: EquipoOrigenEvento;
   tipo: TipoEvento;
   resultado: ResultadoTiro | null;
-  /** Zona de portería 1-9 (rejilla 3x3). Null: zona desconocida (eventos
-   * migrados antes de la cuadrícula de portería) o tipo != 'tiro'. */
+  /** Zona de portería 1-9 (rejilla 3x3) — a dónde entra/para el tiro. Null:
+   * zona desconocida (histórico) o tipo != 'tiro'. */
   zona: number | null;
+  /** Desde dónde se lanzó. Null: histórico anterior a esta columna, puesto
+   * del jugador sin mapeo conocido, o tipo != 'tiro'. */
+  origen: OrigenLanzamiento | null;
   es_penalti: boolean;
+  /** Solo tipo='tarjeta'. */
+  color_tarjeta: ColorTarjeta | null;
   creado_en: string;
 };
 
@@ -414,7 +417,7 @@ export type Database = {
       >;
       eventos: TableDef<
         EventosRow,
-        "id" | "partido_id" | "sesion_id" | "jugador_id" | "resultado" | "zona" | "es_penalti" | "creado_en"
+        "id" | "partido_id" | "sesion_id" | "jugador_id" | "resultado" | "zona" | "origen" | "es_penalti" | "color_tarjeta" | "creado_en"
       >;
     };
     Views: Record<string, never>;
