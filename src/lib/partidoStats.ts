@@ -1,11 +1,12 @@
 import type {
+  ColorTarjeta,
   CronometroPartido,
   EquipoOrigenEvento,
   EventoPartido,
   EventosRow,
+  OrigenLanzamiento,
   PartidosRow,
   ResultadoTiro,
-  TipoEvento,
   TipoEventoPartido,
 } from "@/types/database";
 
@@ -42,20 +43,35 @@ export function contarBotonTiro(eventos: EventosRow[], boton: BotonTiro): number
   return eventos.filter((e) => e.tipo === "tiro" && e.equipo_origen === boton.equipoOrigen && e.resultado === boton.resultado).length;
 }
 
-/** Las 3 acciones de un solo toque que quedan (pérdida propia/rival y
- * exclusión) — sin zona, sin penalti posible (ver check `eventos_penalti_solo_tiro`
- * en 0017_eventos.sql: es_penalti solo puede ser true si tipo='tiro'). */
-export const ACCIONES_PERDIDA_EXCLUSION: {
-  tipo: TipoEvento;
-  equipoOrigen: EquipoOrigenEvento;
-  resultado: null;
-  esPenalti: false;
-  label: string;
-  color: string;
-}[] = [
-  { tipo: "perdida", equipoOrigen: "rival", resultado: null, esPenalti: false, label: "Balón ganado", color: "var(--color-success)" },
-  { tipo: "perdida", equipoOrigen: "propio", resultado: null, esPenalti: false, label: "Balón perdido", color: "var(--color-warning)" },
-  { tipo: "exclusion", equipoOrigen: "propio", resultado: null, esPenalti: false, label: "Exclusión 2'", color: "var(--color-warning)" },
+/** Balones robados (perdida del rival, atribuida al jugador propio que la hizo). */
+export function robos(eventos: EventosRow[]): number {
+  return eventos.filter((e) => e.tipo === "perdida" && e.equipo_origen === "rival").length;
+}
+
+/** Balones perdidos propios. */
+export function perdidas(eventos: EventosRow[]): number {
+  return eventos.filter((e) => e.tipo === "perdida" && e.equipo_origen === "propio").length;
+}
+
+export function exclusiones(eventos: EventosRow[]): number {
+  return eventos.filter((e) => e.tipo === "exclusion").length;
+}
+
+export function tarjetas(eventos: EventosRow[]): number {
+  return eventos.filter((e) => e.tipo === "tarjeta").length;
+}
+
+/** Tiros propios totales, cualquier resultado (para el contador del grupo "Tiro" en el panel de stats). */
+export function tirosTotales(eventos: EventosRow[]): number {
+  return eventos.filter((e) => e.tipo === "tiro" && e.equipo_origen === "propio").length;
+}
+
+export type BotonTarjeta = { color: ColorTarjeta; label: string; hex: string };
+
+export const BOTONES_TARJETA: BotonTarjeta[] = [
+  { color: "amarilla", label: "Amarilla", hex: "#f0c419" },
+  { color: "azul", label: "Azul", hex: "#3d8ad6" },
+  { color: "roja", label: "Roja", hex: "var(--color-accent)" },
 ];
 
 /** Las 2 acciones que siguen viviendo en `estadisticas.eventos` (jsonb) —
@@ -82,16 +98,44 @@ export function crearEventoJsonb(tipo: TipoEventoPartido, jugadorId: string | nu
   return { id: crypto.randomUUID(), tipo, jugador_id: jugadorId, minuto, creado_en: new Date().toISOString() };
 }
 
-/** Cuenta cuántos eventos de la tabla `eventos` coinciden exactamente con una
- * acción de `ACCIONES_PERDIDA_EXCLUSION` (mismo tipo + equipo_origen). */
-export function contarTabla(eventos: EventosRow[], accion: (typeof ACCIONES_PERDIDA_EXCLUSION)[number]): number {
-  return eventos.filter(
-    (e) =>
-      e.tipo === accion.tipo &&
-      e.equipo_origen === accion.equipoOrigen &&
-      e.resultado === accion.resultado &&
-      e.es_penalti === accion.esPenalti,
-  ).length;
+export const ETIQUETAS_ORIGEN: Record<OrigenLanzamiento, string> = {
+  ext_izq: "Ext. izq.",
+  lat_izq: "Lat. izq.",
+  central: "Central",
+  lat_der: "Lat. der.",
+  ext_der: "Ext. der.",
+  pivote: "Pivote",
+  "9m": "9 m",
+  contragolpe: "Contragolpe",
+  "7m": "7 m",
+};
+
+export const ORIGENES: OrigenLanzamiento[] = [
+  "ext_izq", "lat_izq", "central", "lat_der", "ext_der", "pivote", "9m", "contragolpe", "7m",
+];
+
+/** Preselecciona el origen del lanzamiento según el puesto del jugador.
+ * `jugadores.puesto` es texto libre (poblado desde la carga de Excel) — los
+ * valores reales en producción son "Central", "Extremo derecho", "Lateral
+ * derecho", "Lateral izquierdo", "Pivote", "Portero" (verificado contra la
+ * base en vivo). Coincidencia laxa (insensible a mayúsculas, por palabras
+ * clave) para tolerar variantes futuras; si no reconoce nada, no
+ * preselecciona — nunca debe bloquear el registro. */
+export function origenPorPuesto(puesto: string | null): OrigenLanzamiento | null {
+  if (!puesto) return null;
+  const p = puesto.toLowerCase();
+  if (p.includes("pivote")) return "pivote";
+  if (p.includes("extremo") && p.includes("izquierd")) return "ext_izq";
+  if (p.includes("extremo") && p.includes("derech")) return "ext_der";
+  if (p.includes("lateral") && p.includes("izquierd")) return "lat_izq";
+  if (p.includes("lateral") && p.includes("derech")) return "lat_der";
+  if (p.includes("central")) return "central";
+  return null;
+}
+
+/** Mismo criterio laxo que `origenPorPuesto`. */
+export function esPortero(puesto: string | null): boolean {
+  return !!puesto && puesto.toLowerCase().includes("portero");
 }
 
 /** Etiqueta de un evento de tiro (gol/fuera/parado/poste, propio o rival, con
