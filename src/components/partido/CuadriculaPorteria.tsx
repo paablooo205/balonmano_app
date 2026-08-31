@@ -1,63 +1,96 @@
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 
 /**
  * Rejilla 3×3 de zonas de portería (1-9, de izquierda a derecha y de arriba a
  * abajo, vista de frente a la portería). Siempre presente en el panel de
- * acciones de "Partido en directo": atenuada e intocable en reposo, se
- * ilumina y se vuelve tocable cuando `activo` es true.
+ * "Partido en directo": atenuada e intocable sin jugador seleccionado
+ * (`tocable=false`); tocable en cuanto hay alguien seleccionado, y resaltada
+ * en acento cuando hay una acción o una zona ya armada esperando la otra
+ * mitad del registro (flujo bidireccional, ver ContadoresEnVivo.tsx).
  *
- * El componente no decide CUÁNDO se activa (lo deciden los botones de
- * resultado del panel que la monta — Gol/Parado/Parada/Gol en contra) ni QUÉ
- * evento se crea al tocar una zona (lo decide `onZona`): solo dibuja la
- * portería y reporta el toque. Reutilizable en los tres contextos donde hace
- * falta zona: tiro propio y del rival en partido, y tiro propio en
- * entrenamiento.
+ * El mapa de calor (activado por defecto) tiñe cada zona según su recuento en
+ * `conteosPorZona` — lo calcula el llamante (normalmente filtrado por el
+ * jugador seleccionado, o total de equipo si no hay selección).
  *
- * Tarjeta oscura + acento rojo al tocar, igual que el resto de "Partido en
- * directo" — deliberado, no el `card-surface` claro habitual, para que se
- * vea igual en cualquier pantalla donde se monte.
+ * El componente no decide QUÉ evento se crea al tocar una zona (lo decide
+ * `onZona`, en el llamante): solo dibuja la portería y reporta el toque.
+ * Reutilizable en los tres contextos donde hace falta zona: tiro propio y del
+ * rival en partido, y tiro propio en entrenamiento.
+ *
+ * Tarjeta oscura + acento rojo, igual que el resto de "Partido en directo" —
+ * deliberado, no el `card-surface` claro habitual, para que se vea igual en
+ * cualquier pantalla donde se monte.
  */
 export function CuadriculaPorteria({
-  activo,
+  tocable,
+  resaltado,
   compacto,
   onZona,
+  conteosPorZona,
 }: {
-  activo: boolean;
-  /** En el layout apaisado de "Partido en directo" la columna donde vive es
-   * muy estrecha (44% del ancho de pantalla) — sin este límite, la rejilla
-   * al 100% del ancho se estira tanto de alto que empuja el resto de grupos
-   * de botones fuera de la vista sin hacer scroll. */
+  tocable: boolean;
+  resaltado: boolean;
+  /** En el layout apaisado de una mano, la columna donde vive es muy estrecha
+   * — sin este límite, la rejilla al 100% del ancho se estira tanto de alto
+   * que empuja el resto de grupos de botones fuera de la vista sin scroll. */
   compacto?: boolean;
   onZona: (zona: number) => void;
+  conteosPorZona: Record<number, number>;
 }) {
+  const [mapaCalor, setMapaCalor] = useState(true);
+  const max = Math.max(1, ...Object.values(conteosPorZona));
+
   return (
-    <div
-      className={cn(
-        "relative mx-auto overflow-hidden rounded-xl border-[3px] bg-[#15151a] transition-[border-color,opacity]",
-        activo ? "border-[var(--color-accent)]/70" : "border-white/25 opacity-40",
-        compacto && "max-w-[160px]",
-      )}
-      style={{ aspectRatio: "3 / 2" }}
-    >
-      {/* Red de la portería — puramente decorativa, marca las mismas 9 celdas que los botones. */}
-      <svg className="pointer-events-none absolute inset-0 h-full w-full opacity-[.22]" preserveAspectRatio="none">
-        {[1, 2].map((i) => (
-          <line key={`v${i}`} x1={`${i * 33.33}%`} y1="0" x2={`${i * 33.33}%`} y2="100%" stroke="white" strokeWidth="1.5" />
-        ))}
-        {[1, 2].map((i) => (
-          <line key={`h${i}`} x1="0" y1={`${i * 33.33}%`} x2="100%" y2={`${i * 33.33}%`} stroke="white" strokeWidth="1.5" />
-        ))}
-      </svg>
-      <div className="relative grid h-full grid-cols-3 grid-rows-3 gap-[3px] p-[3px]">
-        {Array.from({ length: 9 }, (_, i) => i + 1).map((zona) => (
-          <button
-            key={zona}
-            disabled={!activo}
-            onClick={() => onZona(zona)}
-            aria-label={`Zona ${zona}`}
-            className="rounded-md bg-white/[.06] transition-colors active:scale-[0.96] active:bg-[var(--color-accent)]/60 disabled:pointer-events-none"
-          />
-        ))}
+    <div className={cn("mx-auto flex flex-col gap-1.5", compacto && "max-w-[160px]")}>
+      <div className="flex justify-end">
+        <button
+          onClick={() => setMapaCalor((v) => !v)}
+          className={cn(
+            "flex h-6 items-center rounded-md px-2 text-[9px] font-semibold uppercase tracking-[0.08em] transition-colors",
+            mapaCalor ? "bg-[var(--color-accent)] text-white" : "bg-white/[.08] text-white/50",
+          )}
+        >
+          Mapa de calor
+        </button>
+      </div>
+      <div
+        className={cn(
+          "relative overflow-hidden rounded-xl border-[3px] bg-[#15151a] transition-[border-color,opacity]",
+          !tocable ? "border-white/25 opacity-40" : resaltado ? "border-[var(--color-accent)]/70" : "border-white/30",
+        )}
+        style={{ aspectRatio: "3 / 2" }}
+      >
+        <svg className="pointer-events-none absolute inset-0 h-full w-full opacity-[.22]" preserveAspectRatio="none">
+          {[1, 2].map((i) => (
+            <line key={`v${i}`} x1={`${i * 33.33}%`} y1="0" x2={`${i * 33.33}%`} y2="100%" stroke="white" strokeWidth="1.5" />
+          ))}
+          {[1, 2].map((i) => (
+            <line key={`h${i}`} x1="0" y1={`${i * 33.33}%`} x2="100%" y2={`${i * 33.33}%`} stroke="white" strokeWidth="1.5" />
+          ))}
+        </svg>
+        <div className="relative grid h-full grid-cols-3 grid-rows-3 gap-[3px] p-[3px]">
+          {Array.from({ length: 9 }, (_, i) => i + 1).map((zona) => {
+            const cnt = conteosPorZona[zona] ?? 0;
+            const hot = mapaCalor && cnt > 0;
+            return (
+              <button
+                key={zona}
+                disabled={!tocable}
+                onClick={() => onZona(zona)}
+                aria-label={`Zona ${zona}`}
+                className="flex items-center justify-center rounded-md transition-colors active:scale-[0.96] disabled:pointer-events-none"
+                style={{
+                  background: hot
+                    ? `color-mix(in oklab, var(--color-accent) ${Math.round(22 + 58 * (cnt / max))}%, #15151a)`
+                    : "rgba(255,255,255,.06)",
+                }}
+              >
+                {hot && <span className="stat-number text-sm text-white">{cnt}</span>}
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
