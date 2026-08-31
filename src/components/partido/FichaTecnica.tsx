@@ -1,13 +1,15 @@
 import {
-  ACCIONES_PERDIDA_EXCLUSION,
   BOTONES_TIRO_RIVAL,
   contarBotonTiro,
-  contarTabla,
   eficaciaLanzamiento,
+  exclusiones,
   golesContra,
   golesFavor,
   marcadorPartido,
+  perdidas,
+  robos,
   sieteFallados,
+  tarjetas,
   tirosFallados,
 } from "@/lib/partidoStats";
 import type { EventosRow, JugadoresRow, PartidosRow } from "@/types/database";
@@ -26,17 +28,17 @@ export function FichaTecnica({
   const eficacia = eficaciaLanzamiento(eventos);
   const hayEventos = eventos.length > 0;
 
-  const buscarPerdidaExclusion = (label: string) => ACCIONES_PERDIDA_EXCLUSION.find((a) => a.label === label)!;
   const buscarTiroRival = (label: string) => BOTONES_TIRO_RIVAL.find((b) => b.label === label)!;
   const stats: { label: string; valor: number | string }[] = [
     { label: "Goles a favor", valor: favor },
     { label: "Goles en contra", valor: contra },
     { label: "Paradas portero", valor: contarBotonTiro(eventos, buscarTiroRival("Parada")) },
-    { label: "Balones ganados", valor: contarTabla(eventos, buscarPerdidaExclusion("Balón ganado")) },
-    { label: "Balones perdidos", valor: contarTabla(eventos, buscarPerdidaExclusion("Balón perdido")) },
+    { label: "Robos", valor: robos(eventos) },
+    { label: "Pérdidas", valor: perdidas(eventos) },
     { label: "Tiros fallados", valor: tirosFallados(eventos) },
     { label: "7m fallados", valor: sieteFallados(eventos) },
-    { label: "Exclusiones", valor: contarTabla(eventos, buscarPerdidaExclusion("Exclusión 2'")) },
+    { label: "Exclusiones", valor: exclusiones(eventos) },
+    { label: "Tarjetas", valor: tarjetas(eventos) },
     { label: "Eficacia de tiro", valor: eficacia !== null ? `${eficacia}%` : "—" },
   ];
 
