@@ -184,21 +184,11 @@ export type JugadoresRow = {
   updated_at: string;
 };
 
-export type TipoEventoPartido =
-  | "gol_favor"
-  | "gol_contra"
-  | "parada_portero"
-  | "balon_ganado"
-  | "balon_perdido"
-  | "siete_provocado"
-  | "siete_cometido"
-  | "siete_metido"
-  | "siete_fallado"
-  | "tiro_fallado"
-  | "exclusion_2min"
-  /** No son "acciones" de marcador — marcan cuándo un jugador entra/sale de la pista, para poder derivar minutos jugados. */
-  | "entra_pista"
-  | "sale_pista";
+/** Toques que siguen viviendo en `estadisticas.eventos` (jsonb) tras
+ * 0017_eventos.sql — no son "contadores" con equivalente en la tabla
+ * `eventos`: son matices (7m provocado/cometido) o estado ligado al
+ * cronómetro (entra/sale de pista, para derivar minutos jugados). */
+export type TipoEventoPartido = "siete_provocado" | "siete_cometido" | "entra_pista" | "sale_pista";
 
 export type EventoPartido = {
   id: UUID;
@@ -241,6 +231,32 @@ export type PartidosRow = {
   notas_adicionales: string | null;
   created_at: string;
   updated_at: string;
+};
+
+export type EquipoOrigenEvento = "propio" | "rival";
+export type TipoEvento = "tiro" | "perdida" | "exclusion";
+export type ResultadoTiro = "gol" | "fuera" | "parado" | "poste";
+
+/** Evento individual de partido/entrenamiento (tabla `eventos`, ver
+ * 0017_eventos.sql) — sustituye a los contadores que antes vivían en
+ * `partidos.estadisticas.eventos` para los 9 tipos con equivalente directo
+ * (goles, tiros, paradas, pérdidas, exclusiones). El cronómetro, las
+ * sustituciones en pista y los toques "7m provocado/cometido" siguen en
+ * `EstadisticasPartido` (jsonb) — no tienen fila aquí. */
+export type EventosRow = {
+  id: UUID;
+  equipo_id: UUID;
+  partido_id: UUID | null;
+  sesion_id: UUID | null;
+  jugador_id: UUID | null;
+  equipo_origen: EquipoOrigenEvento;
+  tipo: TipoEvento;
+  resultado: ResultadoTiro | null;
+  /** Zona de portería 1-9 (rejilla 3x3). Null: zona desconocida (eventos
+   * migrados antes de la cuadrícula de portería) o tipo != 'tiro'. */
+  zona: number | null;
+  es_penalti: boolean;
+  creado_en: string;
 };
 
 export type MotivoAusencia = "justificado" | "injustificado" | "lesion";
@@ -395,6 +411,10 @@ export type Database = {
       asistencia: TableDef<
         AsistenciaRow,
         "id" | "sesion_id" | "partido_id" | "presente" | "notas_adicionales" | "created_at" | "updated_at"
+      >;
+      eventos: TableDef<
+        EventosRow,
+        "id" | "partido_id" | "sesion_id" | "jugador_id" | "resultado" | "zona" | "es_penalti" | "creado_en"
       >;
     };
     Views: Record<string, never>;

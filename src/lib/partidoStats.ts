@@ -1,65 +1,85 @@
-import type { CronometroPartido, EventoPartido, PartidosRow, TipoEventoPartido } from "@/types/database";
+import type {
+  CronometroPartido,
+  EquipoOrigenEvento,
+  EventoPartido,
+  EventosRow,
+  PartidosRow,
+  ResultadoTiro,
+  TipoEvento,
+  TipoEventoPartido,
+} from "@/types/database";
 
-/** Las acciones del marcador en vivo, calcadas del prototipo de Claude Design + ampliadas
- * para poder recoger en directo lo que alimenta la ficha del jugador (exclusiones, tiro
- * fallado en juego abierto). */
-export const ACCIONES: {
-  tipo: TipoEventoPartido;
+/** Las 9 acciones de contador que ahora escriben en la tabla `eventos` (ver
+ * 0017_eventos.sql). Sin zona todavía — llega con la cuadrícula de portería
+ * (siguiente fase); aquí solo se cambia el almacenamiento, no el flujo. */
+export const ACCIONES_TABLA: {
+  tipo: TipoEvento;
+  equipoOrigen: EquipoOrigenEvento;
+  resultado: ResultadoTiro | null;
+  esPenalti: boolean;
   label: string;
-  equipo: "propio" | "rival";
   color: string;
-  /** Si esta acción cambia el marcador (para saber si mostrar el resultado junto al toque en la cronología). */
   afectaMarcador: boolean;
 }[] = [
-  { tipo: "gol_favor", label: "Gol a favor", equipo: "propio", color: "var(--color-success)", afectaMarcador: true },
-  { tipo: "gol_contra", label: "Gol en contra", equipo: "rival", color: "var(--color-accent)", afectaMarcador: true },
-  { tipo: "parada_portero", label: "Parada portero", equipo: "propio", color: "#3d8ad6", afectaMarcador: false },
-  { tipo: "balon_ganado", label: "Balón ganado", equipo: "propio", color: "var(--color-success)", afectaMarcador: false },
-  { tipo: "balon_perdido", label: "Balón perdido", equipo: "propio", color: "var(--color-warning)", afectaMarcador: false },
-  { tipo: "tiro_fallado", label: "Tiro fallado", equipo: "propio", color: "var(--color-accent)", afectaMarcador: false },
-  { tipo: "siete_provocado", label: "7m provocado", equipo: "propio", color: "var(--color-success)", afectaMarcador: false },
-  { tipo: "siete_cometido", label: "7m cometido", equipo: "propio", color: "var(--color-accent)", afectaMarcador: false },
-  { tipo: "siete_metido", label: "7m metido", equipo: "propio", color: "var(--color-success)", afectaMarcador: true },
-  { tipo: "siete_fallado", label: "7m fallado", equipo: "propio", color: "var(--color-accent)", afectaMarcador: false },
-  { tipo: "exclusion_2min", label: "Exclusión 2'", equipo: "propio", color: "var(--color-warning)", afectaMarcador: false },
+  { tipo: "tiro", equipoOrigen: "propio", resultado: "gol", esPenalti: false, label: "Gol a favor", color: "var(--color-success)", afectaMarcador: true },
+  { tipo: "tiro", equipoOrigen: "rival", resultado: "gol", esPenalti: false, label: "Gol en contra", color: "var(--color-accent)", afectaMarcador: true },
+  { tipo: "tiro", equipoOrigen: "rival", resultado: "parado", esPenalti: false, label: "Parada portero", color: "#3d8ad6", afectaMarcador: false },
+  { tipo: "perdida", equipoOrigen: "rival", resultado: null, esPenalti: false, label: "Balón ganado", color: "var(--color-success)", afectaMarcador: false },
+  { tipo: "perdida", equipoOrigen: "propio", resultado: null, esPenalti: false, label: "Balón perdido", color: "var(--color-warning)", afectaMarcador: false },
+  { tipo: "tiro", equipoOrigen: "propio", resultado: "fuera", esPenalti: false, label: "Tiro fallado", color: "var(--color-accent)", afectaMarcador: false },
+  { tipo: "tiro", equipoOrigen: "propio", resultado: "gol", esPenalti: true, label: "7m metido", color: "var(--color-success)", afectaMarcador: true },
+  { tipo: "tiro", equipoOrigen: "propio", resultado: "fuera", esPenalti: true, label: "7m fallado", color: "var(--color-accent)", afectaMarcador: false },
+  { tipo: "exclusion", equipoOrigen: "propio", resultado: null, esPenalti: false, label: "Exclusión 2'", color: "var(--color-warning)", afectaMarcador: false },
 ];
 
-/** Entrada/salida de pista — no son "acciones" de marcador (no van en la rejilla de botones de
- * conteo), pero sí toques con jugador+minuto para poder derivar minutos jugados. */
+/** Las 2 acciones que siguen viviendo en `estadisticas.eventos` (jsonb) —
+ * matices sin fila propia en `eventos` (ver nota de alcance en
+ * 0017_eventos.sql). No van en la rejilla de conteo: son toques puntuales,
+ * no contadores con "deshacer" independiente por tipo. */
+export const ACCIONES_JSONB: { tipo: TipoEventoPartido; label: string; color: string }[] = [
+  { tipo: "siete_provocado", label: "7m provocado", color: "var(--color-success)" },
+  { tipo: "siete_cometido", label: "7m cometido", color: "var(--color-accent)" },
+];
+
+/** Entrada/salida de pista — no son "acciones" de marcador, pero sí toques
+ * con jugador+minuto para poder derivar minutos jugados. */
 const SUSTITUCIONES: { tipo: TipoEventoPartido; label: string }[] = [
   { tipo: "entra_pista", label: "Entra a pista" },
   { tipo: "sale_pista", label: "Sale de pista" },
 ];
 
-export const ETIQUETAS_EVENTO: Record<TipoEventoPartido, string> = Object.fromEntries(
-  [...ACCIONES.map((a) => [a.tipo, a.label]), ...SUSTITUCIONES.map((s) => [s.tipo, s.label])],
+export const ETIQUETAS_EVENTO_JSONB: Record<TipoEventoPartido, string> = Object.fromEntries(
+  [...ACCIONES_JSONB.map((a) => [a.tipo, a.label]), ...SUSTITUCIONES.map((s) => [s.tipo, s.label])],
 ) as Record<TipoEventoPartido, string>;
 
-export function accionDe(tipo: TipoEventoPartido) {
-  return ACCIONES.find((a) => a.tipo === tipo)!;
-}
-
-export function crearEvento(tipo: TipoEventoPartido, jugadorId: string | null, minuto: number | null): EventoPartido {
+export function crearEventoJsonb(tipo: TipoEventoPartido, jugadorId: string | null, minuto: number | null): EventoPartido {
   return { id: crypto.randomUUID(), tipo, jugador_id: jugadorId, minuto, creado_en: new Date().toISOString() };
 }
 
-export function contar(eventos: EventoPartido[] | undefined, tipo: TipoEventoPartido): number {
-  return (eventos ?? []).filter((e) => e.tipo === tipo).length;
+/** Cuenta cuántos eventos de la tabla `eventos` coinciden exactamente con una
+ * acción de `ACCIONES_TABLA` (mismo tipo + equipo_origen + resultado + es_penalti). */
+export function contarTabla(eventos: EventosRow[], accion: (typeof ACCIONES_TABLA)[number]): number {
+  return eventos.filter(
+    (e) =>
+      e.tipo === accion.tipo &&
+      e.equipo_origen === accion.equipoOrigen &&
+      e.resultado === accion.resultado &&
+      e.es_penalti === accion.esPenalti,
+  ).length;
 }
 
 /** Goles a favor: "gol a favor" + "7m metido" (ambos suman al marcador propio). */
-export function golesFavor(eventos: EventoPartido[] | undefined): number {
-  return contar(eventos, "gol_favor") + contar(eventos, "siete_metido");
+export function golesFavor(eventos: EventosRow[]): number {
+  return eventos.filter((e) => e.tipo === "tiro" && e.equipo_origen === "propio" && e.resultado === "gol").length;
 }
 
-export function golesContra(eventos: EventoPartido[] | undefined): number {
-  return contar(eventos, "gol_contra");
+export function golesContra(eventos: EventosRow[]): number {
+  return eventos.filter((e) => e.tipo === "tiro" && e.equipo_origen === "rival" && e.resultado === "gol").length;
 }
 
 /** Resultado del partido: prioriza los toques en vivo (fuente de verdad) sobre el campo `resultado` escrito a mano. */
-export function resultadoPartido(p: PartidosRow): "victoria" | "derrota" | "empate" | null {
-  const eventos = p.estadisticas.eventos;
-  if (eventos && eventos.length > 0) {
+export function resultadoPartido(p: PartidosRow, eventos: EventosRow[]): "victoria" | "derrota" | "empate" | null {
+  if (eventos.length > 0) {
     const favor = golesFavor(eventos);
     const contra = golesContra(eventos);
     if (favor === contra) return "empate";
@@ -73,9 +93,8 @@ export function resultadoPartido(p: PartidosRow): "victoria" | "derrota" | "empa
 }
 
 /** Marcador textual: prioriza los toques en vivo (fuente de verdad) sobre el campo escrito a mano. */
-export function marcadorPartido(p: PartidosRow): string {
-  const eventos = p.estadisticas.eventos;
-  if (eventos && (golesFavor(eventos) > 0 || golesContra(eventos) > 0)) {
+export function marcadorPartido(p: PartidosRow, eventos: EventosRow[]): string {
+  if (golesFavor(eventos) > 0 || golesContra(eventos) > 0) {
     return `${golesFavor(eventos)}-${golesContra(eventos)}`;
   }
   return p.resultado ?? "—";
@@ -84,13 +103,10 @@ export function marcadorPartido(p: PartidosRow): string {
 /**
  * Marcador como par numérico, mismo criterio de prioridad que
  * `resultadoPartido`/`marcadorPartido` (eventos en vivo > resultado escrito a
- * mano). `null` si no hay ninguno de los dos — para agregados de temporada
- * (diferencia de goles, medias por partido) que necesitan los dos números,
- * no solo el texto.
+ * mano). `null` si no hay ninguno de los dos.
  */
-export function marcadorNumerico(p: PartidosRow): { favor: number; contra: number } | null {
-  const eventos = p.estadisticas.eventos;
-  if (eventos && eventos.length > 0) {
+export function marcadorNumerico(p: PartidosRow, eventos: EventosRow[]): { favor: number; contra: number } | null {
+  if (eventos.length > 0) {
     return { favor: golesFavor(eventos), contra: golesContra(eventos) };
   }
   const m = p.resultado?.match(/(\d+)\s*[-–:]\s*(\d+)/);
@@ -105,13 +121,18 @@ export const RESULTADO_BADGE: Record<"victoria" | "empate" | "derrota", { letra:
   derrota: { letra: "P", bg: "var(--color-accent)" },
 };
 
-/** Recuento G·E·P de una lista de partidos (solo cuenta los que ya tienen resultado). */
-export function resumenResultados(partidos: PartidosRow[]): { g: number; e: number; p: number } {
+/** Recuento G·E·P de una lista de partidos (solo cuenta los que ya tienen
+ * resultado). `eventosPorPartido` debe traer, como mínimo, los eventos de
+ * cada partido en la lista (ver `agruparPorPartido` en `@/lib/eventos`). */
+export function resumenResultados(
+  partidos: PartidosRow[],
+  eventosPorPartido: Map<string, EventosRow[]>,
+): { g: number; e: number; p: number } {
   let g = 0;
   let e = 0;
   let p = 0;
   for (const partido of partidos) {
-    const r = resultadoPartido(partido);
+    const r = resultadoPartido(partido, eventosPorPartido.get(partido.id) ?? []);
     if (r === "victoria") g++;
     else if (r === "empate") e++;
     else if (r === "derrota") p++;
@@ -119,14 +140,16 @@ export function resumenResultados(partidos: PartidosRow[]): { g: number; e: numb
   return { g, e, p };
 }
 
-/** Marcador "a–b" tal como estaba justo después de los primeros `hastaIndice` eventos más recientes (orden desc por fecha). */
-export function marcadorHasta(eventosDesc: EventoPartido[], hastaIndice: number): string {
+/** Marcador "a–b" tal como estaba justo después de los primeros `hastaIndice`
+ * eventos de gol más recientes (orden desc por fecha, ya filtrado a tiro). */
+export function marcadorHastaTabla(eventosDesc: EventosRow[], hastaIndice: number): string {
   let favor = 0;
   let contra = 0;
   for (let i = eventosDesc.length - 1; i >= hastaIndice; i--) {
     const e = eventosDesc[i];
-    if (e.tipo === "gol_favor" || e.tipo === "siete_metido") favor++;
-    if (e.tipo === "gol_contra") contra++;
+    if (e.tipo !== "tiro" || e.resultado !== "gol") continue;
+    if (e.equipo_origen === "propio") favor++;
+    else contra++;
   }
   return `${favor}–${contra}`;
 }
@@ -180,26 +203,29 @@ export function cambiarParte(c: CronometroPartido | undefined): CronometroPartid
 }
 
 /**
- * Eficacia de lanzamiento en juego abierto + 7m: aciertos (gol a favor + 7m
- * metido) sobre intentos (aciertos + tiro fallado + 7m fallado). Si se pasa
+ * Eficacia de lanzamiento en juego abierto + 7m: aciertos (resultado='gol')
+ * sobre intentos (aciertos + fallos), solo tiros propios. Si se pasa
  * `jugadorId`, se acota a los toques atribuidos a ese jugador.
  */
-export function eficaciaLanzamiento(eventos: EventoPartido[], jugadorId?: string): number | null {
-  const propios = jugadorId ? eventos.filter((e) => e.jugador_id === jugadorId) : eventos;
-  const aciertos = propios.filter((e) => e.tipo === "gol_favor" || e.tipo === "siete_metido").length;
-  const fallos = propios.filter((e) => e.tipo === "tiro_fallado" || e.tipo === "siete_fallado").length;
+export function eficaciaLanzamiento(eventos: EventosRow[], jugadorId?: string): number | null {
+  const propios = eventos.filter(
+    (e) => e.tipo === "tiro" && e.equipo_origen === "propio" && (jugadorId === undefined || e.jugador_id === jugadorId),
+  );
+  const aciertos = propios.filter((e) => e.resultado === "gol").length;
+  const fallos = propios.filter((e) => e.resultado !== "gol").length;
   const intentos = aciertos + fallos;
   return intentos > 0 ? Math.round((aciertos / intentos) * 100) : null;
 }
 
 /**
  * Minutos jugados por un jugador en un partido, a partir de los toques
- * "entra_pista"/"sale_pista". Empareja cronológicamente por minuto; si queda
- * una entrada sin salida, cuenta hasta el final del partido (60' por
- * convenio, dos partes de 30').
+ * "entra_pista"/"sale_pista" (siguen en `estadisticas.eventos`, jsonb — no
+ * migran a la tabla `eventos`, ver alcance en 0017_eventos.sql). Empareja
+ * cronológicamente por minuto; si queda una entrada sin salida, cuenta hasta
+ * el final del partido (60' por convenio, dos partes de 30').
  */
-export function minutosJugados(eventos: EventoPartido[], jugadorId: string, duracionTotalMin = 60): number {
-  const propios = eventos
+export function minutosJugados(eventosJsonb: EventoPartido[], jugadorId: string, duracionTotalMin = 60): number {
+  const propios = eventosJsonb
     .filter((e) => e.jugador_id === jugadorId && (e.tipo === "entra_pista" || e.tipo === "sale_pista"))
     .slice()
     .sort((a, b) => (a.minuto ?? 0) - (b.minuto ?? 0) || a.creado_en.localeCompare(b.creado_en));

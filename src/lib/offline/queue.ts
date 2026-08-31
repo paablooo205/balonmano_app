@@ -1,12 +1,13 @@
-// Cola de escrituras offline para "sesiones" y "partidos" (sesión de
-// entrenamiento y partido del día — el único alcance que pide el plan para
-// offline). Un único usuario escribe, así que el manejo de conflictos es
-// deliberadamente simple: "guardar en orden, con reintento al reconectar".
+// Cola de escrituras offline para "sesiones", "partidos" y "eventos" (sesión
+// de entrenamiento, partido del día, y los toques del marcador en vivo de
+// ambos — el alcance que pide el plan para offline). Un único usuario
+// escribe, así que el manejo de conflictos es deliberadamente simple:
+// "guardar en orden, con reintento al reconectar".
 
 import { supabase } from "@/lib/supabaseClient";
 import { dbDelete, dbGet, dbGetAll, dbPut, STORE_CACHE, STORE_QUEUE } from "./db";
 
-export type TablaOffline = "sesiones" | "partidos";
+export type TablaOffline = "sesiones" | "partidos" | "eventos";
 export type TipoOperacion = "insert" | "update" | "delete";
 
 export type PendingOp = {
