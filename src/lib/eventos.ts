@@ -28,9 +28,9 @@ export function agruparPorPartido(eventos: EventosRow[]): Map<string, EventosRow
 
 /** Inserta un evento (tiro/pérdida/exclusión), con la misma cola offline que
  * el resto de escrituras en vivo (ver ContadoresEnVivo.tsx `persistirEstadisticas`). */
-export async function registrarEvento(datos: Omit<EventoInsert, "id" | "creado_en">): Promise<EventosRow> {
+export async function registrarEvento(datos: Omit<EventoInsert, "creado_en">): Promise<EventosRow> {
   const fila: EventosRow = {
-    id: crypto.randomUUID(),
+    id: datos.id ?? crypto.randomUUID(),
     equipo_id: datos.equipo_id,
     partido_id: datos.partido_id ?? null,
     sesion_id: datos.sesion_id ?? null,
@@ -51,6 +51,8 @@ export async function registrarEvento(datos: Omit<EventoInsert, "id" | "creado_e
   const { error, status } = await supabase.from("eventos").insert(fila);
   if (error && esErrorDeRed(status)) {
     await encolarOperacion({ tabla: "eventos", tipo: "insert", rowId: fila.id, payload: fila });
+  } else if (error) {
+    console.error(`[eventos] no se pudo insertar el evento ${fila.id} (${fila.tipo}):`, error);
   }
   return fila;
 }
@@ -64,5 +66,7 @@ export async function borrarEvento(id: string): Promise<void> {
   const { error, status } = await supabase.from("eventos").delete().eq("id", id);
   if (error && esErrorDeRed(status)) {
     await encolarOperacion({ tabla: "eventos", tipo: "delete", rowId: id });
+  } else if (error) {
+    console.error(`[eventos] no se pudo borrar el evento ${id}:`, error);
   }
 }

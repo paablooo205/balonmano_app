@@ -62,7 +62,7 @@ export function JugadorDetailPage() {
   for (const e of eventosDelJugador) {
     if (!e.partido_id) continue;
     partidosConEventoDelJugador.add(e.partido_id);
-    if (e.tipo === "tiro" && e.resultado === "gol") goles++;
+    if (e.tipo === "tiro" && e.equipo_origen === "propio" && e.resultado === "gol") goles++;
     if (e.tipo === "perdida" && e.equipo_origen === "propio") balonesPerdidos++;
     if (e.tipo === "exclusion") exclusiones++;
   }

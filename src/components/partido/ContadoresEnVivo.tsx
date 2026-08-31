@@ -210,6 +210,8 @@ export function ContadoresEnVivo({
     const { error, status } = await supabase.from("partidos").update({ estadisticas }).eq("id", partido.id);
     if (error && esErrorDeRed(status)) {
       await encolarOperacion({ tabla: "partidos", tipo: "update", rowId: partido.id, payload: actualizado });
+    } else if (error) {
+      console.error(`[partido] no se pudo actualizar las estadísticas del partido ${partido.id}:`, error);
     }
   }
 
@@ -241,7 +243,7 @@ export function ContadoresEnVivo({
       tipo: "tiro",
       resultado,
       zona,
-      origen: origenSel,
+      origen: sietePendiente ? "7m" : origenSel,
       es_penalti: sietePendiente,
       color_tarjeta: null,
       creado_en: new Date().toISOString(),
@@ -259,6 +261,7 @@ export function ContadoresEnVivo({
     if (!jugadorSel) return;
     if (!requiereZona(boton.resultado)) {
       registrarTiro(boton.equipoOrigen, boton.resultado, null);
+      anular();
       return;
     }
     if (zonaPendiente !== null) {
@@ -303,6 +306,7 @@ export function ContadoresEnVivo({
     };
     onEventosActualizados([...eventos, nuevo]);
     void registrarEvento(nuevo);
+    anular();
   }
 
   function registrarExclusion() {
@@ -324,6 +328,7 @@ export function ContadoresEnVivo({
     };
     onEventosActualizados([...eventos, nuevo]);
     void registrarEvento(nuevo);
+    anular();
   }
 
   function registrarTarjeta(color: ColorTarjeta) {
@@ -345,12 +350,14 @@ export function ContadoresEnVivo({
     };
     onEventosActualizados([...eventos, nuevo]);
     void registrarEvento(nuevo);
+    anular();
   }
 
   function registrarJsonb(tipo: TipoEventoPartido) {
     if (!jugadorSel) return;
     const evento = crearEventoJsonb(tipo, jugadorSel, minutoActual(cronometro));
     void persistirEstadisticas({ ...partido.estadisticas, eventos: [...eventosJsonb, evento] });
+    anular();
   }
 
   function registrarSustitucion(tipo: "entra_pista" | "sale_pista") {
