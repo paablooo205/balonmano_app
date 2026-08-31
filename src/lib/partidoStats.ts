@@ -9,10 +9,12 @@ import type {
   TipoEventoPartido,
 } from "@/types/database";
 
-/** Las 9 acciones de contador que ahora escriben en la tabla `eventos` (ver
- * 0017_eventos.sql). Sin zona todavía — llega con la cuadrícula de portería
- * (siguiente fase); aquí solo se cambia el almacenamiento, no el flujo. */
-export const ACCIONES_TABLA: {
+/** Las 5 acciones de un solo toque (sin zona: no son un tiro, o son un tiro
+ * rival que no llevamos por zona todavía — llega en un punto posterior). Los
+ * tiros propios (gol/fuera/parado/poste, con o sin penalti) ya no están aquí:
+ * se registran con `CuadriculaPorteria`, que cubre las 8 combinaciones
+ * resultado×penalti con un único flujo en vez de un botón por combinación. */
+export const ACCIONES_INSTANTANEAS: {
   tipo: TipoEvento;
   equipoOrigen: EquipoOrigenEvento;
   resultado: ResultadoTiro | null;
@@ -21,14 +23,10 @@ export const ACCIONES_TABLA: {
   color: string;
   afectaMarcador: boolean;
 }[] = [
-  { tipo: "tiro", equipoOrigen: "propio", resultado: "gol", esPenalti: false, label: "Gol a favor", color: "var(--color-success)", afectaMarcador: true },
   { tipo: "tiro", equipoOrigen: "rival", resultado: "gol", esPenalti: false, label: "Gol en contra", color: "var(--color-accent)", afectaMarcador: true },
   { tipo: "tiro", equipoOrigen: "rival", resultado: "parado", esPenalti: false, label: "Parada portero", color: "#3d8ad6", afectaMarcador: false },
   { tipo: "perdida", equipoOrigen: "rival", resultado: null, esPenalti: false, label: "Balón ganado", color: "var(--color-success)", afectaMarcador: false },
   { tipo: "perdida", equipoOrigen: "propio", resultado: null, esPenalti: false, label: "Balón perdido", color: "var(--color-warning)", afectaMarcador: false },
-  { tipo: "tiro", equipoOrigen: "propio", resultado: "fuera", esPenalti: false, label: "Tiro fallado", color: "var(--color-accent)", afectaMarcador: false },
-  { tipo: "tiro", equipoOrigen: "propio", resultado: "gol", esPenalti: true, label: "7m metido", color: "var(--color-success)", afectaMarcador: true },
-  { tipo: "tiro", equipoOrigen: "propio", resultado: "fuera", esPenalti: true, label: "7m fallado", color: "var(--color-accent)", afectaMarcador: false },
   { tipo: "exclusion", equipoOrigen: "propio", resultado: null, esPenalti: false, label: "Exclusión 2'", color: "var(--color-warning)", afectaMarcador: false },
 ];
 
@@ -57,8 +55,8 @@ export function crearEventoJsonb(tipo: TipoEventoPartido, jugadorId: string | nu
 }
 
 /** Cuenta cuántos eventos de la tabla `eventos` coinciden exactamente con una
- * acción de `ACCIONES_TABLA` (mismo tipo + equipo_origen + resultado + es_penalti). */
-export function contarTabla(eventos: EventosRow[], accion: (typeof ACCIONES_TABLA)[number]): number {
+ * acción de `ACCIONES_INSTANTANEAS` (mismo tipo + equipo_origen + resultado + es_penalti). */
+export function contarTabla(eventos: EventosRow[], accion: (typeof ACCIONES_INSTANTANEAS)[number]): number {
   return eventos.filter(
     (e) =>
       e.tipo === accion.tipo &&
@@ -66,6 +64,32 @@ export function contarTabla(eventos: EventosRow[], accion: (typeof ACCIONES_TABL
       e.resultado === accion.resultado &&
       e.es_penalti === accion.esPenalti,
   ).length;
+}
+
+/** Etiqueta de un evento de tiro (gol/fuera/parado/poste, propio o rival, con
+ * o sin penalti) para la cronología — cubre las 8 combinaciones que puede
+ * producir `CuadriculaPorteria`, no solo las que tenían botón propio. */
+export function etiquetaTiro(e: EventosRow): string {
+  const resultado = e.resultado === "gol" ? "Gol" : e.resultado === "fuera" ? "Fuera" : e.resultado === "parado" ? "Parada" : "Poste";
+  return `${resultado}${e.equipo_origen === "rival" ? " rival" : ""}${e.es_penalti ? " (7m)" : ""}`;
+}
+
+/** Color de un evento de tiro para la cronología: verde si es gol, azul si lo
+ * para el portero, rojo en el resto de fallos (fuera/poste). */
+export function colorTiro(e: EventosRow): string {
+  if (e.resultado === "gol") return "var(--color-success)";
+  if (e.resultado === "parado") return "#3d8ad6";
+  return "var(--color-accent)";
+}
+
+/** Tiros propios fallados en juego abierto (fuera/parado/poste, sin penalti). */
+export function tirosFallados(eventos: EventosRow[]): number {
+  return eventos.filter((e) => e.tipo === "tiro" && e.equipo_origen === "propio" && !e.es_penalti && e.resultado !== "gol").length;
+}
+
+/** 7 metros propios fallados (fuera/parado/poste). */
+export function sieteFallados(eventos: EventosRow[]): number {
+  return eventos.filter((e) => e.tipo === "tiro" && e.equipo_origen === "propio" && e.es_penalti && e.resultado !== "gol").length;
 }
 
 /** Goles a favor: "gol a favor" + "7m metido" (ambos suman al marcador propio). */

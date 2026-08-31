@@ -11,6 +11,15 @@
         ],
         "createdAt": "2026-08-27T20:34:42.830Z",
         "reason": "user confirmed: approved plan (playful-knitting-russell.md) explicitly specifies 'franja/borde de acento rojo a la izquierda en tarjetas de tipo evento', reproducing the red left-edge stripe seen on the session card in the Stitch prototype's Calendario screenshot"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "src/components/partido/ContadoresEnVivo.tsx"
+        ],
+        "createdAt": "2026-08-31T13:40:02.740Z",
+        "reason": "user confirmed: pre-existing pattern carried over verbatim from the prior ContadoresEnVivo.tsx (EventoRow's borderLeft accent per event-type color); this session's task was a data-model refactor only, explicitly scoped to not change visible behavior"
       }
     ]
   }

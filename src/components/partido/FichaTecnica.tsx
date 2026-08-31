@@ -1,4 +1,13 @@
-import { ACCIONES_TABLA, contarTabla, eficaciaLanzamiento, golesContra, golesFavor, marcadorPartido } from "@/lib/partidoStats";
+import {
+  ACCIONES_INSTANTANEAS,
+  contarTabla,
+  eficaciaLanzamiento,
+  golesContra,
+  golesFavor,
+  marcadorPartido,
+  sieteFallados,
+  tirosFallados,
+} from "@/lib/partidoStats";
 import type { EventosRow, JugadoresRow, PartidosRow } from "@/types/database";
 
 export function FichaTecnica({
@@ -15,15 +24,15 @@ export function FichaTecnica({
   const eficacia = eficaciaLanzamiento(eventos);
   const hayEventos = eventos.length > 0;
 
-  const buscar = (label: string) => ACCIONES_TABLA.find((a) => a.label === label)!;
+  const buscar = (label: string) => ACCIONES_INSTANTANEAS.find((a) => a.label === label)!;
   const stats: { label: string; valor: number | string }[] = [
     { label: "Goles a favor", valor: favor },
     { label: "Goles en contra", valor: contra },
     { label: "Paradas portero", valor: contarTabla(eventos, buscar("Parada portero")) },
     { label: "Balones ganados", valor: contarTabla(eventos, buscar("Balón ganado")) },
     { label: "Balones perdidos", valor: contarTabla(eventos, buscar("Balón perdido")) },
-    { label: "Tiros fallados", valor: contarTabla(eventos, buscar("Tiro fallado")) },
-    { label: "7m fallados", valor: contarTabla(eventos, buscar("7m fallado")) },
+    { label: "Tiros fallados", valor: tirosFallados(eventos) },
+    { label: "7m fallados", valor: sieteFallados(eventos) },
     { label: "Exclusiones", valor: contarTabla(eventos, buscar("Exclusión 2'")) },
     { label: "Eficacia de tiro", valor: eficacia !== null ? `${eficacia}%` : "—" },
   ];

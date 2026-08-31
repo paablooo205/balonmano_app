@@ -3,14 +3,17 @@ import { ChevronLeft, LogIn, LogOut, Pause, Play, Undo2 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { encolarOperacion, esErrorDeRed } from "@/lib/offline/queue";
 import { borrarEvento, registrarEvento } from "@/lib/eventos";
+import { CuadriculaPorteria } from "@/components/partido/CuadriculaPorteria";
 import { useFullscreenHorizontal } from "@/hooks/useFullscreenHorizontal";
 import { useMovilHorizontal } from "@/hooks/useMovilHorizontal";
 import {
+  ACCIONES_INSTANTANEAS,
   ACCIONES_JSONB,
-  ACCIONES_TABLA,
   cambiarParte,
+  colorTiro,
   contarTabla,
   crearEventoJsonb,
+  etiquetaTiro,
   ETIQUETAS_EVENTO_JSONB,
   formatoReloj,
   golesContra,
@@ -22,7 +25,7 @@ import {
   segundosPartido,
 } from "@/lib/partidoStats";
 import { cn } from "@/lib/utils";
-import type { EventosRow, JugadoresRow, PartidosRow, TipoEventoPartido } from "@/types/database";
+import type { EventosRow, JugadoresRow, PartidosRow, ResultadoTiro, TipoEventoPartido } from "@/types/database";
 
 /**
  * Marcador en vivo — calcado del estado "isLive" del prototipo de Claude
@@ -60,6 +63,7 @@ export function ContadoresEnVivo({
   const compacto = useMovilHorizontal();
   const [tick, setTick] = useState(0);
   const [jugadorSel, setJugadorSel] = useState<string | null>(null);
+  const [grillaAbierta, setGrillaAbierta] = useState(false);
   const cronometro = partido.estadisticas.cronometro;
   const eventosJsonb = partido.estadisticas.eventos ?? [];
 
@@ -73,23 +77,36 @@ export function ContadoresEnVivo({
     label: string;
     color: string;
     jugadorId: string | null;
+    esRival: boolean;
     minuto: number | null;
     creadoEn: string;
     afectaMarcador: boolean;
   };
   const toquesTabla: ToqueUnificado[] = eventos.map((e) => {
-    const accion = ACCIONES_TABLA.find(
-      (a) => a.tipo === e.tipo && a.equipoOrigen === e.equipo_origen && a.resultado === e.resultado && a.esPenalti === e.es_penalti,
-    );
+    if (e.tipo === "tiro") {
+      return {
+        id: e.id,
+        origen: "tabla",
+        label: etiquetaTiro(e),
+        color: colorTiro(e),
+        jugadorId: e.jugador_id,
+        esRival: e.equipo_origen === "rival",
+        minuto: null,
+        creadoEn: e.creado_en,
+        afectaMarcador: e.resultado === "gol",
+      };
+    }
+    const accion = ACCIONES_INSTANTANEAS.find((a) => a.tipo === e.tipo && a.equipoOrigen === e.equipo_origen);
     return {
       id: e.id,
       origen: "tabla",
       label: accion?.label ?? e.tipo,
       color: accion?.color ?? "rgba(255,255,255,.35)",
       jugadorId: e.jugador_id,
+      esRival: e.equipo_origen === "rival",
       minuto: null,
       creadoEn: e.creado_en,
-      afectaMarcador: accion?.afectaMarcador ?? false,
+      afectaMarcador: false,
     };
   });
   const toquesJsonb: ToqueUnificado[] = eventosJsonb.map((e) => ({
@@ -103,6 +120,7 @@ export function ContadoresEnVivo({
           ? "var(--color-accent)"
           : "rgba(255,255,255,.35)",
     jugadorId: e.jugador_id,
+    esRival: false,
     minuto: e.minuto,
     creadoEn: e.creado_en,
     afectaMarcador: false,
@@ -140,7 +158,7 @@ export function ContadoresEnVivo({
     void persistirEstadisticas({ ...partido.estadisticas, cronometro: cambiarParte(cronometro) });
   }
 
-  function registrarTabla(accion: (typeof ACCIONES_TABLA)[number]) {
+  function registrarTabla(accion: (typeof ACCIONES_INSTANTANEAS)[number]) {
     const nuevo: EventosRow = {
       id: crypto.randomUUID(),
       equipo_id: partido.equipo_id,
@@ -156,6 +174,25 @@ export function ContadoresEnVivo({
     };
     onEventosActualizados([...eventos, nuevo]);
     void registrarEvento(nuevo);
+  }
+
+  function registrarTiroPropio({ resultado, zona, esPenalti }: { resultado: ResultadoTiro; zona: number; esPenalti: boolean }) {
+    const nuevo: EventosRow = {
+      id: crypto.randomUUID(),
+      equipo_id: partido.equipo_id,
+      partido_id: partido.id,
+      sesion_id: null,
+      jugador_id: jugadorSel,
+      equipo_origen: "propio",
+      tipo: "tiro",
+      resultado,
+      zona,
+      es_penalti: esPenalti,
+      creado_en: new Date().toISOString(),
+    };
+    onEventosActualizados([...eventos, nuevo]);
+    void registrarEvento(nuevo);
+    setGrillaAbierta(false);
   }
 
   function registrarJsonb(tipo: TipoEventoPartido) {
@@ -185,6 +222,15 @@ export function ContadoresEnVivo({
 
   const corriendo = !!cronometro?.corriendo;
   const estado = corriendo ? "En juego" : toquesDesc.length > 0 ? "Pausado" : "Sin empezar";
+
+  const grillaPorteria = (
+    <CuadriculaPorteria
+      open={grillaAbierta}
+      titulo="Tiro propio"
+      onClose={() => setGrillaAbierta(false)}
+      onConfirmar={registrarTiroPropio}
+    />
+  );
 
   const jugadorBlock = (
     <div>
@@ -220,9 +266,21 @@ export function ContadoresEnVivo({
     </div>
   );
 
+  const totalTirosPropios = eventos.filter((e) => e.tipo === "tiro" && e.equipo_origen === "propio").length;
+
   const accionesBlock = (
     <div className={cn("grid gap-1.5", compacto ? "grid-cols-4" : "grid-cols-3")}>
-      {ACCIONES_TABLA.map((a, i) => (
+      <button
+        onClick={() => setGrillaAbierta(true)}
+        className={cn(
+          "flex flex-col items-center justify-center gap-1 rounded-xl border border-white/[.09] bg-white/[.05] px-1.5 text-center active:scale-[0.96]",
+          compacto ? "h-[46px]" : "h-[60px]",
+        )}
+      >
+        <span className={cn("leading-[1.15] text-white/85", compacto ? "text-[9px]" : "text-[11px]")}>Tiro propio</span>
+        <span className="stat-number text-sm text-white/85">{totalTirosPropios}</span>
+      </button>
+      {ACCIONES_INSTANTANEAS.map((a, i) => (
         <button
           key={i}
           onClick={() => registrarTabla(a)}
@@ -269,11 +327,7 @@ export function ContadoresEnVivo({
         )}
         {toquesDesc.map((t) => {
           const jugador = t.jugadorId ? jugadores.find((j) => j.id === t.jugadorId) : null;
-          const quien = jugador
-            ? `#${jugador.dorsal ?? "—"} ${jugador.nombre}`
-            : t.jugadorId === null && t.afectaMarcador
-              ? partido.rival
-              : "Sin asignar";
+          const quien = jugador ? `#${jugador.dorsal ?? "—"} ${jugador.nombre}` : t.esRival ? partido.rival : "Sin asignar";
           const indiceGol = golesDesc.findIndex((g) => g.id === t.id);
           return (
             <div
@@ -364,6 +418,7 @@ export function ContadoresEnVivo({
           </div>
           <div className="flex-1 overflow-y-auto px-3 py-2.5">{cronologiaBlock}</div>
         </div>
+        {grillaPorteria}
       </div>
     );
   }
@@ -439,6 +494,7 @@ export function ContadoresEnVivo({
       <div className="px-4 pb-2 pt-3.5">{cronologiaBlock}</div>
 
       <div className="border-t border-white/[.08] bg-[#141417] p-3.5 pb-6">{accionesBlock}</div>
+      {grillaPorteria}
     </div>
   );
 }
