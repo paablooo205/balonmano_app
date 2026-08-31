@@ -5,7 +5,8 @@ import { supabase } from "@/lib/supabaseClient";
 import { useEquipo } from "@/hooks/useEquipo";
 import { JugadorFormModal } from "@/components/equipo/JugadorFormModal";
 import { eficaciaLanzamiento, minutosJugados } from "@/lib/partidoStats";
-import type { AsistenciaRow, JugadoresRow, PartidosRow, SesionesRow } from "@/types/database";
+import { cargarEventosEquipo } from "@/lib/eventos";
+import type { AsistenciaRow, EventosRow, JugadoresRow, PartidosRow, SesionesRow } from "@/types/database";
 
 export function JugadorDetailPage() {
   const { equipoId } = useEquipo();
@@ -15,22 +16,25 @@ export function JugadorDetailPage() {
   const [partidos, setPartidos] = useState<PartidosRow[]>([]);
   const [asistencia, setAsistencia] = useState<AsistenciaRow[]>([]);
   const [sesiones, setSesiones] = useState<SesionesRow[]>([]);
+  const [eventos, setEventos] = useState<EventosRow[]>([]);
   const [cargando, setCargando] = useState(true);
   const [editando, setEditando] = useState(false);
 
   async function cargar() {
     if (!jugadorId) return;
     setCargando(true);
-    const [j, p, a, s] = await Promise.all([
+    const [j, p, a, s, ev] = await Promise.all([
       supabase.from("jugadores").select("*").eq("id", jugadorId).maybeSingle(),
       supabase.from("partidos").select("*").eq("equipo_id", equipoId),
       supabase.from("asistencia").select("*").eq("equipo_id", equipoId).eq("jugador_id", jugadorId),
       supabase.from("sesiones").select("*").eq("equipo_id", equipoId),
+      cargarEventosEquipo(equipoId),
     ]);
     setJugador(j.data ?? null);
     setPartidos(p.data ?? []);
     setAsistencia(a.data ?? []);
     setSesiones(s.data ?? []);
+    setEventos(ev);
     setCargando(false);
   }
 
@@ -46,31 +50,31 @@ export function JugadorDetailPage() {
     return <div className="card-surface p-6 text-center text-[var(--color-text-muted)]">Jugador/a no encontrado.</div>;
   }
 
-  // Goles y demás: eventos de los partidos atribuidos a este jugador.
+  // Goles y demás: eventos de la tabla `eventos` atribuidos a este jugador.
+  // Minutos jugados sigue viniendo del jsonb (entra_pista/sale_pista, sin migrar).
   let goles = 0;
   let exclusiones = 0;
   let balonesPerdidos = 0;
   let minutosTotales = 0;
   let partidosConMinutos = 0;
   const partidosConEventoDelJugador = new Set<string>();
-  const todosLosEventos = partidos.flatMap((p) => p.estadisticas.eventos ?? []);
+  const eventosDelJugador = eventos.filter((e) => e.jugador_id === jugador.id);
+  for (const e of eventosDelJugador) {
+    if (!e.partido_id) continue;
+    partidosConEventoDelJugador.add(e.partido_id);
+    if (e.tipo === "tiro" && e.resultado === "gol") goles++;
+    if (e.tipo === "perdida" && e.equipo_origen === "propio") balonesPerdidos++;
+    if (e.tipo === "exclusion") exclusiones++;
+  }
   for (const p of partidos) {
-    const eventosPartido = p.estadisticas.eventos ?? [];
-    for (const e of eventosPartido) {
-      if (e.jugador_id !== jugador.id) continue;
-      partidosConEventoDelJugador.add(p.id);
-      if (e.tipo === "gol_favor" || e.tipo === "siete_metido") goles++;
-      if (e.tipo === "balon_perdido") balonesPerdidos++;
-      if (e.tipo === "exclusion_2min") exclusiones++;
-    }
-    const minParaEstePartido = minutosJugados(eventosPartido, jugador.id);
+    const minParaEstePartido = minutosJugados(p.estadisticas.eventos ?? [], jugador.id);
     if (minParaEstePartido > 0) {
       minutosTotales += minParaEstePartido;
       partidosConMinutos++;
     }
   }
   const partidosJugados = partidosConEventoDelJugador.size;
-  const eficaciaLanzamientoPct = eficaciaLanzamiento(todosLosEventos, jugador.id);
+  const eficaciaLanzamientoPct = eficaciaLanzamiento(eventosDelJugador, jugador.id);
   const perdidasPorPartido = partidosJugados > 0 ? (balonesPerdidos / partidosJugados).toFixed(1) : null;
   const minutosPorPartido = partidosConMinutos > 0 ? Math.round(minutosTotales / partidosConMinutos) : null;
 

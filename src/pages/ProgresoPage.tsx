@@ -2,9 +2,10 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useEquipo } from "@/hooks/useEquipo";
 import { resultadoPartido, marcadorNumerico, resumenResultados, RESULTADO_BADGE } from "@/lib/partidoStats";
+import { agruparPorPartido, cargarEventosEquipo } from "@/lib/eventos";
 import { toISODate } from "@/lib/calendar";
 import { cn } from "@/lib/utils";
-import type { AsistenciaRow, JugadoresRow, PartidosRow, SesionesRow } from "@/types/database";
+import type { AsistenciaRow, EventosRow, JugadoresRow, PartidosRow, SesionesRow } from "@/types/database";
 
 const MESES_CORTO = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 
@@ -40,21 +41,24 @@ export function ProgresoPage() {
   const [asistencia, setAsistencia] = useState<AsistenciaRow[]>([]);
   const [sesiones, setSesiones] = useState<SesionesRow[]>([]);
   const [jugadores, setJugadores] = useState<JugadoresRow[]>([]);
+  const [eventos, setEventos] = useState<EventosRow[]>([]);
   const [cargando, setCargando] = useState(true);
 
   useEffect(() => {
     (async () => {
       setCargando(true);
-      const [{ data: p }, { data: a }, { data: s }, { data: j }] = await Promise.all([
+      const [{ data: p }, { data: a }, { data: s }, { data: j }, ev] = await Promise.all([
         supabase.from("partidos").select("*").eq("equipo_id", equipoId).order("fecha", { ascending: true }),
         supabase.from("asistencia").select("*").eq("equipo_id", equipoId),
         supabase.from("sesiones").select("*").eq("equipo_id", equipoId),
         supabase.from("jugadores").select("*").eq("equipo_id", equipoId),
+        cargarEventosEquipo(equipoId),
       ]);
       setPartidos(p ?? []);
       setAsistencia(a ?? []);
       setSesiones(s ?? []);
       setJugadores(j ?? []);
+      setEventos(ev);
       setCargando(false);
     })();
   }, [equipoId]);
@@ -64,13 +68,14 @@ export function ProgresoPage() {
   }
 
   const hoyISO = toISODate(new Date());
+  const eventosPorPartido = agruparPorPartido(eventos);
 
   // --- Resultados / jornadas ---------------------------------------------
   const jornadas = partidos
-    .map((partido) => ({ partido, marcador: marcadorNumerico(partido) }))
+    .map((partido) => ({ partido, marcador: marcadorNumerico(partido, eventosPorPartido.get(partido.id) ?? []) }))
     .filter((x): x is { partido: PartidosRow; marcador: { favor: number; contra: number } } => x.marcador !== null);
 
-  const { g, e, p: perd } = resumenResultados(partidos);
+  const { g, e, p: perd } = resumenResultados(partidos, eventosPorPartido);
   const puntos = g * 2 + e;
   const totalFavor = jornadas.reduce((sum, x) => sum + x.marcador.favor, 0);
   const totalContra = jornadas.reduce((sum, x) => sum + x.marcador.contra, 0);
@@ -84,10 +89,10 @@ export function ProgresoPage() {
   // --- Juego vs 7 metros ---------------------------------------------------
   let favorJuego = 0;
   let favor7m = 0;
-  for (const partido of partidos) {
-    for (const evento of partido.estadisticas.eventos ?? []) {
-      if (evento.tipo === "gol_favor") favorJuego++;
-      if (evento.tipo === "siete_metido") favor7m++;
+  for (const evento of eventos) {
+    if (evento.tipo === "tiro" && evento.equipo_origen === "propio" && evento.resultado === "gol") {
+      if (evento.es_penalti) favor7m++;
+      else favorJuego++;
     }
   }
   const totalGolesEnDirecto = favorJuego + favor7m;
@@ -118,12 +123,10 @@ export function ProgresoPage() {
 
   // --- Máximos goleadores ---------------------------------------------------
   const golesPorJugador = new Map<string, number>();
-  for (const partido of partidos) {
-    for (const evento of partido.estadisticas.eventos ?? []) {
-      if (!evento.jugador_id) continue;
-      if (evento.tipo === "gol_favor" || evento.tipo === "siete_metido") {
-        golesPorJugador.set(evento.jugador_id, (golesPorJugador.get(evento.jugador_id) ?? 0) + 1);
-      }
+  for (const evento of eventos) {
+    if (!evento.jugador_id) continue;
+    if (evento.tipo === "tiro" && evento.equipo_origen === "propio" && evento.resultado === "gol") {
+      golesPorJugador.set(evento.jugador_id, (golesPorJugador.get(evento.jugador_id) ?? 0) + 1);
     }
   }
   const topGoleadores = Array.from(golesPorJugador.entries())
@@ -249,7 +252,7 @@ export function ProgresoPage() {
           </div>
           <div className="flex gap-1.5">
             {racha.map(({ partido, marcador }) => {
-              const r = resultadoPartido(partido)!;
+              const r = resultadoPartido(partido, eventosPorPartido.get(partido.id) ?? [])!;
               const badge = RESULTADO_BADGE[r];
               return (
                 <div key={partido.id} className="flex flex-1 flex-col items-center gap-1.5">

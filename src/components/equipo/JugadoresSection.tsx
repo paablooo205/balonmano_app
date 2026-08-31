@@ -5,24 +5,25 @@ import { supabase } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/field";
 import { JugadorFormModal } from "./JugadorFormModal";
-import type { JugadoresRow, PartidosRow } from "@/types/database";
+import { cargarEventosEquipo } from "@/lib/eventos";
+import type { EventosRow, JugadoresRow } from "@/types/database";
 
 export function JugadoresSection({ equipoId }: { equipoId: string }) {
   const navigate = useNavigate();
   const [jugadores, setJugadores] = useState<JugadoresRow[]>([]);
-  const [partidos, setPartidos] = useState<PartidosRow[]>([]);
+  const [eventos, setEventos] = useState<EventosRow[]>([]);
   const [cargando, setCargando] = useState(true);
   const [busqueda, setBusqueda] = useState("");
   const [modalAbierto, setModalAbierto] = useState(false);
 
   async function cargar() {
     setCargando(true);
-    const [j, p] = await Promise.all([
+    const [j, ev] = await Promise.all([
       supabase.from("jugadores").select("*").eq("equipo_id", equipoId).order("dorsal", { nullsFirst: false }),
-      supabase.from("partidos").select("*").eq("equipo_id", equipoId),
+      cargarEventosEquipo(equipoId),
     ]);
     setJugadores(j.data ?? []);
-    setPartidos(p.data ?? []);
+    setEventos(ev);
     setCargando(false);
   }
 
@@ -32,13 +33,7 @@ export function JugadoresSection({ equipoId }: { equipoId: string }) {
   }, [equipoId]);
 
   function golesDe(jugadorId: string): number {
-    let goles = 0;
-    for (const p of partidos) {
-      for (const e of p.estadisticas.eventos ?? []) {
-        if (e.jugador_id === jugadorId && (e.tipo === "gol_favor" || e.tipo === "siete_metido")) goles++;
-      }
-    }
-    return goles;
+    return eventos.filter((e) => e.jugador_id === jugadorId && e.tipo === "tiro" && e.equipo_origen === "propio" && e.resultado === "gol").length;
   }
 
   const filtrados = jugadores.filter((j) => j.nombre.toLowerCase().includes(busqueda.toLowerCase()));
