@@ -23,7 +23,9 @@ export function OrigenChips({
           key={o}
           onClick={() => onCambiar(o)}
           className={cn(
-            "flex h-7 items-center rounded-full px-2.5 text-[10px] font-semibold uppercase tracking-[0.06em] transition-colors",
+            // h-11 (44px): objetivo táctil mínimo — se toca en cada tiro
+            // cuando el origen preseleccionado por puesto no es el real.
+            "flex h-11 items-center rounded-full px-3 text-[11px] font-semibold uppercase tracking-[0.06em] transition-colors",
             valor === o ? "bg-[var(--color-accent)] text-white" : "bg-white/[.08] text-white/60",
           )}
         >

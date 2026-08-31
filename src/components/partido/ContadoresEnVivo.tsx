@@ -405,18 +405,18 @@ export function ContadoresEnVivo({
 
   const jugadorBlock = (
     <div>
-      <div className="mb-2.5 flex items-center justify-between px-4 lg:px-0">
+      <div className="mb-2.5 flex items-center justify-between">
         <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-white/35">Jugador</span>
         <div className="flex gap-1.5">
           <button
             onClick={() => registrarSustitucion("entra_pista")}
-            className="flex h-7 items-center gap-1 rounded-full bg-white/[.08] px-2.5 text-[11px] font-medium text-[#4ddc8a]"
+            className="flex h-9 items-center gap-1 rounded-full bg-white/[.08] px-2.5 text-[11px] font-medium text-[#4ddc8a]"
           >
             <LogIn size={12} /> Entra
           </button>
           <button
             onClick={() => registrarSustitucion("sale_pista")}
-            className="flex h-7 items-center gap-1 rounded-full bg-white/[.08] px-2.5 text-[11px] font-medium text-white/60"
+            className="flex h-9 items-center gap-1 rounded-full bg-white/[.08] px-2.5 text-[11px] font-medium text-white/60"
           >
             <LogOut size={12} /> Sale
           </button>
@@ -424,8 +424,12 @@ export function ContadoresEnVivo({
       </div>
       {/* Fila horizontal con scroll en móvil/apaisado; en el layout tablet
           (`lg:`) se convierte en lista vertical dentro de la columna de
-          200px — mismo markup, solo cambia flex-direction (ver ChipJugador). */}
-      <div className="flex gap-1.5 overflow-x-auto px-4 lg:flex-col lg:gap-1 lg:overflow-visible lg:px-0">
+          200px — mismo markup, solo cambia flex-direction (ver ChipJugador).
+          Sin padding horizontal propio: el inset lo da siempre el
+          contenedor que lo envuelve en cada layout (mismo criterio que
+          zonaBlock/accionesBlock, para que ambos queden alineados al mismo
+          margen — ver usos más abajo). */}
+      <div className="flex gap-1.5 overflow-x-auto lg:flex-col lg:gap-1 lg:overflow-visible">
         {jugadores.map((j) => (
           <ChipJugador
             key={j.id}
@@ -642,7 +646,7 @@ export function ContadoresEnVivo({
 
         <div className="flex min-h-0 flex-1">
           <div className="flex w-[46%] shrink-0 flex-col gap-2.5 overflow-y-auto border-r border-white/[.07] py-2.5">
-            {jugadorBlock}
+            <div className="px-3">{jugadorBlock}</div>
             <div className="px-3">{zonaBlock}</div>
             <div className="px-3">{accionesBlock}</div>
           </div>
@@ -722,7 +726,10 @@ export function ContadoresEnVivo({
         {/* Bajo `lg:`, jugadorBlock ocupa la primera columna (se convierte en
             lista vertical, ver arriba) — por eso no lleva envoltorio propio
             con borde inferior aquí, ese borde solo tiene sentido en móvil
-            donde va apilado encima de Zona/Acción. */}
+            donde va apilado encima de Zona/Acción. Sin padding horizontal
+            propio: el `p-3` del contenedor de más abajo ya le da el mismo
+            margen que a zonaBlock/accionesBlock (antes tenía un `px-4`
+            propio que lo desalineaba respecto a ellos). */}
         <div className="border-b border-white/[.07] pb-3 lg:hidden">{jugadorBlock}</div>
 
         <div className="flex flex-col gap-3 lg:grid lg:grid-cols-[200px_minmax(0,1fr)_320px] lg:items-start">
@@ -810,7 +817,10 @@ function ChipJugador({
     <button
       onClick={onClick}
       className={cn(
-        "flex h-[34px] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[10px] px-3.5 lg:w-full lg:justify-start",
+        // h-11 (44px): es el control que más veces se toca en toda la
+        // pantalla (jugador obligatorio antes de cualquier registro) —
+        // mismo objetivo táctil mínimo que los botones de acción.
+        "flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[10px] px-3.5 lg:w-full lg:justify-start",
         activo ? "bg-[var(--color-accent)]" : "bg-white/[.08]",
       )}
     >
