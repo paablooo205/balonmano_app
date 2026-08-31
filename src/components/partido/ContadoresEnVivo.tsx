@@ -4,58 +4,74 @@ import { supabase } from "@/lib/supabaseClient";
 import { encolarOperacion, esErrorDeRed } from "@/lib/offline/queue";
 import { borrarEvento, registrarEvento } from "@/lib/eventos";
 import { CuadriculaPorteria } from "@/components/partido/CuadriculaPorteria";
+import { OrigenChips } from "@/components/partido/OrigenChips";
+import { PanelStats } from "@/components/partido/PanelStats";
 import { useFullscreenHorizontal } from "@/hooks/useFullscreenHorizontal";
 import { useMovilHorizontal } from "@/hooks/useMovilHorizontal";
 import {
   ACCIONES_JSONB,
-  ACCIONES_PERDIDA_EXCLUSION,
+  BOTONES_TARJETA,
   BOTONES_TIRO_PROPIO,
   BOTONES_TIRO_RIVAL,
   cambiarParte,
   colorTiro,
   contarBotonTiro,
-  contarTabla,
   crearEventoJsonb,
+  esPortero,
   etiquetaTiro,
   ETIQUETAS_EVENTO_JSONB,
+  ETIQUETAS_ORIGEN,
+  exclusiones,
   formatoReloj,
   golesContra,
   golesFavor,
   iniciarOReanudar,
   marcadorHastaTabla,
   minutoActual,
+  origenPorPuesto,
   pausar,
+  perdidas,
   requiereZona,
+  robos,
   segundosPartido,
   type BotonTiro,
 } from "@/lib/partidoStats";
 import { cn } from "@/lib/utils";
-import type { EquipoOrigenEvento, EventosRow, JugadoresRow, PartidosRow, ResultadoTiro, TipoEventoPartido } from "@/types/database";
+import type {
+  ColorTarjeta,
+  EquipoOrigenEvento,
+  EventosRow,
+  JugadoresRow,
+  OrigenLanzamiento,
+  PartidosRow,
+  ResultadoTiro,
+  TipoEventoPartido,
+} from "@/types/database";
 
 /**
- * Marcador en vivo — calcado del estado "isLive" del prototipo de Claude
- * Design: reloj por partes, selector de jugador/a por chips, panel de
- * acciones agrupado y cronología. Ocupa toda la pantalla (overlay `fixed
- * inset-0`, fuera del `<main>` con nav/paddings) e intenta forzar horizontal
- * + pantalla completa del navegador vía `useFullscreenHorizontal` (mejor
- * esfuerzo: no soportado en iOS Safari). En horizontal en móvil (viewport
- * bajo) cambia a un layout compacto en dos columnas.
+ * Marcador en vivo — reloj por partes, selector de jugador/a por chips
+ * (obligatorio para registrar), panel de acción agrupado, cuadrícula de
+ * portería siempre visible con mapa de calor, panel de estadísticas y
+ * cronología. Ocupa toda la pantalla (overlay `fixed inset-0`, fuera del
+ * `<main>` con nav/paddings) e intenta forzar horizontal + pantalla completa
+ * del navegador vía `useFullscreenHorizontal` (mejor esfuerzo: no soportado
+ * en iOS Safari). Diseñado principalmente para tablet/iPad (layout de grids
+ * responsive, colapsa a una columna en móvil vertical); en móvil apaisado y
+ * viewport corto (una mano) usa el layout `compacto` de dos columnas, sin
+ * panel de estadísticas para no perder espacio vertical.
  *
- * Desde 0017_eventos.sql, los tiros/pérdidas/exclusiones escriben en la
- * tabla `eventos`; "7m provocado"/"7m cometido" y las sustituciones
+ * Desde 0017/0018_eventos.sql, tiros/pérdidas/exclusiones/tarjetas escriben
+ * en la tabla `eventos`; "7m provocado"/"7m cometido" y las sustituciones
  * (entra/sale pista) siguen en `partido.estadisticas` (jsonb), igual que el
  * cronómetro. La cronología y "deshacer" fusionan ambas fuentes por
  * `creado_en`.
  *
- * El panel de acciones agrupa los botones por categoría (Tiros / Porteros /
- * Pérdidas y exclusión / Otros) para encontrar el botón rápido a media
- * jugada. La cuadrícula de portería está siempre visible entre "Tiros" y
- * "Porteros" — atenuada en reposo, se arma al tocar Gol/Parado/Parada/Gol en
- * contra (los únicos resultados "a portería") y tocar una zona confirma y
- * desarma en el mismo gesto; Fuera/Poste/pérdidas/exclusión no tocan la
- * cuadrícula, se registran al instante. El interruptor "Penalti" se aplica
- * al siguiente tiro que se registre (de cualquier botón) y se apaga solo
- * después, para no dejarlo pegado por error en el siguiente tiro normal.
+ * Flujo de registro (bidireccional a propósito, ver spec de esta fase):
+ * seleccionar jugador (obligatorio, sin excepciones — incluida "Gol en
+ * contra": se atribuye al portero seleccionado) → tocar una acción de tiro
+ * arma esa acción y espera zona, o tocar una zona primero arma la zona y
+ * espera acción — lo que llegue primero completa el registro. "Anular"
+ * limpia lo pendiente sin registrar.
  */
 export function ContadoresEnVivo({
   partido,
@@ -79,14 +95,19 @@ export function ContadoresEnVivo({
   const [tick, setTick] = useState(0);
   const [jugadorSel, setJugadorSel] = useState<string | null>(null);
   const [sietePendiente, setSietePendiente] = useState(false);
-  const [tiroArmado, setTiroArmado] = useState<BotonTiro | null>(null);
+  const [accionPendiente, setAccionPendiente] = useState<BotonTiro | null>(null);
+  const [zonaPendiente, setZonaPendiente] = useState<number | null>(null);
+  const [origenSel, setOrigenSel] = useState<OrigenLanzamiento | null>(null);
   const cronometro = partido.estadisticas.cronometro;
   const eventosJsonb = partido.estadisticas.eventos ?? [];
 
-  // Cronología unificada: eventos de tabla (tiros/pérdidas/exclusiones) +
-  // eventos jsonb (7m provocado/cometido, entra/sale pista), todos con la
-  // misma forma para poder ordenarlos y "deshacer" el más reciente sea cual
-  // sea su origen.
+  const jugadorActual = jugadores.find((j) => j.id === jugadorSel) ?? null;
+  const esJugadorActualPortero = jugadorActual ? esPortero(jugadorActual.puesto) : false;
+
+  // Cronología unificada: eventos de tabla (tiros/pérdidas/exclusiones/
+  // tarjetas) + eventos jsonb (7m provocado/cometido, entra/sale pista),
+  // todos con la misma forma para poder ordenarlos y "deshacer" el más
+  // reciente sea cual sea su origen.
   type ToqueUnificado = {
     id: string;
     origen: "tabla" | "jsonb";
@@ -97,6 +118,7 @@ export function ContadoresEnVivo({
     minuto: number | null;
     creadoEn: string;
     afectaMarcador: boolean;
+    detalle: string;
   };
   const toquesTabla: ToqueUnificado[] = eventos.map((e) => {
     if (e.tipo === "tiro") {
@@ -110,19 +132,37 @@ export function ContadoresEnVivo({
         minuto: null,
         creadoEn: e.creado_en,
         afectaMarcador: e.resultado === "gol",
+        detalle: [e.zona ? `Z${e.zona}` : null, e.origen ? ETIQUETAS_ORIGEN[e.origen] : null].filter(Boolean).join(" · "),
       };
     }
-    const accion = ACCIONES_PERDIDA_EXCLUSION.find((a) => a.tipo === e.tipo && a.equipoOrigen === e.equipo_origen);
+    if (e.tipo === "tarjeta") {
+      const b = BOTONES_TARJETA.find((x) => x.color === e.color_tarjeta);
+      return {
+        id: e.id,
+        origen: "tabla",
+        label: `Tarjeta ${b?.label.toLowerCase() ?? ""}`.trim(),
+        color: b?.hex ?? "rgba(255,255,255,.35)",
+        jugadorId: e.jugador_id,
+        esRival: false,
+        minuto: null,
+        creadoEn: e.creado_en,
+        afectaMarcador: false,
+        detalle: "",
+      };
+    }
+    const label = e.tipo === "perdida" ? (e.equipo_origen === "rival" ? "Balón ganado" : "Balón perdido") : "Exclusión 2'";
+    const color = e.tipo === "perdida" ? (e.equipo_origen === "rival" ? "var(--color-success)" : "var(--color-warning)") : "var(--color-warning)";
     return {
       id: e.id,
       origen: "tabla",
-      label: accion?.label ?? e.tipo,
-      color: accion?.color ?? "rgba(255,255,255,.35)",
+      label,
+      color,
       jugadorId: e.jugador_id,
       esRival: e.equipo_origen === "rival",
       minuto: null,
       creadoEn: e.creado_en,
       afectaMarcador: false,
+      detalle: "",
     };
   });
   const toquesJsonb: ToqueUnificado[] = eventosJsonb.map((e) => ({
@@ -140,10 +180,18 @@ export function ContadoresEnVivo({
     minuto: e.minuto,
     creadoEn: e.creado_en,
     afectaMarcador: false,
+    detalle: "",
   }));
   const toquesDesc = [...toquesTabla, ...toquesJsonb].sort((a, b) => b.creadoEn.localeCompare(a.creadoEn));
   const golesEventosTabla = eventos.filter((e) => e.tipo === "tiro" && e.resultado === "gol");
   const golesDesc = [...golesEventosTabla].sort((a, b) => b.creado_en.localeCompare(a.creado_en));
+
+  const conteosPorZona: Record<number, number> = {};
+  for (const e of eventos) {
+    if (e.tipo !== "tiro" || e.zona === null) continue;
+    if (jugadorSel && e.jugador_id !== jugadorSel) continue;
+    conteosPorZona[e.zona] = (conteosPorZona[e.zona] ?? 0) + 1;
+  }
 
   useEffect(() => {
     if (!cronometro?.corriendo) return;
@@ -174,40 +222,28 @@ export function ContadoresEnVivo({
     void persistirEstadisticas({ ...partido.estadisticas, cronometro: cambiarParte(cronometro) });
   }
 
-  function registrarTabla(accion: (typeof ACCIONES_PERDIDA_EXCLUSION)[number]) {
-    const nuevo: EventosRow = {
-      id: crypto.randomUUID(),
-      equipo_id: partido.equipo_id,
-      partido_id: partido.id,
-      sesion_id: null,
-      jugador_id: accion.equipoOrigen === "rival" ? null : jugadorSel,
-      equipo_origen: accion.equipoOrigen,
-      tipo: accion.tipo,
-      resultado: accion.resultado,
-      zona: null,
-      es_penalti: accion.esPenalti,
-      creado_en: new Date().toISOString(),
-    };
-    onEventosActualizados([...eventos, nuevo]);
-    void registrarEvento(nuevo);
-  }
-
-  function esArmado(boton: BotonTiro): boolean {
-    return tiroArmado?.resultado === boton.resultado && tiroArmado?.equipoOrigen === boton.equipoOrigen;
+  function seleccionarJugador(j: JugadoresRow) {
+    setJugadorSel(j.id);
+    setAccionPendiente(null);
+    setZonaPendiente(null);
+    setOrigenSel(origenPorPuesto(j.puesto));
   }
 
   function registrarTiro(equipoOrigen: EquipoOrigenEvento, resultado: ResultadoTiro, zona: number | null) {
+    if (!jugadorSel) return;
     const nuevo: EventosRow = {
       id: crypto.randomUUID(),
       equipo_id: partido.equipo_id,
       partido_id: partido.id,
       sesion_id: null,
-      jugador_id: equipoOrigen === "rival" ? null : jugadorSel,
+      jugador_id: jugadorSel,
       equipo_origen: equipoOrigen,
       tipo: "tiro",
       resultado,
       zona,
+      origen: origenSel,
       es_penalti: sietePendiente,
+      color_tarjeta: null,
       creado_en: new Date().toISOString(),
     };
     onEventosActualizados([...eventos, nuevo]);
@@ -215,21 +251,104 @@ export function ContadoresEnVivo({
     setSietePendiente(false);
   }
 
+  function esBotonArmado(boton: BotonTiro): boolean {
+    return accionPendiente?.resultado === boton.resultado && accionPendiente?.equipoOrigen === boton.equipoOrigen;
+  }
+
   function tocarBotonTiro(boton: BotonTiro) {
+    if (!jugadorSel) return;
     if (!requiereZona(boton.resultado)) {
       registrarTiro(boton.equipoOrigen, boton.resultado, null);
       return;
     }
-    setTiroArmado(esArmado(boton) ? null : boton);
+    if (zonaPendiente !== null) {
+      registrarTiro(boton.equipoOrigen, boton.resultado, zonaPendiente);
+      setZonaPendiente(null);
+      return;
+    }
+    setAccionPendiente(esBotonArmado(boton) ? null : boton);
   }
 
   function tocarZona(zona: number) {
-    if (!tiroArmado) return;
-    registrarTiro(tiroArmado.equipoOrigen, tiroArmado.resultado, zona);
-    setTiroArmado(null);
+    if (!jugadorSel) return;
+    if (accionPendiente) {
+      registrarTiro(accionPendiente.equipoOrigen, accionPendiente.resultado, zona);
+      setAccionPendiente(null);
+      return;
+    }
+    setZonaPendiente(zonaPendiente === zona ? null : zona);
+  }
+
+  function anular() {
+    setAccionPendiente(null);
+    setZonaPendiente(null);
+  }
+
+  function registrarPerdidaRobo(equipoOrigen: EquipoOrigenEvento) {
+    if (!jugadorSel) return;
+    const nuevo: EventosRow = {
+      id: crypto.randomUUID(),
+      equipo_id: partido.equipo_id,
+      partido_id: partido.id,
+      sesion_id: null,
+      jugador_id: jugadorSel,
+      equipo_origen: equipoOrigen,
+      tipo: "perdida",
+      resultado: null,
+      zona: null,
+      origen: null,
+      es_penalti: false,
+      color_tarjeta: null,
+      creado_en: new Date().toISOString(),
+    };
+    onEventosActualizados([...eventos, nuevo]);
+    void registrarEvento(nuevo);
+  }
+
+  function registrarExclusion() {
+    if (!jugadorSel) return;
+    const nuevo: EventosRow = {
+      id: crypto.randomUUID(),
+      equipo_id: partido.equipo_id,
+      partido_id: partido.id,
+      sesion_id: null,
+      jugador_id: jugadorSel,
+      equipo_origen: "propio",
+      tipo: "exclusion",
+      resultado: null,
+      zona: null,
+      origen: null,
+      es_penalti: false,
+      color_tarjeta: null,
+      creado_en: new Date().toISOString(),
+    };
+    onEventosActualizados([...eventos, nuevo]);
+    void registrarEvento(nuevo);
+  }
+
+  function registrarTarjeta(color: ColorTarjeta) {
+    if (!jugadorSel) return;
+    const nuevo: EventosRow = {
+      id: crypto.randomUUID(),
+      equipo_id: partido.equipo_id,
+      partido_id: partido.id,
+      sesion_id: null,
+      jugador_id: jugadorSel,
+      equipo_origen: "propio",
+      tipo: "tarjeta",
+      resultado: null,
+      zona: null,
+      origen: null,
+      es_penalti: false,
+      color_tarjeta: color,
+      creado_en: new Date().toISOString(),
+    };
+    onEventosActualizados([...eventos, nuevo]);
+    void registrarEvento(nuevo);
   }
 
   function registrarJsonb(tipo: TipoEventoPartido) {
+    if (!jugadorSel) return;
     const evento = crearEventoJsonb(tipo, jugadorSel, minutoActual(cronometro));
     void persistirEstadisticas({ ...partido.estadisticas, eventos: [...eventosJsonb, evento] });
   }
@@ -254,12 +373,39 @@ export function ContadoresEnVivo({
     }
   }
 
+  useEffect(() => {
+    function onKey(ev: KeyboardEvent) {
+      if (ev.key === "z" || ev.key === "Z") deshacer();
+      if (ev.code === "Space" && ev.target === document.body) {
+        ev.preventDefault();
+        alternarCronometro();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [toquesDesc, cronometro]);
+
   const corriendo = !!cronometro?.corriendo;
   const estado = corriendo ? "En juego" : toquesDesc.length > 0 ? "Pausado" : "Sin empezar";
 
+  let statusMain = "Selecciona un jugador";
+  let statusHint = "Paso 1 de 2";
+  if (jugadorActual) {
+    statusMain = `#${jugadorActual.dorsal ?? "—"} ${jugadorActual.nombre}`;
+    statusHint = "Elige la acción";
+    if (accionPendiente) {
+      statusMain += ` — ${accionPendiente.label}`;
+      statusHint = "Toca la zona de la portería";
+    } else if (zonaPendiente !== null) {
+      statusMain += ` — zona ${zonaPendiente}`;
+      statusHint = "Elige el resultado del tiro";
+    }
+  }
+
   const jugadorBlock = (
     <div>
-      <div className="mb-2.5 flex items-center justify-between px-4">
+      <div className="mb-2.5 flex items-center justify-between px-4 lg:px-0">
         <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-white/35">Jugador</span>
         <div className="flex gap-1.5">
           <button
@@ -276,18 +422,33 @@ export function ContadoresEnVivo({
           </button>
         </div>
       </div>
-      <div className="flex gap-1.5 overflow-x-auto px-4">
-        <ChipJugador nombre="Sin asignar" numero="—" activo={jugadorSel === null} onClick={() => setJugadorSel(null)} />
+      {/* Fila horizontal con scroll en móvil/apaisado; en el layout tablet
+          (`lg:`) se convierte en lista vertical dentro de la columna de
+          200px — mismo markup, solo cambia flex-direction (ver ChipJugador). */}
+      <div className="flex gap-1.5 overflow-x-auto px-4 lg:flex-col lg:gap-1 lg:overflow-visible lg:px-0">
         {jugadores.map((j) => (
           <ChipJugador
             key={j.id}
             nombre={j.nombre.split(" ")[0]}
             numero={j.dorsal != null ? String(j.dorsal) : "—"}
             activo={jugadorSel === j.id}
-            onClick={() => setJugadorSel(j.id)}
+            onClick={() => seleccionarJugador(j)}
           />
         ))}
       </div>
+    </div>
+  );
+
+  const zonaBlock = (
+    <div className="flex flex-col gap-3">
+      <CuadriculaPorteria
+        tocable={!!jugadorSel}
+        resaltado={!!accionPendiente || zonaPendiente !== null}
+        compacto={compacto}
+        onZona={tocarZona}
+        conteosPorZona={conteosPorZona}
+      />
+      <OrigenChips valor={origenSel} onCambiar={setOrigenSel} />
     </div>
   );
 
@@ -303,61 +464,78 @@ export function ContadoresEnVivo({
         Penalti (7m)
       </button>
 
-      <GrupoBotones titulo="Tiros" cols={4}>
+      <GrupoBotones titulo="Tiro" cols={4}>
         {BOTONES_TIRO_PROPIO.map((b) => (
-          <BotonTiroUI
+          <BotonAccion
             key={`${b.equipoOrigen}-${b.resultado}`}
-            boton={b}
-            armado={esArmado(b)}
+            label={b.label}
+            color={b.color}
             count={contarBotonTiro(eventos, b)}
+            armado={esBotonArmado(b)}
+            disabled={!jugadorSel}
             onClick={() => tocarBotonTiro(b)}
           />
         ))}
       </GrupoBotones>
 
-      <CuadriculaPorteria activo={!!tiroArmado} compacto={compacto} onZona={tocarZona} />
-
-      <GrupoBotones titulo="Porteros" cols={2} conBorde>
+      <GrupoBotones titulo="Portero" cols={2} conBorde>
         {BOTONES_TIRO_RIVAL.map((b) => (
-          <BotonTiroUI
+          <BotonAccion
             key={`${b.equipoOrigen}-${b.resultado}`}
-            boton={b}
-            armado={esArmado(b)}
+            label={b.label}
+            color={b.color}
             count={contarBotonTiro(eventos, b)}
+            armado={esBotonArmado(b)}
+            disabled={!jugadorSel || !esJugadorActualPortero}
             onClick={() => tocarBotonTiro(b)}
           />
         ))}
       </GrupoBotones>
 
-      <GrupoBotones titulo="Pérdidas / exclusión" cols={3} conBorde>
-        {ACCIONES_PERDIDA_EXCLUSION.map((a) => (
-          <button
-            key={a.label}
-            onClick={() => registrarTabla(a)}
-            className="flex h-11 flex-col items-center justify-center gap-1 rounded-xl border border-white/[.09] bg-white/[.05] px-1.5 text-center active:scale-[0.96]"
-          >
-            <span className="text-[10px] leading-[1.15] text-white/85">{a.label}</span>
-            <span className="stat-number text-sm" style={{ color: a.color }}>
-              {contarTabla(eventos, a)}
-            </span>
-          </button>
+      <GrupoBotones titulo="Pérdida / Robo" cols={2} conBorde>
+        <BotonAccion label="Robo" color="var(--color-success)" count={robos(eventos)} disabled={!jugadorSel} onClick={() => registrarPerdidaRobo("rival")} />
+        <BotonAccion label="Pérdida" color="var(--color-warning)" count={perdidas(eventos)} disabled={!jugadorSel} onClick={() => registrarPerdidaRobo("propio")} />
+      </GrupoBotones>
+
+      <GrupoBotones titulo="Sanción" cols={4} conBorde>
+        <BotonAccion label="Exclusión 2'" color="var(--color-warning)" count={exclusiones(eventos)} disabled={!jugadorSel} onClick={registrarExclusion} />
+        {BOTONES_TARJETA.map((b) => (
+          <BotonAccion
+            key={b.color}
+            label={b.label}
+            color={b.hex}
+            count={eventos.filter((e) => e.tipo === "tarjeta" && e.color_tarjeta === b.color).length}
+            disabled={!jugadorSel}
+            onClick={() => registrarTarjeta(b.color)}
+          />
         ))}
       </GrupoBotones>
 
       <GrupoBotones titulo="Otros" cols={2} conBorde>
         {ACCIONES_JSONB.map((a) => (
-          <button
+          <BotonAccion
             key={a.tipo}
+            label={a.label}
+            color={a.color}
+            count={eventosJsonb.filter((e) => e.tipo === a.tipo).length}
+            disabled={!jugadorSel}
             onClick={() => registrarJsonb(a.tipo)}
-            className="flex h-11 flex-col items-center justify-center gap-1 rounded-xl border border-white/[.09] bg-white/[.05] px-1.5 text-center active:scale-[0.96]"
-          >
-            <span className="text-[10px] leading-[1.15] text-white/85">{a.label}</span>
-            <span className="stat-number text-sm" style={{ color: a.color }}>
-              {eventosJsonb.filter((e) => e.tipo === a.tipo).length}
-            </span>
-          </button>
+          />
         ))}
       </GrupoBotones>
+
+      <div className="flex items-center gap-2 border-t border-white/[.06] pt-3">
+        <div className="min-w-0 flex-1">
+          <div className="text-[13px] font-semibold text-white">{statusMain}</div>
+          <div className="mt-0.5 text-[9px] font-semibold uppercase tracking-[0.1em] text-white/45">{statusHint}</div>
+        </div>
+        <button
+          onClick={anular}
+          className="flex h-8 shrink-0 items-center rounded-lg bg-white/[.08] px-3 text-[10px] font-semibold uppercase tracking-[0.08em] text-white/60"
+        >
+          Anular
+        </button>
+      </div>
     </div>
   );
 
@@ -370,7 +548,7 @@ export function ContadoresEnVivo({
       <div className="flex flex-col gap-1.5">
         {toquesDesc.length === 0 && (
           <div className="rounded-xl border border-dashed border-white/[.14] px-3.5 py-5 text-center text-xs text-white/35">
-            Sin acciones registradas. Arranca el cronómetro y pulsa una acción.
+            Sin acciones registradas. Selecciona un jugador y pulsa una acción.
           </div>
         )}
         {toquesDesc.map((t) => {
@@ -390,6 +568,7 @@ export function ContadoresEnVivo({
                 <div className="text-[13px] font-medium text-white">{t.label}</div>
                 <div className="mt-0.5 truncate text-[11px] text-white/42">{quien}</div>
               </div>
+              {t.detalle && <span className="stat-number shrink-0 text-[10px] tracking-[0.04em] text-white/40">{t.detalle}</span>}
               {t.afectaMarcador && indiceGol >= 0 && (
                 <span className="stat-number shrink-0 text-xs tracking-[0.04em] text-white/45">
                   {marcadorHastaTabla(golesDesc, indiceGol)}
@@ -401,6 +580,8 @@ export function ContadoresEnVivo({
       </div>
     </div>
   );
+
+  const panelStatsTitulo = jugadorActual ? `#${jugadorActual.dorsal ?? "—"} ${jugadorActual.nombre}` : "Totales del equipo";
 
   if (compacto) {
     return (
@@ -460,8 +641,9 @@ export function ContadoresEnVivo({
         </div>
 
         <div className="flex min-h-0 flex-1">
-          <div className="flex w-[44%] shrink-0 flex-col gap-2.5 overflow-y-auto border-r border-white/[.07] py-2.5">
+          <div className="flex w-[46%] shrink-0 flex-col gap-2.5 overflow-y-auto border-r border-white/[.07] py-2.5">
             {jugadorBlock}
+            <div className="px-3">{zonaBlock}</div>
             <div className="px-3">{accionesBlock}</div>
           </div>
           <div className="flex-1 overflow-y-auto px-3 py-2.5">{cronologiaBlock}</div>
@@ -536,11 +718,24 @@ export function ContadoresEnVivo({
         </div>
       </div>
 
-      <div className="border-b border-white/[.07] py-3">{jugadorBlock}</div>
+      <div className="flex flex-col gap-3 p-3">
+        {/* Bajo `lg:`, jugadorBlock ocupa la primera columna (se convierte en
+            lista vertical, ver arriba) — por eso no lleva envoltorio propio
+            con borde inferior aquí, ese borde solo tiene sentido en móvil
+            donde va apilado encima de Zona/Acción. */}
+        <div className="border-b border-white/[.07] pb-3 lg:hidden">{jugadorBlock}</div>
 
-      <div className="px-4 pb-2 pt-3.5">{cronologiaBlock}</div>
+        <div className="flex flex-col gap-3 lg:grid lg:grid-cols-[200px_minmax(0,1fr)_320px] lg:items-start">
+          <div className="hidden lg:block">{jugadorBlock}</div>
+          {zonaBlock}
+          {accionesBlock}
+        </div>
 
-      <div className="border-t border-white/[.08] bg-[#141417] p-3.5 pb-6">{accionesBlock}</div>
+        <div className="flex flex-col gap-3 lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+          <PanelStats eventos={eventos} jugadorId={jugadorSel} titulo={panelStatsTitulo} />
+          {cronologiaBlock}
+        </div>
+      </div>
     </div>
   );
 }
@@ -552,14 +747,14 @@ function GrupoBotones({
   children,
 }: {
   titulo: string;
-  cols: 2 | 3 | 4;
-  /** Separador sutil arriba del grupo — ayuda a que 5 grupos seguidos se
+  cols: 2 | 4;
+  /** Separador sutil arriba del grupo — ayuda a que varios grupos seguidos se
    * lean como categorías distintas y no como una sola masa de botones. Se
    * omite en el primero (ya lo separa el interruptor "Penalti" de encima). */
   conBorde?: boolean;
   children: React.ReactNode;
 }) {
-  const colsClass = cols === 2 ? "grid-cols-2" : cols === 3 ? "grid-cols-3" : "grid-cols-4";
+  const colsClass = cols === 2 ? "grid-cols-2" : "grid-cols-4";
   return (
     <div className={cn(conBorde && "border-t border-white/[.06] pt-4")}>
       <div className="mb-1.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-white/45">{titulo}</div>
@@ -568,27 +763,32 @@ function GrupoBotones({
   );
 }
 
-function BotonTiroUI({
-  boton,
-  armado,
+function BotonAccion({
+  label,
+  color,
   count,
+  armado,
+  disabled,
   onClick,
 }: {
-  boton: BotonTiro;
-  armado: boolean;
+  label: string;
+  color: string;
   count: number;
+  armado?: boolean;
+  disabled?: boolean;
   onClick: () => void;
 }) {
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
       className={cn(
-        "flex h-11 flex-col items-center justify-center gap-1 rounded-xl border px-1.5 text-center transition-colors active:scale-[0.96]",
+        "flex h-11 flex-col items-center justify-center gap-1 rounded-xl border px-1.5 text-center transition-colors active:scale-[0.96] disabled:opacity-35 disabled:pointer-events-none",
         armado ? "border-[var(--color-accent)] bg-[var(--color-accent)]/15" : "border-white/[.09] bg-white/[.05]",
       )}
     >
-      <span className="text-[10px] leading-[1.15] text-white/85">{boton.label}</span>
-      <span className="stat-number text-sm" style={{ color: boton.color }}>
+      <span className="text-[10px] leading-[1.15] text-white/85">{label}</span>
+      <span className="stat-number text-sm" style={{ color }}>
         {count}
       </span>
     </button>
@@ -610,7 +810,7 @@ function ChipJugador({
     <button
       onClick={onClick}
       className={cn(
-        "flex h-[34px] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[10px] px-3.5",
+        "flex h-[34px] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[10px] px-3.5 lg:w-full lg:justify-start",
         activo ? "bg-[var(--color-accent)]" : "bg-white/[.08]",
       )}
     >
