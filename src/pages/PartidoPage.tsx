@@ -9,12 +9,14 @@ import { Input } from "@/components/ui/field";
 import { PartidoModal } from "@/components/calendario/PartidoModal";
 import { resultadoPartido, marcadorPartido, RESULTADO_BADGE } from "@/lib/partidoStats";
 import { aplicarPendientes, guardarCache, leerCache, obtenerCola, onQueueChange } from "@/lib/offline/queue";
-import type { PartidosRow } from "@/types/database";
+import { agruparPorPartido, cargarEventosEquipo } from "@/lib/eventos";
+import type { EventosRow, PartidosRow } from "@/types/database";
 
 export function PartidoPage() {
   const { equipoId } = useEquipo();
   const navigate = useNavigate();
   const [partidos, setPartidos] = useState<PartidosRow[]>([]);
+  const [eventosPorPartido, setEventosPorPartido] = useState<Map<string, EventosRow[]>>(new Map());
   const [cargando, setCargando] = useState(true);
   const [nuevoAbierto, setNuevoAbierto] = useState(false);
   const [verMas, setVerMas] = useState(false);
@@ -36,6 +38,7 @@ export function PartidoPage() {
     if (data) void guardarCache("partidos", equipoId, data);
     const cola = await obtenerCola();
     setPartidos(aplicarPendientes("partidos", base, cola).sort((a, b) => b.fecha.localeCompare(a.fecha)));
+    setEventosPorPartido(agruparPorPartido(await cargarEventosEquipo(equipoId)));
     setCargando(false);
   }
 
@@ -57,7 +60,8 @@ export function PartidoPage() {
   }, [partidos, busquedaRival, desde, hasta]);
 
   function PartidoItem({ p }: { p: PartidosRow }) {
-    const resultado = resultadoPartido(p);
+    const eventosP = eventosPorPartido.get(p.id) ?? [];
+    const resultado = resultadoPartido(p, eventosP);
     const badge = resultado ? RESULTADO_BADGE[resultado] : null;
     return (
       <button
@@ -78,7 +82,7 @@ export function PartidoPage() {
             {new Date(p.fecha + "T00:00:00").toLocaleDateString("es-ES", { day: "2-digit", month: "short" })}
           </div>
         </div>
-        <span className="stat-number shrink-0 text-lg tracking-[0.02em]">{marcadorPartido(p)}</span>
+        <span className="stat-number shrink-0 text-lg tracking-[0.02em]">{marcadorPartido(p, eventosP)}</span>
       </button>
     );
   }

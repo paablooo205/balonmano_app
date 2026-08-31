@@ -7,11 +7,13 @@ import { useEquipo } from "@/hooks/useEquipo";
 import { useEntrenador } from "@/hooks/useEntrenador";
 import { microcicloDeFecha, mesocicloDeMicrociclo } from "@/hooks/useCalendarData";
 import { RESULTADO_BADGE, marcadorPartido, resultadoPartido, resumenResultados } from "@/lib/partidoStats";
+import { agruparPorPartido, cargarEventosEquipo } from "@/lib/eventos";
 import { crearSesionRapida } from "@/lib/sesiones";
 import { DIAS_SEMANA, MESES, getWeekDates, toISODate } from "@/lib/calendar";
 import type {
   AsistenciaRow,
   DiaSemana,
+  EventosRow,
   HorarioRecurrenteRow,
   JugadoresRow,
   MesociclosRow,
@@ -31,12 +33,13 @@ export function InicioPage() {
   const [mesociclos, setMesociclos] = useState<MesociclosRow[]>([]);
   const [jugadores, setJugadores] = useState<JugadoresRow[]>([]);
   const [asistencia, setAsistencia] = useState<AsistenciaRow[]>([]);
+  const [eventosPorPartido, setEventosPorPartido] = useState<Map<string, EventosRow[]>>(new Map());
   const [cargando, setCargando] = useState(true);
 
   useEffect(() => {
     (async () => {
       setCargando(true);
-      const [s, p, h, mc, ms, j, a] = await Promise.all([
+      const [s, p, h, mc, ms, j, a, ev] = await Promise.all([
         supabase.from("sesiones").select("*").eq("equipo_id", equipoId),
         supabase.from("partidos").select("*").eq("equipo_id", equipoId).order("fecha", { ascending: false }),
         supabase.from("horario_recurrente").select("*").eq("equipo_id", equipoId),
@@ -44,6 +47,7 @@ export function InicioPage() {
         supabase.from("mesociclos").select("*").eq("equipo_id", equipoId),
         supabase.from("jugadores").select("*").eq("equipo_id", equipoId),
         supabase.from("asistencia").select("*").eq("equipo_id", equipoId),
+        cargarEventosEquipo(equipoId),
       ]);
       setSesiones(s.data ?? []);
       setPartidos(p.data ?? []);
@@ -52,6 +56,7 @@ export function InicioPage() {
       setMesociclos(ms.data ?? []);
       setJugadores(j.data ?? []);
       setAsistencia(a.data ?? []);
+      setEventosPorPartido(agruparPorPartido(ev));
       setCargando(false);
     })();
   }, [equipoId]);
@@ -68,8 +73,8 @@ export function InicioPage() {
   const microcicloHoy = microcicloDeFecha(microciclos, hoyISO);
   const mesocicloHoy = mesocicloDeMicrociclo(mesociclos, microcicloHoy);
   const proximoPartido = partidos.filter((p) => p.fecha >= hoyISO).sort((a, b) => a.fecha.localeCompare(b.fecha))[0];
-  const ultimosResultados = partidos.filter((p) => resultadoPartido(p) !== null).slice(0, 4);
-  const record = resumenResultados(partidos);
+  const ultimosResultados = partidos.filter((p) => resultadoPartido(p, eventosPorPartido.get(p.id) ?? []) !== null).slice(0, 4);
+  const record = resumenResultados(partidos, eventosPorPartido);
 
   const diasSemana = getWeekDates(hoy).map(toISODate);
   const entrenamientosSemana = sesiones.filter((s) => diasSemana.includes(s.fecha)).length;
@@ -193,7 +198,8 @@ export function InicioPage() {
         ) : (
           <div className="card-surface divide-y divide-[var(--color-border)] overflow-hidden p-0">
             {ultimosResultados.map((p) => {
-              const r = resultadoPartido(p)!;
+              const eventosP = eventosPorPartido.get(p.id) ?? [];
+              const r = resultadoPartido(p, eventosP)!;
               const badge = RESULTADO_BADGE[r];
               return (
                 <button
@@ -214,7 +220,7 @@ export function InicioPage() {
                       {p.competicion ? ` · ${p.competicion}` : ""}
                     </div>
                   </div>
-                  <span className="stat-number shrink-0 text-lg">{marcadorPartido(p)}</span>
+                  <span className="stat-number shrink-0 text-lg">{marcadorPartido(p, eventosP)}</span>
                 </button>
               );
             })}

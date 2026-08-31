@@ -8,8 +8,9 @@ import { FichaTecnica } from "@/components/partido/FichaTecnica";
 import { PartidoModal } from "@/components/calendario/PartidoModal";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { aplicarPendientes, guardarCache, leerCache, obtenerCola, onQueueChange } from "@/lib/offline/queue";
+import { cargarEventosEquipo } from "@/lib/eventos";
 import { Button } from "@/components/ui/button";
-import type { JugadoresRow, PartidosRow } from "@/types/database";
+import type { EventosRow, JugadoresRow, PartidosRow } from "@/types/database";
 
 type Vista = "info" | "live" | "ficha";
 
@@ -19,6 +20,7 @@ export function PartidoDetailPage() {
   const navigate = useNavigate();
   const [partido, setPartido] = useState<PartidosRow | null>(null);
   const [jugadores, setJugadores] = useState<JugadoresRow[]>([]);
+  const [eventos, setEventos] = useState<EventosRow[]>([]);
   const [cargando, setCargando] = useState(true);
   const [vista, setVista] = useState<Vista>("info");
   const [editando, setEditando] = useState(false);
@@ -65,6 +67,10 @@ export function PartidoDetailPage() {
       .then(({ data }) => setJugadores(data ?? []));
   }, [equipoId]);
 
+  useEffect(() => {
+    cargarEventosEquipo(equipoId).then((todos) => setEventos(todos.filter((e) => e.partido_id === partidoId)));
+  }, [equipoId, partidoId]);
+
   if (cargando) {
     return <div className="card-surface p-6 text-center text-[var(--color-text-muted)]">Cargando...</div>;
   }
@@ -72,15 +78,15 @@ export function PartidoDetailPage() {
     return <div className="card-surface p-6 text-center text-[var(--color-text-muted)]">Partido no encontrado.</div>;
   }
 
-  const eventos = partido.estadisticas.eventos ?? [];
-
   if (vista === "live") {
     return (
       <ContadoresEnVivo
         partido={partido}
         equipoNombre={equipo?.nombre}
         jugadores={jugadores}
+        eventos={eventos}
         onActualizado={setPartido}
+        onEventosActualizados={setEventos}
         onBack={() => setVista("info")}
       />
     );
@@ -100,7 +106,7 @@ export function PartidoDetailPage() {
           onBack={() => setVista("info")}
           backLabel="Partido"
         />
-        <FichaTecnica partido={partido} jugadores={jugadores} />
+        <FichaTecnica partido={partido} jugadores={jugadores} eventos={eventos} />
       </div>
     );
   }
@@ -185,7 +191,9 @@ export function PartidoDetailPage() {
 
       <Button size="lg" variant="ink" className="w-full gap-2.5" onClick={() => setVista("live")}>
         <span className="h-[7px] w-[7px] rounded-full bg-[var(--color-accent)]" />
-        {eventos.length > 0 ? "Continuar partido en directo" : "Iniciar partido en directo"}
+        {eventos.length > 0 || (partido.estadisticas.eventos ?? []).length > 0
+          ? "Continuar partido en directo"
+          : "Iniciar partido en directo"}
       </Button>
       <button
         onClick={() => setVista("ficha")}

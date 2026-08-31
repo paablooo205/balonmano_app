@@ -1,30 +1,36 @@
-import { contar, eficaciaLanzamiento, golesContra, golesFavor, marcadorPartido } from "@/lib/partidoStats";
-import type { JugadoresRow, PartidosRow } from "@/types/database";
+import { ACCIONES_TABLA, contarTabla, eficaciaLanzamiento, golesContra, golesFavor, marcadorPartido } from "@/lib/partidoStats";
+import type { EventosRow, JugadoresRow, PartidosRow } from "@/types/database";
 
-export function FichaTecnica({ partido, jugadores }: { partido: PartidosRow; jugadores: JugadoresRow[] }) {
-  const eventos = partido.estadisticas.eventos ?? [];
+export function FichaTecnica({
+  partido,
+  jugadores,
+  eventos,
+}: {
+  partido: PartidosRow;
+  jugadores: JugadoresRow[];
+  eventos: EventosRow[];
+}) {
   const favor = golesFavor(eventos);
   const contra = golesContra(eventos);
   const eficacia = eficaciaLanzamiento(eventos);
   const hayEventos = eventos.length > 0;
 
+  const buscar = (label: string) => ACCIONES_TABLA.find((a) => a.label === label)!;
   const stats: { label: string; valor: number | string }[] = [
     { label: "Goles a favor", valor: favor },
     { label: "Goles en contra", valor: contra },
-    { label: "Paradas portero", valor: contar(eventos, "parada_portero") },
-    { label: "Balones ganados", valor: contar(eventos, "balon_ganado") },
-    { label: "Balones perdidos", valor: contar(eventos, "balon_perdido") },
-    { label: "Tiros fallados", valor: contar(eventos, "tiro_fallado") },
-    { label: "7m provocados", valor: contar(eventos, "siete_provocado") },
-    { label: "7m cometidos", valor: contar(eventos, "siete_cometido") },
-    { label: "7m fallados", valor: contar(eventos, "siete_fallado") },
-    { label: "Exclusiones", valor: contar(eventos, "exclusion_2min") },
+    { label: "Paradas portero", valor: contarTabla(eventos, buscar("Parada portero")) },
+    { label: "Balones ganados", valor: contarTabla(eventos, buscar("Balón ganado")) },
+    { label: "Balones perdidos", valor: contarTabla(eventos, buscar("Balón perdido")) },
+    { label: "Tiros fallados", valor: contarTabla(eventos, buscar("Tiro fallado")) },
+    { label: "7m fallados", valor: contarTabla(eventos, buscar("7m fallado")) },
+    { label: "Exclusiones", valor: contarTabla(eventos, buscar("Exclusión 2'")) },
     { label: "Eficacia de tiro", valor: eficacia !== null ? `${eficacia}%` : "—" },
   ];
 
   const goleadas = eventos
-    .filter((e) => e.tipo === "gol_favor" || e.tipo === "gol_contra" || e.tipo === "siete_metido")
-    .sort((a, b) => (a.minuto ?? 0) - (b.minuto ?? 0) || a.creado_en.localeCompare(b.creado_en));
+    .filter((e) => e.tipo === "tiro" && e.resultado === "gol")
+    .sort((a, b) => a.creado_en.localeCompare(b.creado_en));
 
   return (
     <div className="flex flex-col gap-4">
@@ -32,7 +38,7 @@ export function FichaTecnica({ partido, jugadores }: { partido: PartidosRow; jug
         <div className="text-sm text-[var(--color-text-muted)]">
           Resultado {hayEventos && <span className="text-[var(--color-text-muted)]">(de los toques en vivo)</span>}
         </div>
-        <div className="stat-number text-3xl">{marcadorPartido(partido)}</div>
+        <div className="stat-number text-3xl">{marcadorPartido(partido, eventos)}</div>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -46,21 +52,18 @@ export function FichaTecnica({ partido, jugadores }: { partido: PartidosRow; jug
 
       {goleadas.length > 0 && (
         <div className="card-surface p-4">
-          <div className="mb-3 text-sm font-medium text-[var(--color-accent)]">Goles por minuto</div>
+          <div className="mb-3 text-sm font-medium text-[var(--color-accent)]">Goles</div>
           <div className="flex flex-col gap-1.5">
             {goleadas.map((e) => {
               const jugador = e.jugador_id ? jugadores.find((j) => j.id === e.jugador_id) : null;
-              const esPropio = e.tipo !== "gol_contra";
+              const esPropio = e.equipo_origen === "propio";
               return (
                 <div key={e.id} className="flex items-center gap-2 text-sm">
-                  <span className="w-10 shrink-0 font-mono text-[var(--color-text-muted)]">
-                    {e.minuto !== null ? `${e.minuto}'` : "—"}
-                  </span>
                   <span className={esPropio ? "text-[var(--color-text)]" : "text-[var(--color-text-muted)]"}>
                     {esPropio
                       ? jugador
-                        ? `Gol de ${jugador.nombre}${e.tipo === "siete_metido" ? " (7m)" : ""}`
-                        : `Gol propio${e.tipo === "siete_metido" ? " (7m)" : ""}`
+                        ? `Gol de ${jugador.nombre}${e.es_penalti ? " (7m)" : ""}`
+                        : `Gol propio${e.es_penalti ? " (7m)" : ""}`
                       : `Gol de ${partido.rival}`}
                   </span>
                 </div>
