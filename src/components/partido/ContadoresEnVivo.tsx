@@ -7,10 +7,13 @@ import { CuadriculaPorteria } from "@/components/partido/CuadriculaPorteria";
 import { useFullscreenHorizontal } from "@/hooks/useFullscreenHorizontal";
 import { useMovilHorizontal } from "@/hooks/useMovilHorizontal";
 import {
-  ACCIONES_INSTANTANEAS,
   ACCIONES_JSONB,
+  ACCIONES_PERDIDA_EXCLUSION,
+  BOTONES_TIRO_PROPIO,
+  BOTONES_TIRO_RIVAL,
   cambiarParte,
   colorTiro,
+  contarBotonTiro,
   contarTabla,
   crearEventoJsonb,
   etiquetaTiro,
@@ -22,25 +25,37 @@ import {
   marcadorHastaTabla,
   minutoActual,
   pausar,
+  requiereZona,
   segundosPartido,
+  type BotonTiro,
 } from "@/lib/partidoStats";
 import { cn } from "@/lib/utils";
-import type { EventosRow, JugadoresRow, PartidosRow, ResultadoTiro, TipoEventoPartido } from "@/types/database";
+import type { EquipoOrigenEvento, EventosRow, JugadoresRow, PartidosRow, ResultadoTiro, TipoEventoPartido } from "@/types/database";
 
 /**
  * Marcador en vivo — calcado del estado "isLive" del prototipo de Claude
- * Design: reloj por partes, selector de jugador/a por chips, rejilla de
- * acciones y cronología. Ocupa toda la pantalla (overlay `fixed inset-0`,
- * fuera del `<main>` con nav/paddings) e intenta forzar horizontal +
- * pantalla completa del navegador vía `useFullscreenHorizontal` (mejor
+ * Design: reloj por partes, selector de jugador/a por chips, panel de
+ * acciones agrupado y cronología. Ocupa toda la pantalla (overlay `fixed
+ * inset-0`, fuera del `<main>` con nav/paddings) e intenta forzar horizontal
+ * + pantalla completa del navegador vía `useFullscreenHorizontal` (mejor
  * esfuerzo: no soportado en iOS Safari). En horizontal en móvil (viewport
  * bajo) cambia a un layout compacto en dos columnas.
  *
- * Desde 0017_eventos.sql, los 9 contadores (goles, tiros, paradas,
- * pérdidas, exclusiones) escriben en la tabla `eventos`; "7m
- * provocado"/"7m cometido" y las sustituciones (entra/sale pista) siguen en
- * `partido.estadisticas` (jsonb), igual que el cronómetro. La cronología y
- * "deshacer" fusionan ambas fuentes por `creado_en`.
+ * Desde 0017_eventos.sql, los tiros/pérdidas/exclusiones escriben en la
+ * tabla `eventos`; "7m provocado"/"7m cometido" y las sustituciones
+ * (entra/sale pista) siguen en `partido.estadisticas` (jsonb), igual que el
+ * cronómetro. La cronología y "deshacer" fusionan ambas fuentes por
+ * `creado_en`.
+ *
+ * El panel de acciones agrupa los botones por categoría (Tiros / Porteros /
+ * Pérdidas y exclusión / Otros) para encontrar el botón rápido a media
+ * jugada. La cuadrícula de portería está siempre visible entre "Tiros" y
+ * "Porteros" — atenuada en reposo, se arma al tocar Gol/Parado/Parada/Gol en
+ * contra (los únicos resultados "a portería") y tocar una zona confirma y
+ * desarma en el mismo gesto; Fuera/Poste/pérdidas/exclusión no tocan la
+ * cuadrícula, se registran al instante. El interruptor "Penalti" se aplica
+ * al siguiente tiro que se registre (de cualquier botón) y se apaga solo
+ * después, para no dejarlo pegado por error en el siguiente tiro normal.
  */
 export function ContadoresEnVivo({
   partido,
@@ -63,14 +78,15 @@ export function ContadoresEnVivo({
   const compacto = useMovilHorizontal();
   const [tick, setTick] = useState(0);
   const [jugadorSel, setJugadorSel] = useState<string | null>(null);
-  const [grillaAbierta, setGrillaAbierta] = useState(false);
+  const [sietePendiente, setSietePendiente] = useState(false);
+  const [tiroArmado, setTiroArmado] = useState<BotonTiro | null>(null);
   const cronometro = partido.estadisticas.cronometro;
   const eventosJsonb = partido.estadisticas.eventos ?? [];
 
-  // Cronología unificada: eventos de tabla (goles/tiros/paradas/pérdidas/
-  // exclusiones) + eventos jsonb (7m provocado/cometido, entra/sale pista),
-  // todos con la misma forma para poder ordenarlos y "deshacer" el más
-  // reciente sea cual sea su origen.
+  // Cronología unificada: eventos de tabla (tiros/pérdidas/exclusiones) +
+  // eventos jsonb (7m provocado/cometido, entra/sale pista), todos con la
+  // misma forma para poder ordenarlos y "deshacer" el más reciente sea cual
+  // sea su origen.
   type ToqueUnificado = {
     id: string;
     origen: "tabla" | "jsonb";
@@ -96,7 +112,7 @@ export function ContadoresEnVivo({
         afectaMarcador: e.resultado === "gol",
       };
     }
-    const accion = ACCIONES_INSTANTANEAS.find((a) => a.tipo === e.tipo && a.equipoOrigen === e.equipo_origen);
+    const accion = ACCIONES_PERDIDA_EXCLUSION.find((a) => a.tipo === e.tipo && a.equipoOrigen === e.equipo_origen);
     return {
       id: e.id,
       origen: "tabla",
@@ -158,7 +174,7 @@ export function ContadoresEnVivo({
     void persistirEstadisticas({ ...partido.estadisticas, cronometro: cambiarParte(cronometro) });
   }
 
-  function registrarTabla(accion: (typeof ACCIONES_INSTANTANEAS)[number]) {
+  function registrarTabla(accion: (typeof ACCIONES_PERDIDA_EXCLUSION)[number]) {
     const nuevo: EventosRow = {
       id: crypto.randomUUID(),
       equipo_id: partido.equipo_id,
@@ -176,23 +192,41 @@ export function ContadoresEnVivo({
     void registrarEvento(nuevo);
   }
 
-  function registrarTiroPropio({ resultado, zona, esPenalti }: { resultado: ResultadoTiro; zona: number; esPenalti: boolean }) {
+  function esArmado(boton: BotonTiro): boolean {
+    return tiroArmado?.resultado === boton.resultado && tiroArmado?.equipoOrigen === boton.equipoOrigen;
+  }
+
+  function registrarTiro(equipoOrigen: EquipoOrigenEvento, resultado: ResultadoTiro, zona: number | null) {
     const nuevo: EventosRow = {
       id: crypto.randomUUID(),
       equipo_id: partido.equipo_id,
       partido_id: partido.id,
       sesion_id: null,
-      jugador_id: jugadorSel,
-      equipo_origen: "propio",
+      jugador_id: equipoOrigen === "rival" ? null : jugadorSel,
+      equipo_origen: equipoOrigen,
       tipo: "tiro",
       resultado,
       zona,
-      es_penalti: esPenalti,
+      es_penalti: sietePendiente,
       creado_en: new Date().toISOString(),
     };
     onEventosActualizados([...eventos, nuevo]);
     void registrarEvento(nuevo);
-    setGrillaAbierta(false);
+    setSietePendiente(false);
+  }
+
+  function tocarBotonTiro(boton: BotonTiro) {
+    if (!requiereZona(boton.resultado)) {
+      registrarTiro(boton.equipoOrigen, boton.resultado, null);
+      return;
+    }
+    setTiroArmado(esArmado(boton) ? null : boton);
+  }
+
+  function tocarZona(zona: number) {
+    if (!tiroArmado) return;
+    registrarTiro(tiroArmado.equipoOrigen, tiroArmado.resultado, zona);
+    setTiroArmado(null);
   }
 
   function registrarJsonb(tipo: TipoEventoPartido) {
@@ -222,15 +256,6 @@ export function ContadoresEnVivo({
 
   const corriendo = !!cronometro?.corriendo;
   const estado = corriendo ? "En juego" : toquesDesc.length > 0 ? "Pausado" : "Sin empezar";
-
-  const grillaPorteria = (
-    <CuadriculaPorteria
-      open={grillaAbierta}
-      titulo="Tiro propio"
-      onClose={() => setGrillaAbierta(false)}
-      onConfirmar={registrarTiroPropio}
-    />
-  );
 
   const jugadorBlock = (
     <div>
@@ -266,50 +291,73 @@ export function ContadoresEnVivo({
     </div>
   );
 
-  const totalTirosPropios = eventos.filter((e) => e.tipo === "tiro" && e.equipo_origen === "propio").length;
-
   const accionesBlock = (
-    <div className={cn("grid gap-1.5", compacto ? "grid-cols-4" : "grid-cols-3")}>
+    <div className="flex flex-col gap-4">
       <button
-        onClick={() => setGrillaAbierta(true)}
+        onClick={() => setSietePendiente((v) => !v)}
         className={cn(
-          "flex flex-col items-center justify-center gap-1 rounded-xl border border-white/[.09] bg-white/[.05] px-1.5 text-center active:scale-[0.96]",
-          compacto ? "h-[46px]" : "h-[60px]",
+          "flex h-11 items-center justify-center rounded-xl text-[12px] font-semibold transition-colors",
+          sietePendiente ? "bg-[var(--color-accent)] text-white" : "bg-white/[.08] text-white/60",
         )}
       >
-        <span className={cn("leading-[1.15] text-white/85", compacto ? "text-[9px]" : "text-[11px]")}>Tiro propio</span>
-        <span className="stat-number text-sm text-white/85">{totalTirosPropios}</span>
+        Penalti (7m)
       </button>
-      {ACCIONES_INSTANTANEAS.map((a, i) => (
-        <button
-          key={i}
-          onClick={() => registrarTabla(a)}
-          className={cn(
-            "flex flex-col items-center justify-center gap-1 rounded-xl border border-white/[.09] bg-white/[.05] px-1.5 text-center active:scale-[0.96]",
-            compacto ? "h-[46px]" : "h-[60px]",
-          )}
-        >
-          <span className={cn("leading-[1.15] text-white/85", compacto ? "text-[9px]" : "text-[11px]")}>{a.label}</span>
-          <span className="stat-number text-sm" style={{ color: a.color }}>
-            {contarTabla(eventos, a)}
-          </span>
-        </button>
-      ))}
-      {ACCIONES_JSONB.map((a) => (
-        <button
-          key={a.tipo}
-          onClick={() => registrarJsonb(a.tipo)}
-          className={cn(
-            "flex flex-col items-center justify-center gap-1 rounded-xl border border-white/[.09] bg-white/[.05] px-1.5 text-center active:scale-[0.96]",
-            compacto ? "h-[46px]" : "h-[60px]",
-          )}
-        >
-          <span className={cn("leading-[1.15] text-white/85", compacto ? "text-[9px]" : "text-[11px]")}>{a.label}</span>
-          <span className="stat-number text-sm" style={{ color: a.color }}>
-            {eventosJsonb.filter((e) => e.tipo === a.tipo).length}
-          </span>
-        </button>
-      ))}
+
+      <GrupoBotones titulo="Tiros" cols={4}>
+        {BOTONES_TIRO_PROPIO.map((b) => (
+          <BotonTiroUI
+            key={`${b.equipoOrigen}-${b.resultado}`}
+            boton={b}
+            armado={esArmado(b)}
+            count={contarBotonTiro(eventos, b)}
+            onClick={() => tocarBotonTiro(b)}
+          />
+        ))}
+      </GrupoBotones>
+
+      <CuadriculaPorteria activo={!!tiroArmado} compacto={compacto} onZona={tocarZona} />
+
+      <GrupoBotones titulo="Porteros" cols={2} conBorde>
+        {BOTONES_TIRO_RIVAL.map((b) => (
+          <BotonTiroUI
+            key={`${b.equipoOrigen}-${b.resultado}`}
+            boton={b}
+            armado={esArmado(b)}
+            count={contarBotonTiro(eventos, b)}
+            onClick={() => tocarBotonTiro(b)}
+          />
+        ))}
+      </GrupoBotones>
+
+      <GrupoBotones titulo="Pérdidas / exclusión" cols={3} conBorde>
+        {ACCIONES_PERDIDA_EXCLUSION.map((a) => (
+          <button
+            key={a.label}
+            onClick={() => registrarTabla(a)}
+            className="flex h-11 flex-col items-center justify-center gap-1 rounded-xl border border-white/[.09] bg-white/[.05] px-1.5 text-center active:scale-[0.96]"
+          >
+            <span className="text-[10px] leading-[1.15] text-white/85">{a.label}</span>
+            <span className="stat-number text-sm" style={{ color: a.color }}>
+              {contarTabla(eventos, a)}
+            </span>
+          </button>
+        ))}
+      </GrupoBotones>
+
+      <GrupoBotones titulo="Otros" cols={2} conBorde>
+        {ACCIONES_JSONB.map((a) => (
+          <button
+            key={a.tipo}
+            onClick={() => registrarJsonb(a.tipo)}
+            className="flex h-11 flex-col items-center justify-center gap-1 rounded-xl border border-white/[.09] bg-white/[.05] px-1.5 text-center active:scale-[0.96]"
+          >
+            <span className="text-[10px] leading-[1.15] text-white/85">{a.label}</span>
+            <span className="stat-number text-sm" style={{ color: a.color }}>
+              {eventosJsonb.filter((e) => e.tipo === a.tipo).length}
+            </span>
+          </button>
+        ))}
+      </GrupoBotones>
     </div>
   );
 
@@ -418,7 +466,6 @@ export function ContadoresEnVivo({
           </div>
           <div className="flex-1 overflow-y-auto px-3 py-2.5">{cronologiaBlock}</div>
         </div>
-        {grillaPorteria}
       </div>
     );
   }
@@ -494,8 +541,57 @@ export function ContadoresEnVivo({
       <div className="px-4 pb-2 pt-3.5">{cronologiaBlock}</div>
 
       <div className="border-t border-white/[.08] bg-[#141417] p-3.5 pb-6">{accionesBlock}</div>
-      {grillaPorteria}
     </div>
+  );
+}
+
+function GrupoBotones({
+  titulo,
+  cols,
+  conBorde,
+  children,
+}: {
+  titulo: string;
+  cols: 2 | 3 | 4;
+  /** Separador sutil arriba del grupo — ayuda a que 5 grupos seguidos se
+   * lean como categorías distintas y no como una sola masa de botones. Se
+   * omite en el primero (ya lo separa el interruptor "Penalti" de encima). */
+  conBorde?: boolean;
+  children: React.ReactNode;
+}) {
+  const colsClass = cols === 2 ? "grid-cols-2" : cols === 3 ? "grid-cols-3" : "grid-cols-4";
+  return (
+    <div className={cn(conBorde && "border-t border-white/[.06] pt-4")}>
+      <div className="mb-1.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-white/45">{titulo}</div>
+      <div className={cn("grid gap-1.5", colsClass)}>{children}</div>
+    </div>
+  );
+}
+
+function BotonTiroUI({
+  boton,
+  armado,
+  count,
+  onClick,
+}: {
+  boton: BotonTiro;
+  armado: boolean;
+  count: number;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "flex h-11 flex-col items-center justify-center gap-1 rounded-xl border px-1.5 text-center transition-colors active:scale-[0.96]",
+        armado ? "border-[var(--color-accent)] bg-[var(--color-accent)]/15" : "border-white/[.09] bg-white/[.05]",
+      )}
+    >
+      <span className="text-[10px] leading-[1.15] text-white/85">{boton.label}</span>
+      <span className="stat-number text-sm" style={{ color: boton.color }}>
+        {count}
+      </span>
+    </button>
   );
 }
 

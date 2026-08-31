@@ -9,25 +9,53 @@ import type {
   TipoEventoPartido,
 } from "@/types/database";
 
-/** Las 5 acciones de un solo toque (sin zona: no son un tiro, o son un tiro
- * rival que no llevamos por zona todavía — llega en un punto posterior). Los
- * tiros propios (gol/fuera/parado/poste, con o sin penalti) ya no están aquí:
- * se registran con `CuadriculaPorteria`, que cubre las 8 combinaciones
- * resultado×penalti con un único flujo en vez de un botón por combinación. */
-export const ACCIONES_INSTANTANEAS: {
+/** Un tiro (propio o rival) para el panel de "Partido en directo": resultado
+ * fijo, equipo_origen fijo. El penalti no forma parte del botón — es un
+ * interruptor aparte ("Penalti") que se aplica al siguiente tiro que se
+ * registre, sea cual sea. */
+export type BotonTiro = { resultado: ResultadoTiro; equipoOrigen: EquipoOrigenEvento; label: string; color: string };
+
+/** Grupo "Tiros" — resultado de nuestros lanzamientos. */
+export const BOTONES_TIRO_PROPIO: BotonTiro[] = [
+  { resultado: "gol", equipoOrigen: "propio", label: "Gol", color: "var(--color-success)" },
+  { resultado: "parado", equipoOrigen: "propio", label: "Parado", color: "#3d8ad6" },
+  { resultado: "fuera", equipoOrigen: "propio", label: "Fuera", color: "var(--color-accent)" },
+  { resultado: "poste", equipoOrigen: "propio", label: "Poste", color: "var(--color-accent)" },
+];
+
+/** Grupo "Porteros" — resultado de los lanzamientos del rival contra nosotros. */
+export const BOTONES_TIRO_RIVAL: BotonTiro[] = [
+  { resultado: "parado", equipoOrigen: "rival", label: "Parada", color: "#3d8ad6" },
+  { resultado: "gol", equipoOrigen: "rival", label: "Gol en contra", color: "var(--color-accent)" },
+];
+
+/** Un tiro necesita zona (arma la cuadrícula de portería) solo si va a
+ * portería — gol o parado. Fuera/poste no llevan zona: no hay "dónde". */
+export function requiereZona(resultado: ResultadoTiro): boolean {
+  return resultado === "gol" || resultado === "parado";
+}
+
+/** Cuenta los tiros que coinciden con un botón de `BOTONES_TIRO_PROPIO`/`BOTONES_TIRO_RIVAL`
+ * (mismo resultado + equipo_origen), sin distinguir penalti — el número del
+ * botón suma normales y de 7m juntos. */
+export function contarBotonTiro(eventos: EventosRow[], boton: BotonTiro): number {
+  return eventos.filter((e) => e.tipo === "tiro" && e.equipo_origen === boton.equipoOrigen && e.resultado === boton.resultado).length;
+}
+
+/** Las 3 acciones de un solo toque que quedan (pérdida propia/rival y
+ * exclusión) — sin zona, sin penalti posible (ver check `eventos_penalti_solo_tiro`
+ * en 0017_eventos.sql: es_penalti solo puede ser true si tipo='tiro'). */
+export const ACCIONES_PERDIDA_EXCLUSION: {
   tipo: TipoEvento;
   equipoOrigen: EquipoOrigenEvento;
-  resultado: ResultadoTiro | null;
-  esPenalti: boolean;
+  resultado: null;
+  esPenalti: false;
   label: string;
   color: string;
-  afectaMarcador: boolean;
 }[] = [
-  { tipo: "tiro", equipoOrigen: "rival", resultado: "gol", esPenalti: false, label: "Gol en contra", color: "var(--color-accent)", afectaMarcador: true },
-  { tipo: "tiro", equipoOrigen: "rival", resultado: "parado", esPenalti: false, label: "Parada portero", color: "#3d8ad6", afectaMarcador: false },
-  { tipo: "perdida", equipoOrigen: "rival", resultado: null, esPenalti: false, label: "Balón ganado", color: "var(--color-success)", afectaMarcador: false },
-  { tipo: "perdida", equipoOrigen: "propio", resultado: null, esPenalti: false, label: "Balón perdido", color: "var(--color-warning)", afectaMarcador: false },
-  { tipo: "exclusion", equipoOrigen: "propio", resultado: null, esPenalti: false, label: "Exclusión 2'", color: "var(--color-warning)", afectaMarcador: false },
+  { tipo: "perdida", equipoOrigen: "rival", resultado: null, esPenalti: false, label: "Balón ganado", color: "var(--color-success)" },
+  { tipo: "perdida", equipoOrigen: "propio", resultado: null, esPenalti: false, label: "Balón perdido", color: "var(--color-warning)" },
+  { tipo: "exclusion", equipoOrigen: "propio", resultado: null, esPenalti: false, label: "Exclusión 2'", color: "var(--color-warning)" },
 ];
 
 /** Las 2 acciones que siguen viviendo en `estadisticas.eventos` (jsonb) —
@@ -55,8 +83,8 @@ export function crearEventoJsonb(tipo: TipoEventoPartido, jugadorId: string | nu
 }
 
 /** Cuenta cuántos eventos de la tabla `eventos` coinciden exactamente con una
- * acción de `ACCIONES_INSTANTANEAS` (mismo tipo + equipo_origen + resultado + es_penalti). */
-export function contarTabla(eventos: EventosRow[], accion: (typeof ACCIONES_INSTANTANEAS)[number]): number {
+ * acción de `ACCIONES_PERDIDA_EXCLUSION` (mismo tipo + equipo_origen). */
+export function contarTabla(eventos: EventosRow[], accion: (typeof ACCIONES_PERDIDA_EXCLUSION)[number]): number {
   return eventos.filter(
     (e) =>
       e.tipo === accion.tipo &&
@@ -67,11 +95,16 @@ export function contarTabla(eventos: EventosRow[], accion: (typeof ACCIONES_INST
 }
 
 /** Etiqueta de un evento de tiro (gol/fuera/parado/poste, propio o rival, con
- * o sin penalti) para la cronología — cubre las 8 combinaciones que puede
- * producir `CuadriculaPorteria`, no solo las que tenían botón propio. */
+ * o sin penalti) para la cronología — mismo texto que su botón en el panel
+ * de acciones (ver `BOTONES_TIRO_PROPIO`/`BOTONES_TIRO_RIVAL`). */
 export function etiquetaTiro(e: EventosRow): string {
-  const resultado = e.resultado === "gol" ? "Gol" : e.resultado === "fuera" ? "Fuera" : e.resultado === "parado" ? "Parada" : "Poste";
-  return `${resultado}${e.equipo_origen === "rival" ? " rival" : ""}${e.es_penalti ? " (7m)" : ""}`;
+  const propio = e.equipo_origen === "propio";
+  let base: string;
+  if (e.resultado === "gol") base = propio ? "Gol" : "Gol en contra";
+  else if (e.resultado === "parado") base = propio ? "Parado" : "Parada";
+  else if (e.resultado === "fuera") base = "Fuera";
+  else base = "Poste";
+  return `${base}${e.es_penalti ? " (7m)" : ""}`;
 }
 
 /** Color de un evento de tiro para la cronología: verde si es gol, azul si lo
