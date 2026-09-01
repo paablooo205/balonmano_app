@@ -56,14 +56,16 @@ function percentil(valor: number, todos: number[]): number {
 
 function notaCampo(jugadorId: string, comparables: JugadoresRow[], metricas: Map<UUID, MetricasCampo>): number | null {
   const propia = metricas.get(jugadorId)!;
-  if (propia.minutos < MIN_MINUTOS || comparables.length < MIN_COMPANEROS) return null;
+  const otros = comparables.filter((c) => c.id !== jugadorId).length;
+  if (propia.minutos < MIN_MINUTOS || otros < MIN_COMPANEROS) return null;
 
   let pesoTotal = 0;
   let scoreTotal = 0;
 
   if (propia.eficacia !== null) {
     const valores = comparables.map((c) => metricas.get(c.id)!.eficacia).filter((v): v is number => v !== null);
-    if (valores.length >= MIN_COMPANEROS) {
+    const otrosConEficacia = comparables.filter((c) => c.id !== jugadorId && metricas.get(c.id)!.eficacia !== null).length;
+    if (otrosConEficacia >= MIN_COMPANEROS) {
       scoreTotal += PESO_EFICACIA * percentil(propia.eficacia, valores);
       pesoTotal += PESO_EFICACIA;
     }
@@ -113,7 +115,8 @@ export function calcularNotas(jugadores: JugadoresRow[], eventos: EventosRow[], 
   });
   for (const j of porteros) {
     const m = metricasPorteroTodas.get(j.id)!;
-    if (m.minutos < MIN_MINUTOS || m.detalle === null || comparablesPorteros.length < MIN_COMPANEROS) {
+    const otrosPorteros = comparablesPorteros.filter((c) => c.id !== j.id).length;
+    if (m.minutos < MIN_MINUTOS || m.detalle === null || otrosPorteros < MIN_COMPANEROS) {
       notas.set(j.id, null);
       continue;
     }
