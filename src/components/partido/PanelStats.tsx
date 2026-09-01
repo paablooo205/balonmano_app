@@ -1,4 +1,6 @@
 import {
+  BOTONES_TIRO_RIVAL,
+  contarBotonTiro,
   eficaciaLanzamiento,
   exclusiones,
   golesFavor,
@@ -9,24 +11,42 @@ import {
 } from "@/lib/partidoStats";
 import type { EventosRow } from "@/types/database";
 
+const BOTON_PARADA = BOTONES_TIRO_RIVAL.find((b) => b.label === "Parada")!;
+const BOTON_GOL_EN_CONTRA = BOTONES_TIRO_RIVAL.find((b) => b.label === "Gol en contra")!;
+
 /**
  * Tarjetas de estadísticas acumuladas del partido en vivo — filtradas por
  * `jugadorId` si se pasa, totales de equipo si no. Reutiliza las mismas
  * funciones de conteo que `FichaTecnica.tsx`.
+ *
+ * Si el jugador seleccionado es portero (`esPortero`), añade "Paradas" y
+ * "Goles recibidos" delante de las demás — son los números que de verdad le
+ * importan a un portero (sus propios "Tiros/Goles/Eficacia" son casi siempre
+ * cero, no tiene sentido destacarlos primero).
  */
 export function PanelStats({
   eventos,
   jugadorId,
   titulo,
+  esPortero,
 }: {
   eventos: EventosRow[];
   jugadorId: string | null;
   titulo: string;
+  esPortero: boolean;
 }) {
   const filtrados = jugadorId ? eventos.filter((e) => e.jugador_id === jugadorId) : eventos;
   const eficacia = eficaciaLanzamiento(filtrados);
 
+  const statsPortero: { label: string; valor: string }[] = esPortero
+    ? [
+        { label: "Paradas", valor: String(contarBotonTiro(filtrados, BOTON_PARADA)) },
+        { label: "Goles recibidos", valor: String(contarBotonTiro(filtrados, BOTON_GOL_EN_CONTRA)) },
+      ]
+    : [];
+
   const stats: { label: string; valor: string }[] = [
+    ...statsPortero,
     { label: "Tiros", valor: String(tirosTotales(filtrados)) },
     { label: "Goles", valor: String(golesFavor(filtrados)) },
     { label: "Eficacia", valor: eficacia !== null ? `${eficacia}%` : "—" },

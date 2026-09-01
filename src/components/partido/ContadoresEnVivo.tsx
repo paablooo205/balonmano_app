@@ -746,7 +746,7 @@ export function ContadoresEnVivo({
         </div>
 
         <div className="flex flex-col gap-3 lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
-          <PanelStats eventos={eventos} jugadorId={jugadorSel} titulo={panelStatsTitulo} />
+          <PanelStats eventos={eventos} jugadorId={jugadorSel} titulo={panelStatsTitulo} esPortero={esJugadorActualPortero} />
           {cronologiaBlock}
         </div>
       </div>
