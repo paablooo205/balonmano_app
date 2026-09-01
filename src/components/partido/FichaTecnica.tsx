@@ -44,7 +44,7 @@ export function FichaTecnica({
     .filter((j) => jugadoresConDatos.has(j.id))
     .map((j) => {
       const propios = eventos.filter((e) => e.jugador_id === j.id);
-      const golesJ = propios.filter((e) => e.tipo === "tiro" && e.resultado === "gol").length;
+      const golesJ = propios.filter((e) => e.tipo === "tiro" && e.equipo_origen === "propio" && e.resultado === "gol").length;
       const tirosJ = propios.filter((e) => e.tipo === "tiro" && e.equipo_origen === "propio").length;
       return { jugador: j, goles: golesJ, tiros: tirosJ, eficacia: eficaciaConDetalle(propios), nota: notas.get(j.id) ?? null };
     })
@@ -91,6 +91,11 @@ export function FichaTecnica({
             <span className="w-9 shrink-0 text-right">Ef%</span>
             <span className="w-8 shrink-0 text-right">Nota</span>
           </div>
+          {filasJugadores.every((f) => f.nota === null) && (
+            <div className="mb-1 px-2.5 text-[10px] text-white/40">
+              Nota no disponible: registra entradas/salidas de pista para calcularla.
+            </div>
+          )}
           <div className="flex flex-col gap-1">
             {filasJugadores.map((f) => (
               <button
