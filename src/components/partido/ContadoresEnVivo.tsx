@@ -436,8 +436,14 @@ export function ContadoresEnVivo({
           Sin padding horizontal propio: el inset lo da siempre el
           contenedor que lo envuelve en cada layout (mismo criterio que
           zonaBlock/accionesBlock, para que ambos queden alineados al mismo
-          margen — ver usos más abajo). */}
-      <div className="flex gap-1.5 overflow-x-auto lg:flex-col lg:gap-1 lg:overflow-visible">
+          margen — ver usos más abajo).
+
+          Bajo `lg:`, `max-h` + `overflow-y-auto` propios: sin esto, una
+          plantilla larga hacía crecer la columna hasta empujar el scroll a
+          toda la pantalla (zona/acciones desaparecían de la vista al bajar
+          por la lista) — ahora solo se desplaza la lista, el resto del
+          panel se queda fijo. */}
+      <div className="flex gap-1.5 overflow-x-auto lg:max-h-[50vh] lg:flex-col lg:gap-1 lg:overflow-y-auto lg:pr-1">
         {jugadores.map((j) => (
           <ChipJugador
             key={j.id}
