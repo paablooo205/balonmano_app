@@ -31,9 +31,11 @@ export function CuadriculaPorteria({
 }: {
   tocable: boolean;
   resaltado: boolean;
-  /** En el layout apaisado de una mano, la columna donde vive es muy estrecha
-   * — sin este límite, la rejilla al 100% del ancho se estira tanto de alto
-   * que empuja el resto de grupos de botones fuera de la vista sin scroll. */
+  /** Es el elemento protagonista de la pantalla — grande y centrado
+   * (`max-w-[560px]` normal, `max-w-[280px]` en el apaisado de una mano,
+   * donde el ancho disponible es mucho menor). Ambos límites existen para
+   * que la rejilla no se estire sin control en pantallas muy anchas ni
+   * empuje el resto de grupos de botones fuera de la vista en apaisado. */
   compacto?: boolean;
   onZona: (zona: number) => void;
   conteosPorZona: Record<number, number>;
@@ -42,7 +44,7 @@ export function CuadriculaPorteria({
   const max = Math.max(1, ...Object.values(conteosPorZona));
 
   return (
-    <div className={cn("mx-auto flex flex-col gap-1.5", compacto && "max-w-[160px]")}>
+    <div className={cn("mx-auto flex w-full flex-col gap-1.5", compacto ? "max-w-[280px]" : "max-w-[560px]")}>
       <div className="flex justify-end">
         <button
           onClick={() => setMapaCalor((v) => !v)}

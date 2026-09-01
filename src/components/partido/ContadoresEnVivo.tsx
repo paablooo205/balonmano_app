@@ -95,6 +95,7 @@ export function ContadoresEnVivo({
   const [tick, setTick] = useState(0);
   const [jugadorSel, setJugadorSel] = useState<string | null>(null);
   const [sietePendiente, setSietePendiente] = useState(false);
+  const [verTodasAcciones, setVerTodasAcciones] = useState(false);
   const [accionPendiente, setAccionPendiente] = useState<BotonTiro | null>(null);
   const [zonaPendiente, setZonaPendiente] = useState<number | null>(null);
   const [origenSel, setOrigenSel] = useState<OrigenLanzamiento | null>(null);
@@ -431,7 +432,7 @@ export function ContadoresEnVivo({
       </div>
       {/* Fila horizontal con scroll en móvil/apaisado; en el layout tablet
           (`lg:`) se convierte en lista vertical dentro de la columna de
-          200px — mismo markup, solo cambia flex-direction (ver ChipJugador).
+          180px — mismo markup, solo cambia flex-direction (ver ChipJugador).
           Sin padding horizontal propio: el inset lo da siempre el
           contenedor que lo envuelve en cada layout (mismo criterio que
           zonaBlock/accionesBlock, para que ambos queden alineados al mismo
@@ -550,6 +551,8 @@ export function ContadoresEnVivo({
     </div>
   );
 
+  const toquesVisibles = verTodasAcciones ? toquesDesc : toquesDesc.slice(0, 5);
+
   const cronologiaBlock = (
     <div className="min-h-0">
       <div className="mb-2.5 flex items-baseline justify-between">
@@ -562,7 +565,7 @@ export function ContadoresEnVivo({
             Sin acciones registradas. Selecciona un jugador y pulsa una acción.
           </div>
         )}
-        {toquesDesc.map((t) => {
+        {toquesVisibles.map((t) => {
           const jugador = t.jugadorId ? jugadores.find((j) => j.id === t.jugadorId) : null;
           const quien = jugador ? `#${jugador.dorsal ?? "—"} ${jugador.nombre}` : t.esRival ? partido.rival : "Sin asignar";
           const indiceGol = golesDesc.findIndex((g) => g.id === t.id);
@@ -588,6 +591,14 @@ export function ContadoresEnVivo({
             </div>
           );
         })}
+        {toquesDesc.length > 5 && (
+          <button
+            onClick={() => setVerTodasAcciones((v) => !v)}
+            className="mt-1 flex h-9 items-center justify-center rounded-xl bg-white/[.05] text-[11px] font-semibold uppercase tracking-[0.08em] text-white/50"
+          >
+            {verTodasAcciones ? "Ver menos" : `Ver ${toquesDesc.length - 5} más`}
+          </button>
+        )}
       </div>
     </div>
   );
@@ -652,7 +663,7 @@ export function ContadoresEnVivo({
         </div>
 
         <div className="flex min-h-0 flex-1">
-          <div className="flex w-[46%] shrink-0 flex-col gap-2.5 overflow-y-auto border-r border-white/[.07] py-2.5">
+          <div className="flex w-[54%] shrink-0 flex-col gap-2.5 overflow-y-auto border-r border-white/[.07] py-2.5">
             <div className="px-3">{jugadorBlock}</div>
             <div className="px-3">{zonaBlock}</div>
             <div className="px-3">{accionesBlock}</div>
@@ -739,13 +750,13 @@ export function ContadoresEnVivo({
             propio que lo desalineaba respecto a ellos). */}
         <div className="border-b border-white/[.07] pb-3 lg:hidden">{jugadorBlock}</div>
 
-        <div className="flex flex-col gap-3 lg:grid lg:grid-cols-[200px_minmax(0,1fr)_320px] lg:items-start">
+        <div className="flex flex-col gap-3 lg:grid lg:grid-cols-[180px_minmax(0,1fr)_280px] lg:items-start">
           <div className="hidden lg:block">{jugadorBlock}</div>
           {zonaBlock}
           {accionesBlock}
         </div>
 
-        <div className="flex flex-col gap-3 lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+        <div className="flex flex-col gap-3 lg:grid lg:grid-cols-[minmax(0,1fr)_280px] lg:items-start">
           <PanelStats eventos={eventos} jugadorId={jugadorSel} titulo={panelStatsTitulo} esPortero={esJugadorActualPortero} />
           {cronologiaBlock}
         </div>
@@ -827,14 +838,17 @@ function ChipJugador({
         // h-11 (44px): es el control que más veces se toca en toda la
         // pantalla (jugador obligatorio antes de cualquier registro) —
         // mismo objetivo táctil mínimo que los botones de acción.
-        "flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[10px] px-3.5 lg:w-full lg:justify-start",
+        // overflow-hidden: bajo `lg:` la columna es fija (180px) y el botón
+        // pasa a w-full — sin esto un nombre largo con whitespace-nowrap se
+        // saldría visualmente del botón/columna en vez de truncarse.
+        "flex h-11 shrink-0 items-center gap-1.5 overflow-hidden whitespace-nowrap rounded-[10px] px-3.5 lg:w-full lg:justify-start",
         activo ? "bg-[var(--color-accent)]" : "bg-white/[.08]",
       )}
     >
-      <span className="stat-number text-sm" style={{ color: activo ? "#fff" : "rgba(255,255,255,.6)" }}>
+      <span className="stat-number shrink-0 text-sm" style={{ color: activo ? "#fff" : "rgba(255,255,255,.6)" }}>
         {numero}
       </span>
-      <span className="text-xs font-medium" style={{ color: activo ? "#fff" : "rgba(255,255,255,.6)" }}>
+      <span className="truncate text-xs font-medium" style={{ color: activo ? "#fff" : "rgba(255,255,255,.6)" }}>
         {nombre}
       </span>
     </button>
