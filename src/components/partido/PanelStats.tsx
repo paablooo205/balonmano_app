@@ -4,12 +4,13 @@ import {
   eficaciaLanzamiento,
   exclusiones,
   golesFavor,
+  minutosJugados,
   perdidas,
   robos,
   tarjetas,
   tirosTotales,
 } from "@/lib/partidoStats";
-import type { EventosRow } from "@/types/database";
+import type { EventoPartido, EventosRow } from "@/types/database";
 
 const BOTON_PARADA = BOTONES_TIRO_RIVAL.find((b) => b.label === "Parada")!;
 const BOTON_GOL_EN_CONTRA = BOTONES_TIRO_RIVAL.find((b) => b.label === "Gol en contra")!;
@@ -19,24 +20,35 @@ const BOTON_GOL_EN_CONTRA = BOTONES_TIRO_RIVAL.find((b) => b.label === "Gol en c
  * `jugadorId` si se pasa, totales de equipo si no. Reutiliza las mismas
  * funciones de conteo que `FichaTecnica.tsx`.
  *
- * Si el jugador seleccionado es portero (`esPortero`), añade "Paradas" y
- * "Goles recibidos" delante de las demás — son los números que de verdad le
- * importan a un portero (sus propios "Tiros/Goles/Eficacia" son casi siempre
- * cero, no tiene sentido destacarlos primero).
+ * Con un jugador seleccionado se añade "Minutos" al principio (viene del
+ * jsonb entra_pista/sale_pista, no de la tabla `eventos` — de ahí el prop
+ * aparte `eventosJsonb`). Sin jugador seleccionado no tiene sentido sumar
+ * minutos de toda la plantilla, así que no aparece.
+ *
+ * Si además el jugador es portero (`esPortero`), se añaden "Paradas" y
+ * "Goles recibidos" — son los números que de verdad le importan a un
+ * portero (sus propios "Tiros/Goles/Eficacia" son casi siempre cero, no
+ * tiene sentido destacarlos primero).
  */
 export function PanelStats({
   eventos,
+  eventosJsonb,
   jugadorId,
   titulo,
   esPortero,
 }: {
   eventos: EventosRow[];
+  eventosJsonb: EventoPartido[];
   jugadorId: string | null;
   titulo: string;
   esPortero: boolean;
 }) {
   const filtrados = jugadorId ? eventos.filter((e) => e.jugador_id === jugadorId) : eventos;
   const eficacia = eficaciaLanzamiento(filtrados);
+
+  const statsJugador: { label: string; valor: string }[] = jugadorId
+    ? [{ label: "Minutos", valor: `${minutosJugados(eventosJsonb, jugadorId)}'` }]
+    : [];
 
   const statsPortero: { label: string; valor: string }[] = esPortero
     ? [
@@ -46,6 +58,7 @@ export function PanelStats({
     : [];
 
   const stats: { label: string; valor: string }[] = [
+    ...statsJugador,
     ...statsPortero,
     { label: "Tiros", valor: String(tirosTotales(filtrados)) },
     { label: "Goles", valor: String(golesFavor(filtrados)) },
