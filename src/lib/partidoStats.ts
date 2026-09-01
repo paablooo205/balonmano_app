@@ -375,9 +375,14 @@ export function distribucionPorZona(eventos: EventosRow[]): Record<number, numbe
 
 /** % de paradas de nuestro portero. `eventos` ya viene filtrado por el
  * llamante a un jugador_id de portero concreto (o no, para el total del
- * equipo) — esta función solo separa los tiros del rival y calcula el ratio. */
-export function porcentajeParadas(eventos: EventosRow[]): EficaciaDetalle {
-  const rivales = eventos.filter((e) => e.tipo === "tiro" && e.equipo_origen === "rival");
+ * equipo) — esta función solo separa los tiros del rival y calcula el ratio.
+ * `opts.soloPenalti` separa juego abierto (`false`) de 7 metros (`true`) —
+ * igual que `eficaciaConDetalle`, nunca se mezclan. Sin `opts`, combina
+ * ambos en un % global (para la cifra protagonista). */
+export function porcentajeParadas(eventos: EventosRow[], opts?: { soloPenalti: boolean }): EficaciaDetalle {
+  const rivales = eventos.filter(
+    (e) => e.tipo === "tiro" && e.equipo_origen === "rival" && (opts === undefined || e.es_penalti === opts.soloPenalti),
+  );
   const aciertos = rivales.filter((e) => e.resultado === "parado").length;
   const intentos = rivales.length;
   return intentos > 0 ? { pct: Math.round((aciertos / intentos) * 100), aciertos, intentos } : null;

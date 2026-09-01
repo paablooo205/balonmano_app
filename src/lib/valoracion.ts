@@ -8,6 +8,33 @@ import type { EventosRow, JugadoresRow, PartidosRow, UUID } from "@/types/databa
 const MIN_MINUTOS = 10;
 const MIN_COMPANEROS = 2;
 
+/** Baremo fijo de % de paradas para la nota de portero — no se compara
+ * contra otros porteros del equipo (la plantilla real tiene 1-2, nunca
+ * los 3 que exigiría un percentil fiable — con esa exigencia la nota de
+ * portero no aparecería jamás). Referencias de balonmano base: <25% floja,
+ * 25-35% normal, 35-45% buena, >45% muy buena. Interpolación lineal entre
+ * puntos, saturando en los extremos (0% → 0, 60%+ → 10). */
+const BAREMO_PARADAS: { pct: number; nota: number }[] = [
+  { pct: 0, nota: 0 },
+  { pct: 25, nota: 4 },
+  { pct: 35, nota: 6 },
+  { pct: 45, nota: 8 },
+  { pct: 60, nota: 10 },
+];
+
+function notaPorBaremo(pct: number, tabla: { pct: number; nota: number }[]): number {
+  const acotado = Math.max(tabla[0].pct, Math.min(tabla[tabla.length - 1].pct, pct));
+  for (let i = 0; i < tabla.length - 1; i++) {
+    const desde = tabla[i];
+    const hasta = tabla[i + 1];
+    if (acotado <= hasta.pct) {
+      const t = (acotado - desde.pct) / (hasta.pct - desde.pct);
+      return Math.round((desde.nota + t * (hasta.nota - desde.nota)) * 10) / 10;
+    }
+  }
+  return tabla[tabla.length - 1].nota;
+}
+
 const PESO_EFICACIA = 0.4;
 const PESOS_TASA: { clave: "robos" | "perdidas" | "sanciones"; peso: number; invertido: boolean }[] = [
   { clave: "robos", peso: 0.2, invertido: false },
@@ -82,15 +109,21 @@ function notaCampo(jugadorId: string, comparables: JugadoresRow[], metricas: Map
 }
 
 /**
- * Nota /10 por jugador, comparando a cada uno contra sus compañeros
- * comparables (de campo contra de campo, porteros contra porteros) en el
- * mismo ámbito — un partido, o varios (`eventos`/`partidos` ya vienen
- * filtrados al ámbito por el llamante; `partidos` debe ser exactamente el
- * conjunto de partidos del que salen `eventos`, para que los minutos
- * jugados salgan del mismo ámbito que las estadísticas).
+ * Nota /10 por jugador en el mismo ámbito — un partido, o varios
+ * (`eventos`/`partidos` ya vienen filtrados al ámbito por el llamante;
+ * `partidos` debe ser exactamente el conjunto de partidos del que salen
+ * `eventos`, para que los minutos jugados salgan del mismo ámbito que las
+ * estadísticas).
  *
- * `null` en el mapa: nota no fiable (menos de 10 minutos jugados en el
- * ámbito, o menos de 2 compañeros comparables con datos) — se muestra "—".
+ * Jugadores de campo: percentil contra sus compañeros de campo comparables
+ * (nunca contra porteros). Porteros: baremo fijo de % de paradas
+ * (`BAREMO_PARADAS`) — no se comparan contra otros porteros, la plantilla
+ * real (1-2 porteros) nunca alcanzaría el mínimo de comparables.
+ *
+ * `null` en el mapa: nota no fiable. Campo: menos de 10 minutos jugados en
+ * el ámbito, o menos de 2 compañeros de campo comparables con datos.
+ * Portero: menos de 10 minutos jugados, o ningún tiro rival recibido en el
+ * ámbito. Se muestra "—" en ambos casos.
  */
 export function calcularNotas(jugadores: JugadoresRow[], eventos: EventosRow[], partidos: PartidosRow[]): Map<UUID, number | null> {
   const notas = new Map<UUID, number | null>();
@@ -103,25 +136,11 @@ export function calcularNotas(jugadores: JugadoresRow[], eventos: EventosRow[], 
     notas.set(j.id, notaCampo(j.id, comparablesCampo, metricasCampoTodas));
   }
 
-  const metricasPorteroTodas = new Map(
-    porteros.map((j) => {
-      const propios = eventos.filter((e) => e.jugador_id === j.id);
-      return [j.id, { detalle: porcentajeParadas(propios), minutos: minutosTotales(partidos, j.id) }] as const;
-    }),
-  );
-  const comparablesPorteros = porteros.filter((j) => {
-    const m = metricasPorteroTodas.get(j.id)!;
-    return m.minutos >= MIN_MINUTOS && m.detalle !== null;
-  });
   for (const j of porteros) {
-    const m = metricasPorteroTodas.get(j.id)!;
-    const otrosPorteros = comparablesPorteros.filter((c) => c.id !== j.id).length;
-    if (m.minutos < MIN_MINUTOS || m.detalle === null || otrosPorteros < MIN_COMPANEROS) {
-      notas.set(j.id, null);
-      continue;
-    }
-    const valores = comparablesPorteros.map((c) => metricasPorteroTodas.get(c.id)!.detalle!.pct);
-    notas.set(j.id, Math.round(percentil(m.detalle.pct, valores) * 100) / 10);
+    const propios = eventos.filter((e) => e.jugador_id === j.id);
+    const detalle = porcentajeParadas(propios);
+    const minutos = minutosTotales(partidos, j.id);
+    notas.set(j.id, minutos < MIN_MINUTOS || detalle === null ? null : notaPorBaremo(detalle.pct, BAREMO_PARADAS));
   }
 
   return notas;

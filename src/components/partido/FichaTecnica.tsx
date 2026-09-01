@@ -34,9 +34,13 @@ export function FichaTecnica({
   const zonasJuego = distribucionPorZona(tirosJuego);
   const zonasPenalti = distribucionPorZona(tirosPenalti);
 
-  const tirosRival = eventos.filter((e) => e.tipo === "tiro" && e.equipo_origen === "rival");
   const paradas = porcentajeParadas(eventos);
-  const zonasRival = distribucionPorZona(tirosRival);
+  const paradasJuego = porcentajeParadas(eventos, { soloPenalti: false });
+  const paradasPenalti = porcentajeParadas(eventos, { soloPenalti: true });
+  const tirosRivalJuego = eventos.filter((e) => e.tipo === "tiro" && e.equipo_origen === "rival" && !e.es_penalti);
+  const tirosRivalPenalti = eventos.filter((e) => e.tipo === "tiro" && e.equipo_origen === "rival" && e.es_penalti);
+  const zonasRivalJuego = distribucionPorZona(tirosRivalJuego);
+  const zonasRivalPenalti = distribucionPorZona(tirosRivalPenalti);
 
   const notas = calcularNotas(jugadores, eventos, [partido]);
   const jugadoresConDatos = new Set(eventos.filter((e) => e.jugador_id).map((e) => e.jugador_id));
@@ -64,8 +68,9 @@ export function FichaTecnica({
       <div className="rounded border border-white/[.09] bg-[#15151a] p-4">
         <div className="mb-1 text-[9px] font-bold uppercase tracking-[0.16em] text-white/60">Nuestra portería</div>
         <CifraProtagonista detalle={paradas} etiqueta="de paradas" vacio="El rival no ha tirado todavía." />
-        <div className="mt-3">
-          <MapaCalorPorteria conteosPorZona={zonasRival} total={tirosRival.length} />
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <BloqueTiro titulo="Juego abierto" detalle={paradasJuego} zonas={zonasRivalJuego} total={tirosRivalJuego.length} />
+          <BloqueTiro titulo="7 metros" detalle={paradasPenalti} zonas={zonasRivalPenalti} total={tirosRivalPenalti.length} />
         </div>
       </div>
 
