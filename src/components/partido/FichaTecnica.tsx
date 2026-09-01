@@ -181,7 +181,7 @@ function BloqueTiro({
           <span className="stat-number text-lg text-white">{detalle.pct}%</span> ({detalle.aciertos} de {detalle.intentos})
         </div>
       ) : (
-        <div className="mb-2 text-xs text-white/35">Sin tiros.</div>
+        <div className="mb-2 text-sm text-white/35">Sin tiros.</div>
       )}
       <MapaCalorPorteria conteosPorZona={zonas} total={total} />
     </div>
