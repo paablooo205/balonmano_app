@@ -344,3 +344,41 @@ export function minutosJugados(eventosJsonb: EventoPartido[], jugadorId: string,
   if (entradaMin !== null) total += Math.max(0, duracionTotalMin - entradaMin);
   return total;
 }
+
+/** `null` si no hay intentos — nunca un `0%`/`NaN%` engañoso. El recuento
+ * real (`aciertos`/`intentos`) viaja siempre junto al porcentaje: es la
+ * honestidad estadística de esta fase, no una condición por umbral. */
+export type EficaciaDetalle = { pct: number; aciertos: number; intentos: number } | null;
+
+/** Eficacia de tiro propio, con detalle. `opts.soloPenalti` separa juego
+ * abierto (`false`) de 7 metros (`true`) — nunca se mezclan. Sin `opts`,
+ * combina ambos en una eficacia global (para la cifra protagonista). */
+export function eficaciaConDetalle(eventos: EventosRow[], opts?: { soloPenalti: boolean }): EficaciaDetalle {
+  const propios = eventos.filter(
+    (e) => e.tipo === "tiro" && e.equipo_origen === "propio" && (opts === undefined || e.es_penalti === opts.soloPenalti),
+  );
+  const aciertos = propios.filter((e) => e.resultado === "gol").length;
+  const intentos = propios.length;
+  return intentos > 0 ? { pct: Math.round((aciertos / intentos) * 100), aciertos, intentos } : null;
+}
+
+/** Recuento de tiros por zona — el llamante ya filtra a los eventos que
+ * interesan (p.ej. solo juego abierto, o solo 7m, o los del rival). */
+export function distribucionPorZona(eventos: EventosRow[]): Record<number, number> {
+  const mapa: Record<number, number> = {};
+  for (const e of eventos) {
+    if (e.tipo !== "tiro" || e.zona === null) continue;
+    mapa[e.zona] = (mapa[e.zona] ?? 0) + 1;
+  }
+  return mapa;
+}
+
+/** % de paradas de nuestro portero. `eventos` ya viene filtrado por el
+ * llamante a un jugador_id de portero concreto (o no, para el total del
+ * equipo) — esta función solo separa los tiros del rival y calcula el ratio. */
+export function porcentajeParadas(eventos: EventosRow[]): EficaciaDetalle {
+  const rivales = eventos.filter((e) => e.tipo === "tiro" && e.equipo_origen === "rival");
+  const aciertos = rivales.filter((e) => e.resultado === "parado").length;
+  const intentos = rivales.length;
+  return intentos > 0 ? { pct: Math.round((aciertos / intentos) * 100), aciertos, intentos } : null;
+}
