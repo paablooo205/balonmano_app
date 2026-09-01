@@ -418,13 +418,13 @@ export function ContadoresEnVivo({
         <div className="flex gap-1.5">
           <button
             onClick={() => registrarSustitucion("entra_pista")}
-            className="flex h-9 items-center gap-1 rounded-full bg-white/[.08] px-2.5 text-[11px] font-medium text-[#4ddc8a]"
+            className="flex h-9 items-center gap-1 rounded-[3px] bg-white/[.08] px-2.5 text-[11px] font-medium text-[#4ddc8a]"
           >
             <LogIn size={12} /> Entra
           </button>
           <button
             onClick={() => registrarSustitucion("sale_pista")}
-            className="flex h-9 items-center gap-1 rounded-full bg-white/[.08] px-2.5 text-[11px] font-medium text-white/60"
+            className="flex h-9 items-center gap-1 rounded-[3px] bg-white/[.08] px-2.5 text-[11px] font-medium text-white/60"
           >
             <LogOut size={12} /> Sale
           </button>
@@ -471,11 +471,11 @@ export function ContadoresEnVivo({
   );
 
   const accionesBlock = (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       <button
         onClick={() => setSietePendiente((v) => !v)}
         className={cn(
-          "flex h-11 items-center justify-center rounded-xl text-[12px] font-semibold transition-colors",
+          "flex h-11 items-center justify-center rounded text-[12px] font-semibold transition-colors",
           sietePendiente ? "bg-[var(--color-accent)] text-white" : "bg-white/[.08] text-white/60",
         )}
       >
@@ -549,7 +549,7 @@ export function ContadoresEnVivo({
         </div>
         <button
           onClick={anular}
-          className="flex h-8 shrink-0 items-center rounded-lg bg-white/[.08] px-3 text-[10px] font-semibold uppercase tracking-[0.08em] text-white/60"
+          className="flex h-8 shrink-0 items-center rounded bg-white/[.08] px-3 text-[10px] font-semibold uppercase tracking-[0.08em] text-white/60"
         >
           Anular
         </button>
@@ -567,7 +567,7 @@ export function ContadoresEnVivo({
       </div>
       <div className="flex flex-col gap-1.5">
         {toquesDesc.length === 0 && (
-          <div className="rounded-xl border border-dashed border-white/[.14] px-3.5 py-5 text-center text-xs text-white/35">
+          <div className="rounded-[3px] border border-dashed border-white/[.14] px-3.5 py-5 text-center text-xs text-white/35">
             Sin acciones registradas. Selecciona un jugador y pulsa una acción.
           </div>
         )}
@@ -578,7 +578,7 @@ export function ContadoresEnVivo({
           return (
             <div
               key={t.id}
-              className="flex items-center gap-3 rounded-[11px] bg-white/[.05] px-3.5 py-2.5"
+              className="flex items-center gap-3 rounded-[3px] bg-white/[.05] px-3.5 py-2.5"
               style={{ borderLeft: `3px solid ${t.color}` }}
             >
               <span className="stat-number w-8 shrink-0 text-[15px] text-white">
@@ -600,7 +600,7 @@ export function ContadoresEnVivo({
         {toquesDesc.length > 5 && (
           <button
             onClick={() => setVerTodasAcciones((v) => !v)}
-            className="mt-1 flex h-9 items-center justify-center rounded-xl bg-white/[.05] text-[11px] font-semibold uppercase tracking-[0.08em] text-white/50"
+            className="mt-1 flex h-9 items-center justify-center rounded bg-white/[.05] text-[11px] font-semibold uppercase tracking-[0.08em] text-white/50"
           >
             {verTodasAcciones ? "Ver menos" : `Ver ${toquesDesc.length - 5} más`}
           </button>
@@ -648,21 +648,21 @@ export function ContadoresEnVivo({
           <button
             onClick={alternarCronometro}
             aria-label={corriendo ? "Pausar cronómetro" : "Iniciar cronómetro"}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded"
             style={{ backgroundColor: corriendo ? "rgba(255,255,255,.12)" : "var(--color-accent)" }}
           >
             {corriendo ? <Pause size={15} className="text-white" /> : <Play size={15} className="text-white" />}
           </button>
           <button
             onClick={siguienteParte}
-            className="flex h-9 shrink-0 items-center justify-center rounded-lg bg-white/[.08] px-2.5 text-[11px] font-semibold text-white/75"
+            className="flex h-9 shrink-0 items-center justify-center rounded bg-white/[.08] px-2.5 text-[11px] font-semibold text-white/75"
           >
             {cronometro?.parte === 2 ? "1ª" : "2ª"}
           </button>
           <button
             onClick={deshacer}
             aria-label="Deshacer último toque"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/[.08] text-white/60"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded bg-white/[.08] text-white/60"
           >
             <Undo2 size={15} />
           </button>
@@ -685,9 +685,9 @@ export function ContadoresEnVivo({
       className="fixed inset-0 z-50 overflow-y-auto bg-[#0d0d0f]"
       style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}
     >
-      <div className="border-b border-white/[.09] bg-[var(--color-ink)] px-4 pb-4 pt-4">
+      <div className="border-b border-white/[.09] bg-[var(--color-ink)] px-4 pb-3 pt-3">
         <div className="flex items-center justify-between gap-3">
-          <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-white/55 hover:text-white/80">
+          <button onClick={onBack} className="flex items-center gap-1.5 text-xs text-white/55 hover:text-white/80">
             <ChevronLeft size={16} className="text-[var(--color-accent)]" /> Partido
           </button>
           <div className="flex items-center gap-1.5">
@@ -699,7 +699,7 @@ export function ContadoresEnVivo({
           </div>
         </div>
 
-        <div className="mt-3.5 flex items-center gap-2.5">
+        <div className="mt-2.5 flex items-center gap-2.5">
           <div className="min-w-0 flex-1">
             <div className="mb-1.5 truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-accent)]">
               {equipoNombre ?? "Nosotros"}
@@ -722,24 +722,24 @@ export function ContadoresEnVivo({
           </div>
         </div>
 
-        <div className="mt-4 flex gap-2">
+        <div className="mt-3 flex gap-2">
           <button
             onClick={alternarCronometro}
-            className="flex h-[42px] flex-1 items-center justify-center rounded-xl text-sm font-semibold text-white active:scale-[0.985]"
+            className="flex h-[42px] flex-1 items-center justify-center rounded text-xs font-semibold text-white active:scale-[0.985]"
             style={{ backgroundColor: corriendo ? "rgba(255,255,255,.12)" : "var(--color-accent)" }}
           >
             {corriendo ? "Pausar cronómetro" : toquesDesc.length > 0 ? "Reanudar" : "Iniciar partido"}
           </button>
           <button
             onClick={siguienteParte}
-            className="flex h-[42px] shrink-0 items-center justify-center rounded-xl bg-white/[.08] px-4 text-sm font-semibold text-white/75"
+            className="flex h-[42px] shrink-0 items-center justify-center rounded bg-white/[.08] px-4 text-xs font-semibold text-white/75"
           >
             {cronometro?.parte === 2 ? "1ª parte" : "2ª parte"}
           </button>
           <button
             onClick={deshacer}
             aria-label="Deshacer último toque"
-            className="flex h-[42px] w-[52px] shrink-0 items-center justify-center rounded-xl bg-white/[.08] text-white/60"
+            className="flex h-[42px] w-[52px] shrink-0 items-center justify-center rounded bg-white/[.08] text-white/60"
           >
             <Undo2 size={17} />
           </button>
@@ -793,8 +793,8 @@ function GrupoBotones({
 }) {
   const colsClass = cols === 2 ? "grid-cols-2" : "grid-cols-4";
   return (
-    <div className={cn(conBorde && "border-t border-white/[.06] pt-4")}>
-      <div className="mb-1.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-white/45">{titulo}</div>
+    <div className={cn(conBorde && "border-t border-white/[.06] pt-3")}>
+      <div className="mb-1.5 text-[9px] font-bold uppercase tracking-[0.16em] text-white/60">{titulo}</div>
       <div className={cn("grid gap-1.5", colsClass)}>{children}</div>
     </div>
   );
@@ -820,7 +820,7 @@ function BotonAccion({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "flex h-11 flex-col items-center justify-center gap-1 rounded-xl border px-1.5 text-center transition-colors active:scale-[0.96] disabled:opacity-35 disabled:pointer-events-none",
+        "flex h-11 flex-col items-center justify-center gap-1 rounded border px-1.5 text-center transition-colors active:scale-[0.96] disabled:opacity-35 disabled:pointer-events-none",
         armado ? "border-[var(--color-accent)] bg-[var(--color-accent)]/15" : "border-white/[.09] bg-white/[.05]",
       )}
     >
@@ -853,7 +853,7 @@ function ChipJugador({
         // overflow-hidden: bajo `lg:` la columna es fija (180px) y el botón
         // pasa a w-full — sin esto un nombre largo con whitespace-nowrap se
         // saldría visualmente del botón/columna en vez de truncarse.
-        "flex h-11 shrink-0 items-center gap-1.5 overflow-hidden whitespace-nowrap rounded-[10px] px-3.5 lg:w-full lg:justify-start",
+        "flex h-11 shrink-0 items-center gap-1.5 overflow-hidden whitespace-nowrap rounded-[3px] px-3.5 lg:w-full lg:justify-start",
         activo ? "bg-[var(--color-accent)]" : "bg-white/[.08]",
       )}
     >

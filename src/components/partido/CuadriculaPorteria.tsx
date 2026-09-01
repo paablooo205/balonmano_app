@@ -11,7 +11,10 @@ import { cn } from "@/lib/utils";
  *
  * El mapa de calor (activado por defecto) tiñe cada zona según su recuento en
  * `conteosPorZona` — lo calcula el llamante (normalmente filtrado por el
- * jugador seleccionado, o total de equipo si no hay selección).
+ * jugador seleccionado, o total de equipo si no hay selección). El número de
+ * zona (1-9) se muestra siempre en la esquina superior izquierda de cada
+ * celda, atenuado — lectura "técnica" incluso con el mapa de calor apagado;
+ * el recuento del mapa de calor, cuando aplica, se sigue mostrando centrado.
  *
  * El componente no decide QUÉ evento se crea al tocar una zona (lo decide
  * `onZona`, en el llamante): solo dibuja la portería y reporta el toque.
@@ -49,7 +52,7 @@ export function CuadriculaPorteria({
         <button
           onClick={() => setMapaCalor((v) => !v)}
           className={cn(
-            "flex h-6 items-center rounded-md px-2 text-[9px] font-semibold uppercase tracking-[0.08em] transition-colors",
+            "flex h-6 items-center rounded-[3px] px-2 text-[9px] font-semibold uppercase tracking-[0.08em] transition-colors",
             mapaCalor ? "bg-[var(--color-accent)] text-white" : "bg-white/[.08] text-white/50",
           )}
         >
@@ -58,7 +61,7 @@ export function CuadriculaPorteria({
       </div>
       <div
         className={cn(
-          "relative overflow-hidden rounded-xl border-[3px] bg-[#15151a] transition-[border-color,opacity]",
+          "relative overflow-hidden rounded border-[3px] bg-[#15151a] transition-[border-color,opacity]",
           !tocable ? "border-white/25 opacity-40" : resaltado ? "border-[var(--color-accent)]/70" : "border-white/30",
         )}
         style={{ aspectRatio: "3 / 2" }}
@@ -81,14 +84,17 @@ export function CuadriculaPorteria({
                 disabled={!tocable}
                 onClick={() => onZona(zona)}
                 aria-label={`Zona ${zona}`}
-                className="flex items-center justify-center rounded-md transition-colors active:scale-[0.96] disabled:pointer-events-none"
+                className="relative flex items-center justify-center rounded-[2px] transition-colors active:scale-[0.96] disabled:pointer-events-none"
                 style={{
                   background: hot
                     ? `color-mix(in oklab, var(--color-accent) ${Math.round(22 + 58 * (cnt / max))}%, #15151a)`
                     : "rgba(255,255,255,.06)",
                 }}
               >
-                {hot && <span className="stat-number text-sm text-white">{cnt}</span>}
+                <span className="stat-number pointer-events-none absolute left-1 top-0.5 text-[9px] leading-none text-white/30">
+                  {zona}
+                </span>
+                {hot && <span className="stat-number text-xs text-white">{cnt}</span>}
               </button>
             );
           })}
