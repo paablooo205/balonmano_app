@@ -79,18 +79,30 @@ export function FichaTecnica({
       {filasJugadores.length > 0 && (
         <div className="rounded border border-white/[.09] bg-[#15151a] p-4">
           <div className="mb-2 text-[9px] font-bold uppercase tracking-[0.16em] text-white/60">Por jugador</div>
+          {/* Cabecera de columnas: sin ella, cada fila tendría que repetir
+              unidades ("tiros", "%") para no ser ambigua — con 6 columnas en
+              una fila de móvil estrecho eso no cabe. Con la cabecera puesta
+              una vez, las filas solo llevan números (ver fila más abajo). */}
+          <div className="mb-1 flex items-center gap-2 px-2.5 text-[8px] font-semibold uppercase tracking-[0.06em] text-white/30">
+            <span className="w-5 shrink-0" />
+            <span className="min-w-0 flex-1">Jugador</span>
+            <span className="w-5 shrink-0 text-right">G</span>
+            <span className="w-5 shrink-0 text-right">T</span>
+            <span className="w-9 shrink-0 text-right">Ef%</span>
+            <span className="w-8 shrink-0 text-right">Nota</span>
+          </div>
           <div className="flex flex-col gap-1">
             {filasJugadores.map((f) => (
               <button
                 key={f.jugador.id}
                 onClick={() => navigate(`/equipos/${equipoId}/jugador/${f.jugador.id}?partido=${partido.id}`)}
-                className="flex items-center gap-3 rounded-[3px] bg-white/[.04] px-3 py-2 text-left"
+                className="flex items-center gap-2 rounded-[3px] bg-white/[.04] px-2.5 py-2 text-left"
               >
-                <span className="stat-number w-6 shrink-0 text-sm text-white/60">{f.jugador.dorsal ?? "—"}</span>
+                <span className="stat-number w-5 shrink-0 text-sm text-white/60">{f.jugador.dorsal ?? "—"}</span>
                 <span className="min-w-0 flex-1 truncate text-sm text-white">{f.jugador.nombre}</span>
-                <span className="stat-number w-6 shrink-0 text-right text-sm text-white">{f.goles}</span>
-                <span className="w-14 shrink-0 text-right text-[10px] text-white/40">{f.tiros} tiros</span>
-                <span className="w-12 shrink-0 text-right text-[10px] text-white/40">
+                <span className="stat-number w-5 shrink-0 text-right text-sm text-white">{f.goles}</span>
+                <span className="stat-number w-5 shrink-0 text-right text-[11px] text-white/40">{f.tiros}</span>
+                <span className="stat-number w-9 shrink-0 text-right text-[11px] text-white/40">
                   {f.eficacia ? `${f.eficacia.pct}%` : "—"}
                 </span>
                 <span className="stat-number w-8 shrink-0 text-right text-sm" style={{ color: "var(--color-accent)" }}>
@@ -103,23 +115,23 @@ export function FichaTecnica({
       )}
 
       {(partido.problemas_detectados || partido.acciones_siguiente_semana || partido.notas_adicionales) && (
-        <div className="card-surface flex flex-col gap-3 p-4">
+        <div className="flex flex-col gap-3 rounded border border-white/[.09] bg-[#15151a] p-4">
           {partido.problemas_detectados && (
             <div>
-              <div className="text-sm font-medium text-[var(--color-accent)]">Problemas detectados</div>
-              <p className="whitespace-pre-line text-sm">{partido.problemas_detectados}</p>
+              <div className="text-[9px] font-bold uppercase tracking-[0.16em] text-[var(--color-accent)]">Problemas detectados</div>
+              <p className="mt-1 whitespace-pre-line text-sm text-white/80">{partido.problemas_detectados}</p>
             </div>
           )}
           {partido.acciones_siguiente_semana && (
             <div>
-              <div className="text-sm font-medium text-[var(--color-accent)]">Acciones para la semana siguiente</div>
-              <p className="whitespace-pre-line text-sm">{partido.acciones_siguiente_semana}</p>
+              <div className="text-[9px] font-bold uppercase tracking-[0.16em] text-[var(--color-accent)]">Acciones para la semana siguiente</div>
+              <p className="mt-1 whitespace-pre-line text-sm text-white/80">{partido.acciones_siguiente_semana}</p>
             </div>
           )}
           {partido.notas_adicionales && (
             <div>
-              <div className="text-sm font-medium text-[var(--color-accent)]">Notas adicionales</div>
-              <p className="whitespace-pre-line text-sm">{partido.notas_adicionales}</p>
+              <div className="text-[9px] font-bold uppercase tracking-[0.16em] text-[var(--color-accent)]">Notas adicionales</div>
+              <p className="mt-1 whitespace-pre-line text-sm text-white/80">{partido.notas_adicionales}</p>
             </div>
           )}
         </div>
