@@ -387,3 +387,31 @@ export function porcentajeParadas(eventos: EventosRow[], opts?: { soloPenalti: b
   const intentos = rivales.length;
   return intentos > 0 ? { pct: Math.round((aciertos / intentos) * 100), aciertos, intentos } : null;
 }
+
+/** Recuento de tiros por resultado — el llamante ya filtra a los eventos
+ * que interesan (p.ej. solo juego abierto propio, o solo 7m), igual
+ * contrato que `distribucionPorZona`. Base del anillo de eficacia. */
+export function desgloseResultados(eventos: EventosRow[]): { gol: number; parado: number; fuera: number; poste: number } {
+  const conteo = { gol: 0, parado: 0, fuera: 0, poste: 0 };
+  for (const e of eventos) {
+    if (e.tipo !== "tiro" || e.resultado === null) continue;
+    conteo[e.resultado]++;
+  }
+  return conteo;
+}
+
+/** Marcador acumulado en cada gol, en orden cronológico — base de la línea
+ * de marcador. Sin goles, lista vacía (el llamante decide qué hacer con
+ * menos de 2 puntos, igual que `TendenciaEficacia`). */
+export function serieMarcador(eventos: EventosRow[]): { ts: string; favor: number; contra: number }[] {
+  const goles = eventos
+    .filter((e) => e.tipo === "tiro" && e.resultado === "gol")
+    .sort((a, b) => a.creado_en.localeCompare(b.creado_en));
+  let favor = 0;
+  let contra = 0;
+  return goles.map((e) => {
+    if (e.equipo_origen === "propio") favor++;
+    else contra++;
+    return { ts: e.creado_en, favor, contra };
+  });
+}
