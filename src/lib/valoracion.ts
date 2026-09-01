@@ -7,6 +7,11 @@ import type { EventosRow, JugadoresRow, PartidosRow, UUID } from "@/types/databa
  * aplicado a la pieza más interpretativa de todas). */
 const MIN_MINUTOS = 10;
 const MIN_COMPANEROS = 2;
+/** Mínimo de tiros rivales recibidos para que el baremo de portero se
+ * considere fiable — sin esto, 2 de 3 paradas (66%) daría un 8.7 tan
+ * confiado como una temporada entera, la misma trampa de tamaño de
+ * muestra que el resto del dashboard evita mostrando siempre el recuento. */
+const MIN_TIROS_RECIBIDOS = 5;
 
 /** Baremo fijo de % de paradas para la nota de portero — no se compara
  * contra otros porteros del equipo (la plantilla real tiene 1-2, nunca
@@ -122,8 +127,9 @@ function notaCampo(jugadorId: string, comparables: JugadoresRow[], metricas: Map
  *
  * `null` en el mapa: nota no fiable. Campo: menos de 10 minutos jugados en
  * el ámbito, o menos de 2 compañeros de campo comparables con datos.
- * Portero: menos de 10 minutos jugados, o ningún tiro rival recibido en el
- * ámbito. Se muestra "—" en ambos casos.
+ * Portero: menos de 10 minutos jugados, o menos de 5 tiros rivales recibidos
+ * en el ámbito (un baremo sobre 2-3 tiros sería tan poco fiable como el
+ * percentil que sustituye). Se muestra "—" en ambos casos.
  */
 export function calcularNotas(jugadores: JugadoresRow[], eventos: EventosRow[], partidos: PartidosRow[]): Map<UUID, number | null> {
   const notas = new Map<UUID, number | null>();
@@ -140,7 +146,8 @@ export function calcularNotas(jugadores: JugadoresRow[], eventos: EventosRow[], 
     const propios = eventos.filter((e) => e.jugador_id === j.id);
     const detalle = porcentajeParadas(propios);
     const minutos = minutosTotales(partidos, j.id);
-    notas.set(j.id, minutos < MIN_MINUTOS || detalle === null ? null : notaPorBaremo(detalle.pct, BAREMO_PARADAS));
+    const fiable = minutos >= MIN_MINUTOS && detalle !== null && detalle.intentos >= MIN_TIROS_RECIBIDOS;
+    notas.set(j.id, fiable ? notaPorBaremo(detalle.pct, BAREMO_PARADAS) : null);
   }
 
   return notas;
