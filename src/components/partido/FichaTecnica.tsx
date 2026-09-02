@@ -38,6 +38,8 @@ export function FichaTecnica({
 
   const desgloseJuego = desgloseResultados(tirosJuego);
   const desglosePenalti = desgloseResultados(tirosPenalti);
+  const pctJuego = tirosJuego.length > 0 ? Math.round((desgloseJuego.gol / tirosJuego.length) * 100) : null;
+  const pctPenalti = tirosPenalti.length > 0 ? Math.round((desglosePenalti.gol / tirosPenalti.length) * 100) : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -54,7 +56,16 @@ export function FichaTecnica({
               { label: "Fuera", valor: desgloseJuego.fuera, color: "var(--color-accent)" },
               { label: "Poste", valor: desgloseJuego.poste, color: "color-mix(in oklab, var(--color-accent) 55%, white)" },
             ]}
-            centro={<span className="px-1 text-center text-[8px] uppercase leading-tight tracking-[0.06em] text-white/40">Juego abierto</span>}
+            centro={
+              pctJuego === null ? (
+                <span className="px-1 text-center text-[8px] uppercase leading-tight tracking-[0.06em] text-white/40">Juego abierto</span>
+              ) : (
+                <div className="flex flex-col items-center leading-none">
+                  <span className="stat-number text-lg text-white">{pctJuego}%</span>
+                  <span className="mt-0.5 px-1 text-center text-[7px] uppercase leading-tight tracking-[0.06em] text-white/40">Juego abierto</span>
+                </div>
+              )
+            }
           />
           <AnilloDonut
             tamano={72}
@@ -64,7 +75,16 @@ export function FichaTecnica({
               { label: "Fuera", valor: desglosePenalti.fuera, color: "var(--color-accent)" },
               { label: "Poste", valor: desglosePenalti.poste, color: "color-mix(in oklab, var(--color-accent) 55%, white)" },
             ]}
-            centro={<span className="px-1 text-center text-[8px] uppercase leading-tight tracking-[0.06em] text-white/40">7 metros</span>}
+            centro={
+              pctPenalti === null ? (
+                <span className="px-1 text-center text-[8px] uppercase leading-tight tracking-[0.06em] text-white/40">7 metros</span>
+              ) : (
+                <div className="flex flex-col items-center leading-none">
+                  <span className="stat-number text-sm text-white">{pctPenalti}%</span>
+                  <span className="mt-0.5 px-1 text-center text-[7px] uppercase leading-tight tracking-[0.06em] text-white/40">7 metros</span>
+                </div>
+              )
+            }
           />
         </div>
       </div>
