@@ -5,6 +5,7 @@ import { BloqueTiro } from "@/components/partido/BloqueTiro";
 import { LineaMarcador } from "@/components/partido/LineaMarcador";
 import { MarcadorExclusiones } from "@/components/partido/MarcadorExclusiones";
 import { PanelJugadorPartido } from "@/components/partido/PanelJugadorPartido";
+import { InsightsCard } from "@/components/dashboard/InsightsCard";
 import {
   desgloseResultados,
   distribucionPorZona,
@@ -13,6 +14,7 @@ import {
   porcentajeParadas,
   robos,
 } from "@/lib/partidoStats";
+import { cortePorMediana, dividirPorCorte, generarInsights } from "@/lib/insights";
 import type { EventosRow, JugadoresRow, PartidosRow } from "@/types/database";
 
 export function FichaTecnica({
@@ -45,8 +47,26 @@ export function FichaTecnica({
   const pctJuego = tirosJuego.length > 0 ? Math.round((desgloseJuego.gol / tirosJuego.length) * 100) : null;
   const pctPenalti = tirosPenalti.length > 0 ? Math.round((desglosePenalti.gol / tirosPenalti.length) * 100) : null;
 
+  const corte = cortePorMediana(eventos);
+  const insights = generarInsights({
+    zonaPropioJuego: tirosJuego,
+    zonaPropioPenalti: tirosPenalti,
+    zonaRivalJuego: tirosRivalJuego,
+    zonaRivalPenalti: tirosRivalPenalti,
+    ejecucionPropioJuego: tirosJuego,
+    contextoAusencia: "en el partido",
+    tendencia: corte
+      ? {
+          propio: dividirPorCorte(tirosJuego, corte),
+          rival: dividirPorCorte(tirosRivalJuego, corte),
+          etiquetas: { a: "de la 1ª parte", b: "la 2ª parte" },
+        }
+      : undefined,
+  });
+
   return (
     <div className="flex flex-col gap-4">
+      <InsightsCard insights={insights} />
       <LineaMarcador eventos={eventos} />
 
       <div>
