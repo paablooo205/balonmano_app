@@ -18,7 +18,7 @@ const MIN_COMPANEROS = 2;
  * considere fiable — sin esto, 2 de 3 paradas (66%) daría un 8.7 tan
  * confiado como una temporada entera, la misma trampa de tamaño de
  * muestra que el resto del dashboard evita mostrando siempre el recuento. */
-const MIN_TIROS_RECIBIDOS = 5;
+export const MIN_TIROS_RECIBIDOS = 5;
 
 /** Baremo fijo de % de paradas para la nota de portero — no se compara
  * contra otros porteros del equipo (la plantilla real tiene 1-2, nunca

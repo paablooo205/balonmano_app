@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ChevronLeft, Pencil } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useEquipo } from "@/hooks/useEquipo";
@@ -22,7 +22,9 @@ export function PartidoDetailPage() {
   const [jugadores, setJugadores] = useState<JugadoresRow[]>([]);
   const [eventos, setEventos] = useState<EventosRow[]>([]);
   const [cargando, setCargando] = useState(true);
-  const [vista, setVista] = useState<Vista>("info");
+  const [searchParams] = useSearchParams();
+  const vistaParam = searchParams.get("vista");
+  const [vista, setVista] = useState<Vista>(vistaParam === "ficha" || vistaParam === "live" ? vistaParam : "info");
   const [editando, setEditando] = useState(false);
 
   async function cargar() {
