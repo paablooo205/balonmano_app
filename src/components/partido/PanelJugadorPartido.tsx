@@ -51,6 +51,7 @@ export function PanelJugadorPartido({
             zonas={zonasJuego}
             total={tirosJuego.length}
             aciertosPorZona={golesZonasJuego}
+            etiquetaAcierto="goles"
           />
           <BloqueTiro
             titulo="7 metros"
@@ -58,6 +59,7 @@ export function PanelJugadorPartido({
             zonas={zonasPenalti}
             total={tirosPenalti.length}
             aciertosPorZona={golesZonasPenalti}
+            etiquetaAcierto="goles"
           />
         </div>
       </div>

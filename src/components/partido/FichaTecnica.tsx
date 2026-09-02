@@ -102,6 +102,7 @@ export function FichaTecnica({
             zonas={zonasJuego}
             total={tirosJuego.length}
             aciertosPorZona={golesZonasJuego}
+            etiquetaAcierto="goles"
           />
           <BloqueTiro
             titulo="7 metros"
@@ -109,6 +110,7 @@ export function FichaTecnica({
             zonas={zonasPenalti}
             total={tirosPenalti.length}
             aciertosPorZona={golesZonasPenalti}
+            etiquetaAcierto="goles"
           />
         </div>
       </div>
@@ -122,6 +124,7 @@ export function FichaTecnica({
             zonas={zonasRivalJuego}
             total={tirosRivalJuego.length}
             aciertosPorZona={paradasZonasRivalJuego}
+            etiquetaAcierto="paradas"
           />
           <BloqueTiro
             titulo="7 metros"
@@ -129,6 +132,7 @@ export function FichaTecnica({
             zonas={zonasRivalPenalti}
             total={tirosRivalPenalti.length}
             aciertosPorZona={paradasZonasRivalPenalti}
+            etiquetaAcierto="paradas"
           />
         </div>
       </div>
