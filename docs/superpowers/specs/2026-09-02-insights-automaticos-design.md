@@ -136,10 +136,30 @@ Función genérica: `insightsTendencia(periodoA: EventosRow[], periodoB: Eventos
   (o "más" en vez de "solo" si `deviacion > 0`), con
   `score = |deviacion| * Math.log2(Math.min(intentosA, intentosB))`.
 
+**Partido — cómo se define "1ª parte" sin un minuto por tiro:** `eventos`
+(tabla `eventos`) no lleva minuto de partido por fila, solo `creado_en`
+(timestamp de registro) — el minuto real solo existe para los toques
+`entra_pista`/`sale_pista` en el jsonb de sustituciones, que no cubren los
+tiros. Se aproxima con el mismo criterio que ya usa `crearEscalaTiempo`
+(orden cronológico por `creado_en`, sin asumir minuto real): se calcula
+`corte = mediana de creado_en entre todos los tiros propios y rivales del
+partido` una sola vez, y ese mismo `corte` se reutiliza para dividir
+cualquier lista de eventos del partido en "antes"/"después" — así todas
+las categorías (propio/rival, juego/7m) parten el partido por el mismo
+punto en el tiempo, no cada una por su cuenta. Nueva función auxiliar
+`cortePorMediana(eventos: EventosRow[]): string | null` (devuelve el
+`creado_en` mediano, o `null` con 0 tiros) y `antesDe`/`despuesDe` (o un
+único `dividirPorCorte(eventos, corte): [EventosRow[], EventosRow[]]`) en
+`insights.ts`.
+
 Uso por ficha:
-- **Partido**: `periodoA` = eventos con `minuto <= 30` (o sin cronómetro
-  fiable → se omite, ver "Casos límite"), `periodoB` = eventos con
-  `minuto > 30`. Etiquetas "la 1ª parte"/"la 2ª parte".
+- **Partido**: `periodoA` = tiros con `creado_en < corte`, `periodoB` =
+  tiros con `creado_en >= corte` (si `corte` es `null` — partido sin
+  ningún tiro — no se genera ningún insight de tendencia). Etiquetas "la
+  1ª parte"/"la 2ª parte" (aproximación por volumen de juego, no por
+  minuto real — aceptable: con 0-1 tiros de diferencia entre mitades el
+  umbral de `>= 5` por periodo ya filtra los casos donde la aproximación
+  importaría).
 - **Jugador (temporada)** y **rival**: `periodoB` = eventos de los últimos
   3 partidos jugados (por fecha), `periodoA` = el resto. Etiquetas "los
   últimos 3 partidos"/"el resto de la temporada" (jugador) o "el resto de
@@ -210,10 +230,11 @@ ninguno nuevo) y llama a `generarInsights(...)`.
   portería" para ese jugador — solo de tiro propio. Mismo criterio que ya
   separa `esPortero` en el resto de `JugadorDetailPage.tsx`.
 - **Portero**: no se generan insights de "tiro propio" — solo de paradas.
-- **Partido en curso / sin cronómetro fiable** (p.ej. partido antiguo
-  migrado sin `minuto` registrado en sus eventos): el insight de tendencia
-  1ª/2ª parte no se genera si no hay suficientes eventos con `minuto` no
-  nulo en cada mitad (mismo umbral de `>= 5`).
+- **Partido con pocos tiros en total** (p.ej. partido recién empezado, o
+  entrenamiento): `cortePorMediana` siempre devuelve un valor con `>= 1`
+  tiro, pero el umbral `>= 5` por periodo en `insightsTendencia` ya filtra
+  el caso — con pocos tiros, ninguna mitad llega al mínimo y no se genera
+  el insight.
 - **Rival con un solo partido jugado**: no hay insight de tendencia (no
   hay "resto" con el que comparar), pero sí de zona/ejecución si el
   volumen lo permite.
