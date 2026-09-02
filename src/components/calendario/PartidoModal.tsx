@@ -4,13 +4,15 @@ import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabaseClient";
 import { encolarOperacion, esErrorDeRed } from "@/lib/offline/queue";
+import { cargarRivalesEquipo } from "@/lib/rivales";
 import { toISODate } from "@/lib/calendar";
-import type { PartidosRow } from "@/types/database";
+import type { PartidosRow, RivalesRow } from "@/types/database";
 
 function estadoInicial(partido: PartidosRow | null, fechaPorDefecto: string) {
   return {
     fecha: partido?.fecha ?? fechaPorDefecto,
     rival: partido?.rival ?? "",
+    rivalId: partido?.rival_id ?? null,
     casaFuera: (partido?.casa_fuera ?? "") as "casa" | "fuera" | "",
     competicion: partido?.competicion ?? "",
     resultado: partido?.resultado ?? "",
@@ -56,9 +58,12 @@ export function PartidoModal({
 }) {
   const [estado, setEstado] = useState(() => estadoInicial(partido, fecha ?? toISODate(new Date())));
   const [jugado, setJugado] = useState(() => yaJugadoInicial(partido));
+  const [rivales, setRivales] = useState<RivalesRow[]>([]);
+  const [modoRival, setModoRival] = useState<"existente" | "nuevo">("nuevo");
   const {
     fecha: fechaEstado,
     rival,
+    rivalId,
     casaFuera,
     competicion,
     resultado,
@@ -74,24 +79,60 @@ export function PartidoModal({
   // El modal permanece montado entre aperturas (algunos padres no lo
   // desmontan al cerrarlo), así que sin este efecto reabrirlo para un
   // partido distinto — o el mismo, tras cancelar — mostraría datos de la
-  // sesión de edición anterior.
+  // sesión de edición anterior. También recarga la lista de rivales del
+  // equipo cada vez que se abre, y decide el modo por defecto: "existente"
+  // preseleccionado si el partido ya está enlazado, o si el equipo ya tiene
+  // algún rival registrado (fomenta reutilizar en vez de duplicar);
+  // "nuevo" solo si todavía no hay ninguno.
   useEffect(() => {
     if (open) {
       setEstado(estadoInicial(partido, fecha ?? toISODate(new Date())));
       setJugado(yaJugadoInicial(partido));
+      cargarRivalesEquipo(equipoId).then((lista) => {
+        setRivales(lista);
+        setModoRival(partido?.rival_id || lista.length > 0 ? "existente" : "nuevo");
+      });
     }
-  }, [open, partido, fecha]);
+  }, [open, partido, fecha, equipoId]);
 
   function set<K extends keyof ReturnType<typeof estadoInicial>>(key: K, value: ReturnType<typeof estadoInicial>[K]) {
     setEstado((e) => ({ ...e, [key]: value }));
   }
 
   async function guardar() {
-    if (!rival.trim()) {
+    if (modoRival === "nuevo" && !rival.trim()) {
       alert("El rival es obligatorio.");
       return;
     }
+    if (modoRival === "existente" && !rivalId) {
+      alert("Selecciona un rival.");
+      return;
+    }
     setGuardando(true);
+
+    let rivalIdFinal = rivalId;
+    let rivalNombreFinal = rival.trim();
+    if (modoRival === "nuevo") {
+      if (!navigator.onLine) {
+        alert("Crear un rival nuevo requiere conexión. Conéctate o elige uno ya existente.");
+        setGuardando(false);
+        return;
+      }
+      const { data: nuevoRival, error: errorRival } = await supabase
+        .from("rivales")
+        .insert({ equipo_id: equipoId, nombre: rivalNombreFinal })
+        .select()
+        .single();
+      if (errorRival || !nuevoRival) {
+        alert("No se pudo crear el rival: " + (errorRival?.message ?? "error desconocido"));
+        setGuardando(false);
+        return;
+      }
+      rivalIdFinal = nuevoRival.id;
+    } else {
+      rivalNombreFinal = rivales.find((r) => r.id === rivalId)?.nombre ?? rivalNombreFinal;
+    }
+
     const id = partido?.id ?? crypto.randomUUID();
     const ahora = new Date().toISOString();
     // Fila completa (con id generado en cliente si es nuevo) para poder
@@ -100,7 +141,8 @@ export function PartidoModal({
       id,
       equipo_id: equipoId,
       microciclo_id: microcicloId,
-      rival: rival.trim(),
+      rival: rivalNombreFinal,
+      rival_id: rivalIdFinal,
       fecha: fechaEstado,
       casa_fuera: casaFuera || null,
       competicion: competicion || null,
@@ -168,14 +210,45 @@ export function PartidoModal({
   return (
     <Modal open={open} onClose={onClose} title={partido ? "Editar partido" : "Nuevo partido"}>
       <div className="flex flex-col gap-4">
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Fecha">
-            <Input type="date" value={fechaEstado} onChange={(e) => set("fecha", e.target.value)} />
-          </Field>
-          <Field label="Rival *">
-            <Input value={rival} onChange={(e) => set("rival", e.target.value)} />
-          </Field>
+        <Field label="Fecha">
+          <Input type="date" value={fechaEstado} onChange={(e) => set("fecha", e.target.value)} />
+        </Field>
+
+        <div>
+          <span className="mb-1.5 block text-sm text-[var(--color-text-muted)]">Rival *</span>
+          <div className="tab-pill-group mb-2">
+            <button
+              type="button"
+              className="tab-pill"
+              data-active={modoRival === "existente"}
+              disabled={rivales.length === 0}
+              onClick={() => setModoRival("existente")}
+            >
+              Rival existente
+            </button>
+            <button
+              type="button"
+              className="tab-pill"
+              data-active={modoRival === "nuevo"}
+              onClick={() => setModoRival("nuevo")}
+            >
+              Rival nuevo
+            </button>
+          </div>
+          {modoRival === "existente" ? (
+            <Select value={rivalId ?? ""} onChange={(e) => set("rivalId", e.target.value || null)}>
+              <option value="">Selecciona un rival…</option>
+              {rivales.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.nombre}
+                </option>
+              ))}
+            </Select>
+          ) : (
+            <Input placeholder="Nombre del rival" value={rival} onChange={(e) => set("rival", e.target.value)} />
+          )}
         </div>
+
         <div className="grid grid-cols-2 gap-3">
           <Field label="Lugar">
             <Select value={casaFuera} onChange={(e) => set("casaFuera", e.target.value as "casa" | "fuera" | "")}>
