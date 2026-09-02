@@ -23,6 +23,7 @@ const COLUMNAS: Record<string, number[]> = {
 
 const VERBO_PRESENTE: Record<EtiquetaAcierto, string> = { goles: "metemos", paradas: "paramos" };
 const ACCION_AUSENCIA: Record<EtiquetaAcierto, string> = { goles: "tirado", paradas: "recibido tiros" };
+const PARTICIPIO: Record<EtiquetaAcierto, string> = { goles: "metido", paradas: "parado" };
 
 const MIN_TIROS_GRUPO_ZONA = 5;
 const MIN_TOTAL_AUSENCIA = 10;
@@ -106,6 +107,54 @@ export function insightsEjecucion(tirosJuegoAbierto: EventosRow[]): Insight[] {
       texto: `${falloNoForzado} de cada ${tirosJuegoAbierto.length} tiros se van fuera o al poste — más fallo propio que del portero rival.`,
       score: pct * Math.log2(tirosJuegoAbierto.length),
       categoria: "ejecucion",
+    },
+  ];
+}
+
+const MIN_INTENTOS_TENDENCIA = 5;
+const DEVIACION_MINIMA_TENDENCIA = 20;
+
+/** Mediana de `creado_en` entre los eventos de tipo "tiro" (propios y
+ * rivales) — aproxima "mitad del partido" sin depender de un minuto real
+ * por tiro (no existe en `eventos`, solo en el jsonb de sustituciones). */
+export function cortePorMediana(eventos: EventosRow[]): string | null {
+  const timestamps = eventos
+    .filter((e) => e.tipo === "tiro")
+    .map((e) => e.creado_en)
+    .sort();
+  if (timestamps.length === 0) return null;
+  return timestamps[Math.floor(timestamps.length / 2)];
+}
+
+export function dividirPorCorte(eventos: EventosRow[], corte: string): [EventosRow[], EventosRow[]] {
+  return [eventos.filter((e) => e.creado_en < corte), eventos.filter((e) => e.creado_en >= corte)];
+}
+
+/** `periodoA` es el periodo de referencia (más antiguo o "resto"),
+ * `periodoB` el periodo reciente que se compara contra él — ambos ya
+ * filtrados y homogéneos (mismo contexto propio/rival, juego abierto).
+ * `etiquetas.a` va después de "frente al X% (n/m) " en la frase, así que
+ * debe traer su propia preposición ("de la 1ª parte", "del resto de la
+ * temporada" — nunca "el resto de la temporada" a secas, produciría "de
+ * el resto..." en vez de "del resto..."). `etiquetas.b` va después de "En "
+ * y no necesita preposición ("la 2ª parte", "los últimos 3 partidos"). */
+export function insightsTendencia(
+  periodoA: EventosRow[],
+  periodoB: EventosRow[],
+  etiquetas: { a: string; b: string },
+  opts: { etiquetaAcierto: EtiquetaAcierto },
+): Insight[] {
+  if (periodoA.length < MIN_INTENTOS_TENDENCIA || periodoB.length < MIN_INTENTOS_TENDENCIA) return [];
+  const detA = pctAcierto(periodoA, opts.etiquetaAcierto)!;
+  const detB = pctAcierto(periodoB, opts.etiquetaAcierto)!;
+  const deviacion = detB.pct - detA.pct;
+  if (Math.abs(deviacion) < DEVIACION_MINIMA_TENDENCIA) return [];
+  const prefijo = deviacion < 0 ? "solo " : "";
+  return [
+    {
+      texto: `En ${etiquetas.b} ${prefijo}hemos ${PARTICIPIO[opts.etiquetaAcierto]} el ${detB.pct}% (${detB.aciertos}/${detB.intentos}), frente al ${detA.pct}% (${detA.aciertos}/${detA.intentos}) ${etiquetas.a}.`,
+      score: Math.abs(deviacion) * Math.log2(Math.min(detA.intentos, detB.intentos)),
+      categoria: "tendencia",
     },
   ];
 }

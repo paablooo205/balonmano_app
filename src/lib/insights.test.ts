@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { insightsEjecucion, insightsZona } from "./insights";
+import { cortePorMediana, dividirPorCorte, insightsEjecucion, insightsTendencia, insightsZona } from "./insights";
 import type { EventosRow } from "@/types/database";
 
 function tiro(overrides: Partial<EventosRow> & Pick<EventosRow, "resultado" | "zona">): EventosRow {
@@ -93,5 +93,80 @@ describe("insightsEjecucion", () => {
       "5 de cada 10 tiros se van fuera o al poste — más fallo propio que del portero rival.",
     );
     expect(insights[0].categoria).toBe("ejecucion");
+  });
+});
+
+describe("cortePorMediana", () => {
+  it("devuelve null sin tiros", () => {
+    expect(cortePorMediana([])).toBeNull();
+  });
+
+  it("devuelve el creado_en mediano de los eventos de tipo tiro, ignorando otros tipos", () => {
+    const eventos: EventosRow[] = [
+      tiro({ resultado: "gol", zona: 1, creado_en: "2026-01-01T00:00:00.000Z" }),
+      tiro({ resultado: "gol", zona: 1, creado_en: "2026-01-01T00:01:00.000Z" }),
+      tiro({ resultado: "gol", zona: 1, creado_en: "2026-01-01T00:02:00.000Z" }),
+      tiro({ resultado: "gol", zona: 1, creado_en: "2026-01-01T00:03:00.000Z" }),
+      tiro({ resultado: "gol", zona: 1, creado_en: "2026-01-01T00:04:00.000Z" }),
+      { ...tiro({ resultado: null, zona: null }), tipo: "perdida", creado_en: "2026-01-01T00:10:00.000Z" },
+    ];
+    expect(cortePorMediana(eventos)).toBe("2026-01-01T00:02:00.000Z");
+  });
+});
+
+describe("dividirPorCorte", () => {
+  it("divide en antes/después del corte (inclusive en el segundo tramo)", () => {
+    const antes = tiro({ resultado: "gol", zona: 1, creado_en: "2026-01-01T00:00:00.000Z" });
+    const enElCorte = tiro({ resultado: "gol", zona: 1, creado_en: "2026-01-01T00:02:00.000Z" });
+    const despues = tiro({ resultado: "gol", zona: 1, creado_en: "2026-01-01T00:04:00.000Z" });
+    const [periodoA, periodoB] = dividirPorCorte([antes, enElCorte, despues], "2026-01-01T00:02:00.000Z");
+    expect(periodoA).toEqual([antes]);
+    expect(periodoB).toEqual([enElCorte, despues]);
+  });
+});
+
+describe("insightsTendencia", () => {
+  it("no genera nada si algún periodo no llega al mínimo de intentos", () => {
+    const periodoA = Array.from({ length: 4 }, () => tiro({ resultado: "gol", zona: 1 }));
+    const periodoB = Array.from({ length: 5 }, () => tiro({ resultado: "gol", zona: 1 }));
+    expect(insightsTendencia(periodoA, periodoB, { a: "la 1ª parte", b: "la 2ª parte" }, { etiquetaAcierto: "goles" })).toEqual([]);
+  });
+
+  it("genera el insight con 'solo' cuando el periodo B empeora", () => {
+    const periodoA = [
+      ...Array.from({ length: 4 }, () => tiro({ resultado: "gol", zona: 1 })),
+      tiro({ resultado: "fuera", zona: 1 }),
+    ];
+    const periodoB = [
+      tiro({ resultado: "gol", zona: 1 }),
+      ...Array.from({ length: 4 }, () => tiro({ resultado: "fuera", zona: 1 })),
+    ];
+    const insights = insightsTendencia(periodoA, periodoB, { a: "de la 1ª parte", b: "la 2ª parte" }, { etiquetaAcierto: "goles" });
+    expect(insights).toHaveLength(1);
+    expect(insights[0].texto).toBe(
+      "En la 2ª parte solo hemos metido el 20% (1/5), frente al 80% (4/5) de la 1ª parte.",
+    );
+    expect(insights[0].categoria).toBe("tendencia");
+  });
+
+  it("genera el insight sin 'solo' cuando el periodo B mejora", () => {
+    const periodoA = [
+      tiro({ resultado: "parado", zona: 1, equipo_origen: "rival" }),
+      ...Array.from({ length: 4 }, () => tiro({ resultado: "gol", zona: 1, equipo_origen: "rival" })),
+    ];
+    const periodoB = [
+      ...Array.from({ length: 4 }, () => tiro({ resultado: "parado", zona: 1, equipo_origen: "rival" })),
+      tiro({ resultado: "gol", zona: 1, equipo_origen: "rival" }),
+    ];
+    const insights = insightsTendencia(
+      periodoA,
+      periodoB,
+      { a: "del resto de la temporada", b: "los últimos 3 partidos" },
+      { etiquetaAcierto: "paradas" },
+    );
+    expect(insights).toHaveLength(1);
+    expect(insights[0].texto).toBe(
+      "En los últimos 3 partidos hemos parado el 80% (4/5), frente al 20% (1/5) del resto de la temporada.",
+    );
   });
 });
