@@ -88,10 +88,19 @@ export function PartidoModal({
     if (open) {
       setEstado(estadoInicial(partido, fecha ?? toISODate(new Date())));
       setJugado(yaJugadoInicial(partido));
+      // Guarda de cancelación: si el modal se reabre para otro partido (o el
+      // mismo, tras cancelar) antes de que esta carga termine, la respuesta
+      // desactualizada no debe pisar el modo/rivales ya reseteados para la
+      // apertura más reciente.
+      let cancelado = false;
       cargarRivalesEquipo(equipoId).then((lista) => {
+        if (cancelado) return;
         setRivales(lista);
         setModoRival(partido?.rival_id || lista.length > 0 ? "existente" : "nuevo");
       });
+      return () => {
+        cancelado = true;
+      };
     }
   }, [open, partido, fecha, equipoId]);
 
