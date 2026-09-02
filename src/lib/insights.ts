@@ -167,6 +167,7 @@ export type EntradasInsights = {
   ejecucionPropioJuego: EventosRow[];
   /** Frase que completa "No hemos tirado nada por abajo {contextoAusencia}." — p.ej. "en el partido", "en la temporada", "en los enfrentamientos contra este rival". */
   contextoAusencia: string;
+  /** `propio`/`rival` deben ser juego abierto únicamente (nunca 7m) — mismo criterio que el resto de `EntradasInsights`. */
   tendencia?: {
     propio: [EventosRow[], EventosRow[]];
     rival: [EventosRow[], EventosRow[]];
