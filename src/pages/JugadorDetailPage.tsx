@@ -169,18 +169,21 @@ export function JugadorDetailPage() {
   const enResto = (e: EventosRow) => e.partido_id !== null && idsResto.has(e.partido_id);
   const enUltimos = (e: EventosRow) => e.partido_id !== null && idsUltimos.has(e.partido_id);
 
+  // Un jugador de campo nunca recibe insights de "nuestra portería" y un portero
+  // nunca los recibe de tiro propio — misma separación estricta que ya aplican
+  // los cuadros visibles de esta ficha.
   const insights = generarInsights({
-    zonaPropioJuego: tirosJuego,
-    zonaPropioPenalti: tirosPenalti,
-    zonaRivalJuego: tirosRivalJuego,
-    zonaRivalPenalti: tirosRivalPenalti,
-    ejecucionPropioJuego: tirosJuego,
+    zonaPropioJuego: portero ? [] : tirosJuego,
+    zonaPropioPenalti: portero ? [] : tirosPenalti,
+    zonaRivalJuego: portero ? tirosRivalJuego : [],
+    zonaRivalPenalti: portero ? tirosRivalPenalti : [],
+    ejecucionPropioJuego: portero ? [] : tirosJuego,
     contextoAusencia: "en toda la temporada",
     tendencia:
       restoPartidos.length > 0 && ultimosPartidos.length > 0
         ? {
-            propio: [tirosJuego.filter(enResto), tirosJuego.filter(enUltimos)],
-            rival: [tirosRivalJuego.filter(enResto), tirosRivalJuego.filter(enUltimos)],
+            propio: portero ? [[], []] : [tirosJuego.filter(enResto), tirosJuego.filter(enUltimos)],
+            rival: portero ? [tirosRivalJuego.filter(enResto), tirosRivalJuego.filter(enUltimos)] : [[], []],
             etiquetas: { a: "del resto de la temporada", b: "los últimos 3 partidos" },
           }
         : undefined,

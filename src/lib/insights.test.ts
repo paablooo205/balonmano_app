@@ -54,7 +54,7 @@ describe("insightsZona", () => {
       ...Array.from({ length: 6 }, () => tiro({ resultado: "gol", zona: 2 })),
     ];
     const insights = insightsZona(tiros, { etiquetaAcierto: "goles", contextoAusencia: "en el partido" });
-    expect(insights.some((i) => i.texto === "No hemos tirado nada por abajo en el partido." && i.score === 15)).toBe(true);
+    expect(insights.some((i) => i.texto === "No hemos tirado a portería nada por abajo en el partido." && i.score === 15)).toBe(true);
   });
 
   it("usa el vocabulario de portería (paradas/recibido tiros) cuando etiquetaAcierto es 'paradas'", () => {
@@ -63,7 +63,33 @@ describe("insightsZona", () => {
       ...Array.from({ length: 6 }, () => tiro({ resultado: "parado", zona: 2, equipo_origen: "rival" })),
     ];
     const insights = insightsZona(tiros, { etiquetaAcierto: "paradas", contextoAusencia: "en el partido" });
-    expect(insights.some((i) => i.texto === "No hemos recibido tiros nada por abajo en el partido.")).toBe(true);
+    expect(insights.some((i) => i.texto === "No hemos recibido ningún tiro por abajo en el partido.")).toBe(true);
+  });
+
+  it("no cuenta los tiros sin zona (fuera/poste) para el umbral de ausencia", () => {
+    const tiros = [
+      ...Array.from({ length: 3 }, () => tiro({ resultado: "gol", zona: 1 })),
+      ...Array.from({ length: 8 }, () => tiro({ resultado: "fuera", zona: null })),
+    ];
+    // total con zona real = 3 (< MIN_TOTAL_AUSENCIA = 10), aunque tiros.length = 11.
+    // Antes del fix esto disparaba varios insights de ausencia falsos (abajo, medio, etc.)
+    const insights = insightsZona(tiros, { etiquetaAcierto: "goles", contextoAusencia: "en el partido" });
+    expect(insights).toEqual([]);
+  });
+
+  it("añade el sufijo etiquetaContexto a la frase cuando se pasa (p.ej. 7 metros)", () => {
+    const tiros = [
+      ...Array.from({ length: 5 }, () => tiro({ resultado: "gol", zona: 8, es_penalti: true })),
+      ...Array.from({ length: 5 }, () => tiro({ resultado: "parado", zona: 2, es_penalti: true })),
+    ];
+    const insights = insightsZona(tiros, {
+      etiquetaAcierto: "goles",
+      contextoAusencia: "en el partido",
+      etiquetaContexto: " (7m)",
+    });
+    const insightAbajo = insights.find((i) => i.texto.startsWith("Por abajo"));
+    expect(insightAbajo).toBeDefined();
+    expect(insightAbajo!.texto).toContain("Por abajo (7m) metemos");
   });
 });
 
@@ -129,7 +155,7 @@ describe("insightsTendencia", () => {
   it("no genera nada si algún periodo no llega al mínimo de intentos", () => {
     const periodoA = Array.from({ length: 4 }, () => tiro({ resultado: "gol", zona: 1 }));
     const periodoB = Array.from({ length: 5 }, () => tiro({ resultado: "gol", zona: 1 }));
-    expect(insightsTendencia(periodoA, periodoB, { a: "la 1ª parte", b: "la 2ª parte" }, { etiquetaAcierto: "goles" })).toEqual([]);
+    expect(insightsTendencia(periodoA, periodoB, { a: "de la 1ª parte", b: "la 2ª parte" }, { etiquetaAcierto: "goles" })).toEqual([]);
   });
 
   it("genera el insight con 'solo' cuando el periodo B empeora", () => {
@@ -220,7 +246,7 @@ describe("generarInsights", () => {
       tendencia: {
         propio: [periodoA, periodoB],
         rival: [[], []],
-        etiquetas: { a: "la 1ª parte", b: "la 2ª parte" },
+        etiquetas: { a: "de la 1ª parte", b: "la 2ª parte" },
       },
     });
     expect(insights.some((i) => i.categoria === "tendencia")).toBe(true);

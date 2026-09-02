@@ -22,7 +22,10 @@ const COLUMNAS: Record<string, number[]> = {
 };
 
 const VERBO_PRESENTE: Record<EtiquetaAcierto, string> = { goles: "metemos", paradas: "paramos" };
-const ACCION_AUSENCIA: Record<EtiquetaAcierto, string> = { goles: "tirado", paradas: "recibido tiros" };
+const FRASE_AUSENCIA: Record<EtiquetaAcierto, (grupo: string, contexto: string) => string> = {
+  goles: (grupo, contexto) => `No hemos tirado a portería nada por ${grupo} ${contexto}.`,
+  paradas: (grupo, contexto) => `No hemos recibido ningún tiro por ${grupo} ${contexto}.`,
+};
 const PARTICIPIO: Record<EtiquetaAcierto, string> = { goles: "metido", paradas: "parado" };
 
 const MIN_TIROS_GRUPO_ZONA = 5;
@@ -43,10 +46,14 @@ function pctAcierto(tiros: EventosRow[], etiqueta: EtiquetaAcierto): { pct: numb
 function insightsPorAgrupacion(
   tiros: EventosRow[],
   grupos: Record<string, number[]>,
-  opts: { etiquetaAcierto: EtiquetaAcierto; contextoAusencia: string },
+  opts: { etiquetaAcierto: EtiquetaAcierto; contextoAusencia: string; etiquetaContexto?: string },
 ): Insight[] {
   const insights: Insight[] = [];
-  const total = tiros.length;
+  // Solo los tiros con zona real cuentan para el umbral de ausencia: fuera/poste
+  // no llevan zona (ver `requiereZona`), así que un tiro fallado fuera no prueba
+  // que no hayamos tirado por ahí.
+  const total = tiros.filter((e) => e.zona !== null).length;
+  const contexto = opts.etiquetaContexto ?? "";
   for (const [nombreGrupo, zonas] of Object.entries(grupos)) {
     const tirosGrupo = tiros.filter((e) => e.zona !== null && zonas.includes(e.zona));
     const tirosResto = tiros.filter((e) => e.zona !== null && !zonas.includes(e.zona));
@@ -54,7 +61,7 @@ function insightsPorAgrupacion(
     if (tirosGrupo.length === 0) {
       if (total >= MIN_TOTAL_AUSENCIA) {
         insights.push({
-          texto: `No hemos ${ACCION_AUSENCIA[opts.etiquetaAcierto]} nada por ${nombreGrupo} ${opts.contextoAusencia}.`,
+          texto: FRASE_AUSENCIA[opts.etiquetaAcierto](`${nombreGrupo}${contexto}`, opts.contextoAusencia),
           score: SCORE_AUSENCIA,
           categoria: "zona",
         });
@@ -71,7 +78,7 @@ function insightsPorAgrupacion(
 
     const comparativo = deviacion > 0 ? "muy por encima" : "muy por debajo";
     insights.push({
-      texto: `Por ${nombreGrupo} ${VERBO_PRESENTE[opts.etiquetaAcierto]} el ${detGrupo.pct}% (${detGrupo.aciertos}/${detGrupo.intentos}), ${comparativo} del ${detResto.pct}% del resto de zonas.`,
+      texto: `Por ${nombreGrupo}${contexto} ${VERBO_PRESENTE[opts.etiquetaAcierto]} el ${detGrupo.pct}% (${detGrupo.aciertos}/${detGrupo.intentos}), ${comparativo} del ${detResto.pct}% del resto de zonas.`,
       score: Math.abs(deviacion) * Math.log2(detGrupo.intentos),
       categoria: "zona",
     });
@@ -81,10 +88,13 @@ function insightsPorAgrupacion(
 
 /** `tiros` debe venir ya filtrado por el llamante a un contexto homogéneo
  * (propio o rival, juego abierto o 7m — nunca mezclados). "Acierto" es gol
- * si `etiquetaAcierto` es "goles", parada si es "paradas". */
+ * si `etiquetaAcierto` es "goles", parada si es "paradas". `etiquetaContexto`
+ * se pega justo detrás del nombre de la zona en la frase para distinguir
+ * contextos que si no se leerían como contradictorios (" (7m)"); el juego
+ * abierto es el caso implícito y no lleva etiqueta. */
 export function insightsZona(
   tiros: EventosRow[],
-  opts: { etiquetaAcierto: EtiquetaAcierto; contextoAusencia: string },
+  opts: { etiquetaAcierto: EtiquetaAcierto; contextoAusencia: string; etiquetaContexto?: string },
 ): Insight[] {
   return [
     ...insightsPorAgrupacion(tiros, FILAS, opts),
@@ -165,7 +175,7 @@ export type EntradasInsights = {
   zonaRivalJuego: EventosRow[];
   zonaRivalPenalti: EventosRow[];
   ejecucionPropioJuego: EventosRow[];
-  /** Frase que completa "No hemos tirado nada por abajo {contextoAusencia}." — p.ej. "en el partido", "en la temporada", "en los enfrentamientos contra este rival". */
+  /** Frase que completa "No hemos tirado a portería nada por abajo {contextoAusencia}." — p.ej. "en el partido", "en la temporada", "en los enfrentamientos contra este rival". */
   contextoAusencia: string;
   /** `propio`/`rival` deben ser juego abierto únicamente (nunca 7m) — mismo criterio que el resto de `EntradasInsights`. */
   tendencia?: {
@@ -183,9 +193,9 @@ const MAX_INSIGHTS = 4;
 export function generarInsights(entradas: EntradasInsights): Insight[] {
   const insights: Insight[] = [
     ...insightsZona(entradas.zonaPropioJuego, { etiquetaAcierto: "goles", contextoAusencia: entradas.contextoAusencia }),
-    ...insightsZona(entradas.zonaPropioPenalti, { etiquetaAcierto: "goles", contextoAusencia: entradas.contextoAusencia }),
+    ...insightsZona(entradas.zonaPropioPenalti, { etiquetaAcierto: "goles", contextoAusencia: entradas.contextoAusencia, etiquetaContexto: " (7m)" }),
     ...insightsZona(entradas.zonaRivalJuego, { etiquetaAcierto: "paradas", contextoAusencia: entradas.contextoAusencia }),
-    ...insightsZona(entradas.zonaRivalPenalti, { etiquetaAcierto: "paradas", contextoAusencia: entradas.contextoAusencia }),
+    ...insightsZona(entradas.zonaRivalPenalti, { etiquetaAcierto: "paradas", contextoAusencia: entradas.contextoAusencia, etiquetaContexto: " (7m)" }),
     ...insightsEjecucion(entradas.ejecucionPropioJuego),
   ];
   if (entradas.tendencia) {
