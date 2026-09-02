@@ -3,8 +3,10 @@ import type { EficaciaDetalle } from "@/lib/partidoStats";
 
 /** Título + %/recuento honesto + mapa de calor — compartido por
  * `FichaTecnica.tsx` (tiro propio / nuestra portería) y
- * `PanelJugadorPartido.tsx` (mismo desglose a nivel de un jugador). Mismo
- * tema oscuro en ambos sitios, no hay variante clara de este bloque. */
+ * `PanelJugadorPartido.tsx` (mismo desglose a nivel de un jugador). Tema
+ * claro estándar (`card-surface` en el contenedor que lo envuelve, no aquí);
+ * `MapaCalorPorteria` es la única excepción — sigue siendo su propio widget
+ * oscuro autocontenido, por diseño, sin cambios. */
 export function BloqueTiro({
   titulo,
   detalle,
@@ -18,13 +20,13 @@ export function BloqueTiro({
 }) {
   return (
     <div>
-      <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-white/45">{titulo}</div>
+      <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-faint)]">{titulo}</div>
       {detalle ? (
-        <div className="mb-2 text-sm text-white/70">
-          <span className="stat-number text-lg text-white">{detalle.pct}%</span> ({detalle.aciertos} de {detalle.intentos})
+        <div className="mb-2 text-sm text-[var(--color-text-muted)]">
+          <span className="stat-number text-lg text-[var(--color-ink)]">{detalle.pct}%</span> ({detalle.aciertos} de {detalle.intentos})
         </div>
       ) : (
-        <div className="mb-2 text-sm text-white/35">Sin tiros.</div>
+        <div className="mb-2 text-sm text-[var(--color-text-faint)]">Sin tiros.</div>
       )}
       <MapaCalorPorteria conteosPorZona={zonas} total={total} />
     </div>

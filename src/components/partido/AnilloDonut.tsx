@@ -46,7 +46,7 @@ export function AnilloDonut({
       <div className="relative" style={{ width: tamano, height: tamano }}>
         <svg width={tamano} height={tamano} viewBox={`0 0 ${tamano} ${tamano}`}>
           {total === 0 ? (
-            <circle cx={cx} cy={cy} r={r} fill="none" stroke="white" strokeOpacity="0.1" strokeWidth="10" />
+            <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--color-border)" strokeWidth="10" />
           ) : segmentosConValor.length === 1 ? (
             <circle cx={cx} cy={cy} r={r} fill="none" stroke={segmentosConValor[0].color} strokeWidth="10" />
           ) : (
@@ -54,12 +54,12 @@ export function AnilloDonut({
           )}
         </svg>
         <div className="absolute inset-0 flex items-center justify-center px-2 text-center">
-          {centro ?? (total === 0 && <span className="text-[9px] text-white/30">Sin datos</span>)}
+          {centro ?? (total === 0 && <span className="text-[9px] text-[var(--color-text-faint)]">Sin datos</span>)}
         </div>
       </div>
       <div className="flex flex-wrap justify-center gap-x-2.5 gap-y-1">
         {segmentos.map((s) => (
-          <span key={s.label} className="flex items-center gap-1 text-[9px] text-white/45">
+          <span key={s.label} className="flex items-center gap-1 text-[9px] text-[var(--color-text-faint)]">
             <span className="h-1.5 w-1.5 rounded-full" style={{ background: s.color }} />
             {s.label} ({s.valor})
           </span>

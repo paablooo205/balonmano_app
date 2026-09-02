@@ -6,8 +6,9 @@ import type { EventosRow, JugadoresRow } from "@/types/database";
 /**
  * Panel local (no navega de pantalla) con el mini-desglose de un jugador
  * en este partido: eficacia y zonas de tiro, juego abierto/7m separados
- * igual que el resto del dashboard. Overlay propio en oscuro — el `Modal`
- * compartido del proyecto es tema claro, no encaja aquí.
+ * igual que el resto del dashboard. Overlay propio en tema claro (mismo
+ * `card-surface` que el resto de esta ficha) — no el `Modal` compartido del
+ * proyecto, para no acoplar esta pantalla a su contrato de `title`/`footer`.
  */
 export function PanelJugadorPartido({
   jugador,
@@ -29,15 +30,15 @@ export function PanelJugadorPartido({
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 md:items-center md:p-4" onClick={onCerrar}>
       <div
-        className="flex max-h-[85vh] w-full flex-col overflow-y-auto rounded-t-2xl border border-white/[.09] bg-[#15151a] p-4 md:max-w-md md:rounded-2xl"
+        className="card-surface flex max-h-[85vh] w-full flex-col overflow-y-auto rounded-b-none p-4 md:max-w-md md:rounded-b-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">
           <div>
-            <span className="stat-number text-sm text-white/60">#{jugador.dorsal ?? "—"} </span>
-            <span className="text-sm font-medium text-white">{jugador.nombre}</span>
+            <span className="stat-number text-sm text-[var(--color-text-muted)]">#{jugador.dorsal ?? "—"} </span>
+            <span className="text-sm font-medium text-[var(--color-text)]">{jugador.nombre}</span>
           </div>
-          <button aria-label="Cerrar" onClick={onCerrar} className="text-white/50 hover:text-white">
+          <button aria-label="Cerrar" onClick={onCerrar} className="text-[var(--color-text-muted)] hover:text-[var(--color-text)]">
             <X size={20} />
           </button>
         </div>
