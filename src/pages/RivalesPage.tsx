@@ -37,6 +37,13 @@ export function RivalesPage() {
     return partidos.filter((p) => p.rival_id === rivalId);
   }
 
+  // Solo cuenta partidos con resultado ya resuelto — mismo criterio que la
+  // ficha de rival, para que un partido programado sin jugar todavía no
+  // infle el recuento que se muestra aquí.
+  function partidosJugadosDe(rivalId: string): number {
+    return partidosDe(rivalId).filter((p) => resultadoPartido(p, eventosPorPartido.get(p.id) ?? []) !== null).length;
+  }
+
   function ultimoResultado(rivalId: string): "victoria" | "derrota" | "empate" | null {
     const propios = partidosDe(rivalId).sort((a, b) => b.fecha.localeCompare(a.fecha));
     const ultimo = propios[0];
@@ -59,7 +66,7 @@ export function RivalesPage() {
       {rivales.length > 0 && (
         <div className="card-surface divide-y divide-[var(--color-border)] overflow-hidden p-0">
           {rivales.map((r) => {
-            const partidosRival = partidosDe(r.id);
+            const jugados = partidosJugadosDe(r.id);
             const resultado = ultimoResultado(r.id);
             const badge = resultado ? RESULTADO_BADGE[resultado] : null;
             return (
@@ -77,7 +84,7 @@ export function RivalesPage() {
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-medium">{r.nombre}</div>
                   <div className="mt-1 truncate text-xs text-[var(--color-text-faint)]">
-                    {partidosRival.length} {partidosRival.length === 1 ? "partido" : "partidos"}
+                    {jugados} {jugados === 1 ? "partido" : "partidos"}
                   </div>
                 </div>
               </button>

@@ -96,7 +96,11 @@ export function PartidoModal({
       cargarRivalesEquipo(equipoId).then((lista) => {
         if (cancelado) return;
         setRivales(lista);
-        setModoRival(partido?.rival_id || lista.length > 0 ? "existente" : "nuevo");
+        // Editar un partido sin rival_id (no puede venir del backfill de la
+        // Task 1, que enlaza todos — solo si algo insertó la fila fuera de
+        // la app) debe abrir en "nuevo" con el texto ya escrito, no en
+        // "existente" sin nada seleccionado.
+        setModoRival(partido && !partido.rival_id ? "nuevo" : partido?.rival_id || lista.length > 0 ? "existente" : "nuevo");
       });
       return () => {
         cancelado = true;

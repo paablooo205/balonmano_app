@@ -26,11 +26,18 @@ alter table partidos add column rival_id uuid references rivales (id);
 -- Backfill: una fila de `rivales` por cada combinación (equipo_id, nombre)
 -- ya presente en partidos (el `distinct` ya evita duplicados dentro de esta
 -- misma migración), después enlaza cada partido a la fila que le
--- corresponde por nombre exacto dentro de su propio equipo.
+-- corresponde por nombre dentro de su propio equipo. Se normaliza con
+-- `btrim` solo para el backfill (nunca se toca `partidos.rival` en sí) para
+-- no fragmentar en rivales distintos variantes con espacios de más/menos
+-- del mismo nombre ya presentes en el texto libre histórico — no resuelve
+-- diferencias de mayúsculas/minúsculas, que si aparecen hay que unificarlas
+-- a mano en el SQL Editor (ver spec: el desplegable evita duplicados nuevos
+-- hacia adelante, pero no decide por el usuario qué grafía ya existente es
+-- la canónica).
 insert into rivales (equipo_id, nombre)
-select distinct equipo_id, rival from partidos;
+select distinct equipo_id, btrim(rival) from partidos;
 
 update partidos p
 set rival_id = r.id
 from rivales r
-where r.equipo_id = p.equipo_id and r.nombre = p.rival;
+where r.equipo_id = p.equipo_id and r.nombre = btrim(p.rival);

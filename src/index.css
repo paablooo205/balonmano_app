@@ -109,6 +109,10 @@ body {
   transition: background-color 0.15s, color 0.15s;
   color: var(--color-text-muted);
 }
+.tab-pill:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
 .tab-pill[data-active="true"] {
   background-color: var(--color-accent);
   color: white;

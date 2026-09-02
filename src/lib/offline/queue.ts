@@ -7,7 +7,11 @@
 import { supabase } from "@/lib/supabaseClient";
 import { dbDelete, dbGet, dbGetAll, dbPut, STORE_CACHE, STORE_QUEUE } from "./db";
 
-export type TablaOffline = "sesiones" | "partidos" | "eventos";
+// "rivales" solo usa `guardarCache`/`leerCache` (lectura offline del
+// selector de rival) — a propósito, ninguna escritura se encola para esa
+// tabla: crear un rival nuevo sigue exigiendo red (ver PartidoModal.tsx),
+// esto solo evita que elegir uno YA existente deje de funcionar sin red.
+export type TablaOffline = "sesiones" | "partidos" | "eventos" | "rivales";
 export type TipoOperacion = "insert" | "update" | "delete";
 
 export type PendingOp = {

@@ -76,9 +76,16 @@ export function RivalDetailPage() {
   let derrotas = 0;
   let golesFavorTotal = 0;
   let golesContraTotal = 0;
+  // Solo cuentan los partidos con resultado ya resuelto (mismo criterio que
+  // ProgresoPage.tsx) — un partido programado sin jugar todavía no debe
+  // sumar a "Partidos" mientras Victorias/Empates/Derrotas y goles solo
+  // cuentan los jugados, o la cabecera parecería un 0-0 catastrófico.
+  let partidosConResultado = 0;
   for (const p of partidosVsRival) {
     const eventosP = eventosPorPartido.get(p.id) ?? [];
     const resultado = resultadoPartido(p, eventosP);
+    if (resultado === null) continue;
+    partidosConResultado++;
     if (resultado === "victoria") victorias++;
     else if (resultado === "empate") empates++;
     else if (resultado === "derrota") derrotas++;
@@ -146,7 +153,7 @@ export function RivalDetailPage() {
             <>
               <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
                 <div className="card-surface p-4">
-                  <div className="stat-number text-[28px]">{partidosVsRival.length}</div>
+                  <div className="stat-number text-[28px]">{partidosConResultado}</div>
                   <div className="mt-1.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--color-text-faint)]">
                     Partidos
                   </div>
