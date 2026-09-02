@@ -20,11 +20,15 @@ export function LineaEvolucionEficacia({ puntos }: { puntos: { label: string; pc
     y: padY + (1 - p.pct / 100) * (h - 2 * padY),
   }));
   const puntosPolyline = coords.map((c) => `${c.x},${c.y}`).join(" ");
+  const ultimo = validos[validos.length - 1];
 
   return (
     <div>
-      <div className="mb-1 text-[9px] font-bold uppercase tracking-[0.16em] text-[var(--color-text-faint)]">
-        Evolución de eficacia
+      <div className="mb-1 flex items-baseline justify-between">
+        <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-[var(--color-text-faint)]">
+          Evolución de eficacia
+        </span>
+        <span className="stat-number text-lg text-[var(--color-ink)]">{ultimo.pct}%</span>
       </div>
       <div className="card-surface p-4">
         <svg viewBox={`0 0 ${w} ${h}`} className="h-16 w-full" preserveAspectRatio="none">

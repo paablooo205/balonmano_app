@@ -143,7 +143,7 @@ export function JugadorDetailPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="bg-[var(--color-ink)] px-5 pb-6 pt-5" style={{ borderRadius: "1.25rem" }}>
+      <div className="hero-band">
         <div className="mb-4 flex items-center justify-between gap-3">
           <button
             onClick={() => navigate(`/equipos/${equipoId}/equipo`)}
