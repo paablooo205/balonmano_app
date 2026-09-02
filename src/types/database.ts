@@ -219,6 +219,7 @@ export type PartidosRow = {
   equipo_id: UUID;
   microciclo_id: UUID | null;
   rival: string;
+  rival_id: UUID | null;
   fecha: string;
   casa_fuera: "casa" | "fuera" | null;
   competicion: string | null;
@@ -231,6 +232,14 @@ export type PartidosRow = {
   notas_adicionales: string | null;
   created_at: string;
   updated_at: string;
+};
+
+export type RivalesRow = {
+  id: UUID;
+  equipo_id: UUID;
+  nombre: string;
+  notas: string | null;
+  created_at: string;
 };
 
 export type EquipoOrigenEvento = "propio" | "rival";
@@ -395,10 +404,12 @@ export type Database = {
         | "created_at"
         | "updated_at"
       >;
+      rivales: TableDef<RivalesRow, "id" | "notas" | "created_at">;
       partidos: TableDef<
         PartidosRow,
         | "id"
         | "microciclo_id"
+        | "rival_id"
         | "casa_fuera"
         | "competicion"
         | "resultado"
