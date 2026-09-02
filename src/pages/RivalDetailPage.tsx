@@ -7,6 +7,8 @@ import { Select } from "@/components/ui/field";
 import { AnilloDonut } from "@/components/partido/AnilloDonut";
 import { BloqueTiro } from "@/components/partido/BloqueTiro";
 import { FichaTecnica } from "@/components/partido/FichaTecnica";
+import { InsightsCard } from "@/components/dashboard/InsightsCard";
+import { generarInsights } from "@/lib/insights";
 import {
   RESULTADO_BADGE,
   desgloseResultados,
@@ -120,6 +122,33 @@ export function RivalDetailPage() {
   const partidoSeleccionado = ambitoValido !== "todos" ? partidosVsRival.find((p) => p.id === ambitoValido) ?? null : null;
   const eventosPartidoSeleccionado = partidoSeleccionado ? eventosPorPartido.get(partidoSeleccionado.id) ?? [] : [];
 
+  // --- Insights: últimos 3 enfrentamientos vs el resto, solo contando
+  // partidos ya resueltos (mismo criterio que el historial de arriba). ---
+  const partidosResueltos = partidosVsRival.filter((p) => resultadoPartido(p, eventosPorPartido.get(p.id) ?? []) !== null);
+  const ultimosPartidos = partidosResueltos.slice(-3);
+  const restoPartidos = partidosResueltos.slice(0, -3);
+  const idsUltimos = new Set(ultimosPartidos.map((p) => p.id));
+  const idsResto = new Set(restoPartidos.map((p) => p.id));
+  const enResto = (e: EventosRow) => e.partido_id !== null && idsResto.has(e.partido_id);
+  const enUltimos = (e: EventosRow) => e.partido_id !== null && idsUltimos.has(e.partido_id);
+
+  const insights = generarInsights({
+    zonaPropioJuego: tirosJuego,
+    zonaPropioPenalti: tirosPenalti,
+    zonaRivalJuego: tirosRivalJuego,
+    zonaRivalPenalti: tirosRivalPenalti,
+    ejecucionPropioJuego: tirosJuego,
+    contextoAusencia: "en los enfrentamientos contra este rival",
+    tendencia:
+      restoPartidos.length > 0 && ultimosPartidos.length > 0
+        ? {
+            propio: [tirosJuego.filter(enResto), tirosJuego.filter(enUltimos)],
+            rival: [tirosRivalJuego.filter(enResto), tirosRivalJuego.filter(enUltimos)],
+            etiquetas: { a: "del resto de enfrentamientos", b: "los últimos 3 enfrentamientos" },
+          }
+        : undefined,
+  });
+
   return (
     <div className="flex flex-col gap-4">
       <PageHeader title={rival.nombre} onBack={() => navigate(`/equipos/${equipoId}/rivales`)} backLabel="Rivales" />
@@ -145,6 +174,8 @@ export function RivalDetailPage() {
 
       {ambitoValido === "todos" ? (
         <div className="flex flex-col gap-4">
+          <InsightsCard insights={insights} />
+
           {partidosVsRival.length === 0 ? (
             <div className="card-surface p-6 text-center text-[var(--color-text-muted)]">
               Todavía no hay partidos registrados contra este rival.
