@@ -13,6 +13,8 @@ import { EquipoPage } from "@/pages/EquipoPage";
 import { JugadorDetailPage } from "@/pages/JugadorDetailPage";
 import { PartidoPage } from "@/pages/PartidoPage";
 import { PartidoDetailPage } from "@/pages/PartidoDetailPage";
+import { RivalesPage } from "@/pages/RivalesPage";
+import { RivalDetailPage } from "@/pages/RivalDetailPage";
 import { ProgresoPage } from "@/pages/ProgresoPage";
 import { AjustesPage } from "@/pages/AjustesPage";
 
@@ -33,6 +35,8 @@ export default function App() {
             <Route path="jugador/:jugadorId" element={<JugadorDetailPage />} />
             <Route path="partido" element={<PartidoPage />} />
             <Route path="partido/:partidoId" element={<PartidoDetailPage />} />
+            <Route path="rivales" element={<RivalesPage />} />
+            <Route path="rivales/:rivalId" element={<RivalDetailPage />} />
             <Route path="modelo-juego" element={<ModeloJuegoPage />} />
             <Route path="ejercicios" element={<EjerciciosPage />} />
             <Route path="progreso" element={<ProgresoPage />} />
