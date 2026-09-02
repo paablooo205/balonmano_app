@@ -13,10 +13,12 @@ export function MarcadorExclusiones({ eventos }: { eventos: EventosRow[] }) {
   if (exclusiones.length === 0) return null;
 
   const w = 300;
-  const escalaX = crearEscalaTiempo(
+  const padX = 4;
+  const escalaXBase = crearEscalaTiempo(
     exclusiones.map((e) => e.creado_en),
-    w,
+    w - 2 * padX,
   );
+  const escalaX = (ts: string) => escalaXBase(ts) + padX;
   const propias = exclusiones.filter((e) => e.equipo_origen === "propio").length;
   const rivales = exclusiones.filter((e) => e.equipo_origen === "rival").length;
 

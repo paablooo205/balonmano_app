@@ -38,7 +38,7 @@ export function BarrasJugador({
             <button
               key={f.jugador.id}
               onClick={() => onSeleccionar(f.jugador)}
-              className="flex items-center gap-2 text-left"
+              className="flex items-center gap-2 rounded-[3px] bg-white/[.04] px-2.5 py-2 text-left"
             >
               <span className="stat-number w-5 shrink-0 text-sm text-white/60">{f.jugador.dorsal ?? "—"}</span>
               <span className="w-20 shrink-0 truncate text-xs text-white">{f.jugador.nombre}</span>

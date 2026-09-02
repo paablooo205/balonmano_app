@@ -22,11 +22,13 @@ export function LineaMarcador({ eventos }: { eventos: EventosRow[] }) {
     w,
   );
 
+  const padY = 4;
+
   const maxGoles = Math.max(...serie.map((p) => Math.max(p.favor, p.contra)), 1);
-  const yMarcador = (v: number) => hMarcador - (v / maxGoles) * hMarcador;
+  const yMarcador = (v: number) => hMarcador - padY - (v / maxGoles) * (hMarcador - 2 * padY);
 
   const maxDiffAbs = Math.max(...serie.map((p) => Math.abs(p.favor - p.contra)), 1);
-  const yDiff = (v: number) => hDiff / 2 - (v / maxDiffAbs) * (hDiff / 2);
+  const yDiff = (v: number) => hDiff / 2 - (v / maxDiffAbs) * (hDiff / 2 - padY);
 
   const puntosFavor = serie.map((p) => `${escalaX(p.ts)},${yMarcador(p.favor)}`).join(" ");
   const puntosContra = serie.map((p) => `${escalaX(p.ts)},${yMarcador(p.contra)}`).join(" ");
@@ -45,8 +47,8 @@ export function LineaMarcador({ eventos }: { eventos: EventosRow[] }) {
       </div>
       <div className="rounded border border-white/[.09] bg-[#15151a] p-4">
         <svg viewBox={`0 0 ${w} ${hMarcador}`} className="h-16 w-full" preserveAspectRatio="none">
-          <polyline points={puntosFavor} fill="none" stroke="var(--color-accent)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
           <polyline points={puntosContra} fill="none" stroke="white" strokeOpacity="0.4" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+          <polyline points={puntosFavor} fill="none" stroke="var(--color-accent)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
         </svg>
         <div className="mb-2 mt-1 flex gap-3 text-[9px] text-white/40">
           <span className="flex items-center gap-1">

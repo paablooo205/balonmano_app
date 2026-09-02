@@ -1,3 +1,10 @@
+/**
+ * Sin consumidores actuales — la tabla de jugadores que mostraba esta nota
+ * se sustituyó por barras apiladas (fase "ficha técnica de partido —
+ * gráficos") sin nota /10, decisión explícita y documentada como
+ * reversible en la spec de esa fase. El motor de cálculo se deja intacto
+ * por si se quiere volver a mostrar en algún sitio.
+ */
 import { esPortero, minutosJugados, porcentajeParadas } from "@/lib/partidoStats";
 import type { EventosRow, JugadoresRow, PartidosRow, UUID } from "@/types/database";
 
