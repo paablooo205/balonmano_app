@@ -12,11 +12,15 @@ export function BloqueTiro({
   detalle,
   zonas,
   total,
+  aciertosPorZona,
 }: {
   titulo: string;
   detalle: EficaciaDetalle;
   zonas: Record<number, number>;
   total: number;
+  /** Aciertos por zona (gol para tiro propio, parada para portería) — ver
+   * `MapaCalorPorteria`. El llamante decide qué cuenta como acierto. */
+  aciertosPorZona: Record<number, number>;
 }) {
   return (
     <div>
@@ -28,7 +32,7 @@ export function BloqueTiro({
       ) : (
         <div className="mb-2 text-sm text-[var(--color-text-faint)]">Sin tiros.</div>
       )}
-      <MapaCalorPorteria conteosPorZona={zonas} total={total} />
+      <MapaCalorPorteria conteosPorZona={zonas} total={total} aciertosPorZona={aciertosPorZona} />
     </div>
   );
 }

@@ -7,12 +7,17 @@
  * donde apagarlo evita que un jugador vea el patrón del rival mientras se
  * registra en directo).
  *
- * Cada celda muestra siempre el número de zona (esquina, atenuado) y, si hay
- * `total`, el porcentaje sobre ese total (grande) con el recuento real debajo
- * (pequeño) — honestidad estadística: nunca un porcentaje suelto sin decir
- * sobre cuántos intentos se calculó. Sin `total`, muestra el recuento crudo.
- * Una zona sin ningún tiro registrado se queda en gris neutro con un guion,
- * no en "0%" (0% sugeriría que se intentó y falló, no que no hay datos).
+ * Cada celda muestra siempre el número de zona (esquina, atenuado). Con
+ * `aciertosPorZona`, muestra "aciertos/intentos" de esa zona (p.ej. "3/5") —
+ * no solo por dónde se tira, sino si esos tiros entran o fallan, para decidir
+ * si conviene seguir lanzando ahí. Sin `aciertosPorZona`: si hay `total`, el
+ * porcentaje sobre ese total (grande) con el recuento real debajo (pequeño);
+ * sin `total`, el recuento crudo. Honestidad estadística en los tres modos:
+ * nunca un porcentaje/fracción suelta sin decir sobre cuántos intentos se
+ * calculó. Una zona sin ningún tiro registrado se queda en gris neutro con
+ * un guion, no en "0%" (0% sugeriría que se intentó y falló, no que no hay
+ * datos). La intensidad de color siempre refleja volumen (dónde se tira
+ * más), independiente de qué número muestre la celda.
  *
  * Reutilizable en cualquier ficha que necesite "por dónde tira X" — partido,
  * jugador (temporada o un partido concreto), y más adelante rivales: mismo
@@ -21,11 +26,18 @@
 export function MapaCalorPorteria({
   conteosPorZona,
   total,
+  aciertosPorZona,
 }: {
   conteosPorZona: Record<number, number>;
   /** Si se pasa, cada celda muestra porcentaje sobre este total (+ el
-   * recuento real debajo, más pequeño) en vez del recuento crudo solo. */
+   * recuento real debajo, más pequeño) en vez del recuento crudo solo.
+   * Ignorado si se pasa `aciertosPorZona`. */
   total?: number;
+  /** Aciertos por zona (goles para tiro propio, paradas para portería) —
+   * el llamante decide qué cuenta como "acierto" según el contexto. Si se
+   * pasa, cada celda muestra "aciertos/intentos" en vez del % o recuento
+   * crudo — tiene prioridad sobre `total`. */
+  aciertosPorZona?: Record<number, number>;
 }) {
   const max = Math.max(1, ...Object.values(conteosPorZona));
 
@@ -62,10 +74,16 @@ export function MapaCalorPorteria({
                   {zona}
                 </span>
                 {cnt > 0 ? (
-                  <>
-                    <span className="stat-number text-sm text-white">{pct !== null ? `${pct}%` : cnt}</span>
-                    {pct !== null && <span className="text-[8px] leading-none text-white/45">{cnt}</span>}
-                  </>
+                  aciertosPorZona ? (
+                    <span className="stat-number text-sm text-white">
+                      {aciertosPorZona[zona] ?? 0}/{cnt}
+                    </span>
+                  ) : (
+                    <>
+                      <span className="stat-number text-sm text-white">{pct !== null ? `${pct}%` : cnt}</span>
+                      {pct !== null && <span className="text-[8px] leading-none text-white/45">{cnt}</span>}
+                    </>
+                  )
                 ) : (
                   <span className="stat-number text-sm text-white/20">—</span>
                 )}

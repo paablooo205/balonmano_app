@@ -30,11 +30,15 @@ export function FichaTecnica({
   const tirosPenalti = eventos.filter((e) => e.tipo === "tiro" && e.equipo_origen === "propio" && e.es_penalti);
   const zonasJuego = distribucionPorZona(tirosJuego);
   const zonasPenalti = distribucionPorZona(tirosPenalti);
+  const golesZonasJuego = distribucionPorZona(tirosJuego.filter((e) => e.resultado === "gol"));
+  const golesZonasPenalti = distribucionPorZona(tirosPenalti.filter((e) => e.resultado === "gol"));
 
   const tirosRivalJuego = eventos.filter((e) => e.tipo === "tiro" && e.equipo_origen === "rival" && !e.es_penalti);
   const tirosRivalPenalti = eventos.filter((e) => e.tipo === "tiro" && e.equipo_origen === "rival" && e.es_penalti);
   const zonasRivalJuego = distribucionPorZona(tirosRivalJuego);
   const zonasRivalPenalti = distribucionPorZona(tirosRivalPenalti);
+  const paradasZonasRivalJuego = distribucionPorZona(tirosRivalJuego.filter((e) => e.resultado === "parado"));
+  const paradasZonasRivalPenalti = distribucionPorZona(tirosRivalPenalti.filter((e) => e.resultado === "parado"));
 
   const desgloseJuego = desgloseResultados(tirosJuego);
   const desglosePenalti = desgloseResultados(tirosPenalti);
@@ -49,12 +53,12 @@ export function FichaTecnica({
         <div className="mb-2 text-[9px] font-bold uppercase tracking-[0.16em] text-[var(--color-text-faint)]">Eficacia de tiro</div>
         <div className="flex items-center justify-center gap-6 card-surface p-4">
           <AnilloDonut
-            tamano={104}
+            tamano={96}
             segmentos={[
               { label: "Gol", valor: desgloseJuego.gol, color: "var(--color-success)" },
               { label: "Parado", valor: desgloseJuego.parado, color: "#3d8ad6" },
               { label: "Fuera", valor: desgloseJuego.fuera, color: "var(--color-accent)" },
-              { label: "Poste", valor: desgloseJuego.poste, color: "color-mix(in oklab, var(--color-accent) 55%, white)" },
+              { label: "Poste", valor: desgloseJuego.poste, color: "color-mix(in srgb, var(--color-accent) 55%, white)" },
             ]}
             centro={
               pctJuego === null ? (
@@ -68,12 +72,12 @@ export function FichaTecnica({
             }
           />
           <AnilloDonut
-            tamano={72}
+            tamano={96}
             segmentos={[
               { label: "Gol", valor: desglosePenalti.gol, color: "var(--color-success)" },
               { label: "Parado", valor: desglosePenalti.parado, color: "#3d8ad6" },
               { label: "Fuera", valor: desglosePenalti.fuera, color: "var(--color-accent)" },
-              { label: "Poste", valor: desglosePenalti.poste, color: "color-mix(in oklab, var(--color-accent) 55%, white)" },
+              { label: "Poste", valor: desglosePenalti.poste, color: "color-mix(in srgb, var(--color-accent) 55%, white)" },
             ]}
             centro={
               pctPenalti === null ? (
@@ -92,16 +96,40 @@ export function FichaTecnica({
       <div className="card-surface p-4">
         <div className="mb-2 text-[9px] font-bold uppercase tracking-[0.16em] text-[var(--color-text-faint)]">Tiro propio</div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <BloqueTiro titulo="Juego abierto" detalle={eficaciaConDetalle(eventos, { soloPenalti: false })} zonas={zonasJuego} total={tirosJuego.length} />
-          <BloqueTiro titulo="7 metros" detalle={eficaciaConDetalle(eventos, { soloPenalti: true })} zonas={zonasPenalti} total={tirosPenalti.length} />
+          <BloqueTiro
+            titulo="Juego abierto"
+            detalle={eficaciaConDetalle(eventos, { soloPenalti: false })}
+            zonas={zonasJuego}
+            total={tirosJuego.length}
+            aciertosPorZona={golesZonasJuego}
+          />
+          <BloqueTiro
+            titulo="7 metros"
+            detalle={eficaciaConDetalle(eventos, { soloPenalti: true })}
+            zonas={zonasPenalti}
+            total={tirosPenalti.length}
+            aciertosPorZona={golesZonasPenalti}
+          />
         </div>
       </div>
 
       <div className="card-surface p-4">
         <div className="mb-2 text-[9px] font-bold uppercase tracking-[0.16em] text-[var(--color-text-faint)]">Nuestra portería</div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <BloqueTiro titulo="Juego abierto" detalle={porcentajeParadas(eventos, { soloPenalti: false })} zonas={zonasRivalJuego} total={tirosRivalJuego.length} />
-          <BloqueTiro titulo="7 metros" detalle={porcentajeParadas(eventos, { soloPenalti: true })} zonas={zonasRivalPenalti} total={tirosRivalPenalti.length} />
+          <BloqueTiro
+            titulo="Juego abierto"
+            detalle={porcentajeParadas(eventos, { soloPenalti: false })}
+            zonas={zonasRivalJuego}
+            total={tirosRivalJuego.length}
+            aciertosPorZona={paradasZonasRivalJuego}
+          />
+          <BloqueTiro
+            titulo="7 metros"
+            detalle={porcentajeParadas(eventos, { soloPenalti: true })}
+            zonas={zonasRivalPenalti}
+            total={tirosRivalPenalti.length}
+            aciertosPorZona={paradasZonasRivalPenalti}
+          />
         </div>
       </div>
 

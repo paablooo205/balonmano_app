@@ -26,6 +26,8 @@ export function PanelJugadorPartido({
   const tirosPenalti = propios.filter((e) => e.tipo === "tiro" && e.equipo_origen === "propio" && e.es_penalti);
   const zonasJuego = distribucionPorZona(tirosJuego);
   const zonasPenalti = distribucionPorZona(tirosPenalti);
+  const golesZonasJuego = distribucionPorZona(tirosJuego.filter((e) => e.resultado === "gol"));
+  const golesZonasPenalti = distribucionPorZona(tirosPenalti.filter((e) => e.resultado === "gol"));
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 md:items-center md:p-4" onClick={onCerrar}>
@@ -43,8 +45,20 @@ export function PanelJugadorPartido({
           </button>
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <BloqueTiro titulo="Juego abierto" detalle={eficaciaJuego} zonas={zonasJuego} total={tirosJuego.length} />
-          <BloqueTiro titulo="7 metros" detalle={eficaciaPenalti} zonas={zonasPenalti} total={tirosPenalti.length} />
+          <BloqueTiro
+            titulo="Juego abierto"
+            detalle={eficaciaJuego}
+            zonas={zonasJuego}
+            total={tirosJuego.length}
+            aciertosPorZona={golesZonasJuego}
+          />
+          <BloqueTiro
+            titulo="7 metros"
+            detalle={eficaciaPenalti}
+            zonas={zonasPenalti}
+            total={tirosPenalti.length}
+            aciertosPorZona={golesZonasPenalti}
+          />
         </div>
       </div>
     </div>
