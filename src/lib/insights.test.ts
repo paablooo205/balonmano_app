@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { insightsZona } from "./insights";
+import { insightsEjecucion, insightsZona } from "./insights";
 import type { EventosRow } from "@/types/database";
 
 function tiro(overrides: Partial<EventosRow> & Pick<EventosRow, "resultado" | "zona">): EventosRow {
@@ -64,5 +64,34 @@ describe("insightsZona", () => {
     ];
     const insights = insightsZona(tiros, { etiquetaAcierto: "paradas", contextoAusencia: "en el partido" });
     expect(insights.some((i) => i.texto === "No hemos recibido tiros nada por abajo en el partido.")).toBe(true);
+  });
+});
+
+describe("insightsEjecucion", () => {
+  it("no genera nada por debajo del mínimo de intentos", () => {
+    const tiros = Array.from({ length: 7 }, () => tiro({ resultado: "fuera", zona: null }));
+    expect(insightsEjecucion(tiros)).toEqual([]);
+  });
+
+  it("no genera nada si el % de fuera+poste no llega al umbral", () => {
+    const tiros = [
+      ...Array.from({ length: 9 }, () => tiro({ resultado: "gol", zona: 5 })),
+      tiro({ resultado: "fuera", zona: 5 }),
+    ];
+    expect(insightsEjecucion(tiros)).toEqual([]);
+  });
+
+  it("genera el insight cuando fuera+poste supera el 25% con muestra suficiente", () => {
+    const tiros = [
+      ...Array.from({ length: 5 }, () => tiro({ resultado: "gol", zona: 5 })),
+      ...Array.from({ length: 4 }, () => tiro({ resultado: "fuera", zona: 5 })),
+      tiro({ resultado: "poste", zona: 5 }),
+    ];
+    const insights = insightsEjecucion(tiros);
+    expect(insights).toHaveLength(1);
+    expect(insights[0].texto).toBe(
+      "5 de cada 10 tiros se van fuera o al poste — más fallo propio que del portero rival.",
+    );
+    expect(insights[0].categoria).toBe("ejecucion");
   });
 });

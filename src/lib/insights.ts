@@ -90,3 +90,22 @@ export function insightsZona(
     ...insightsPorAgrupacion(tiros, COLUMNAS, opts),
   ];
 }
+
+const MIN_TIROS_EJECUCION = 8;
+const PCT_FALLO_NO_FORZADO_MINIMO = 25;
+
+/** Solo tiros propios en juego abierto — nunca 7m, un fallo a puerta vacía
+ * en 7m no es comparable a un fallo bajo presión defensiva. */
+export function insightsEjecucion(tirosJuegoAbierto: EventosRow[]): Insight[] {
+  if (tirosJuegoAbierto.length < MIN_TIROS_EJECUCION) return [];
+  const falloNoForzado = tirosJuegoAbierto.filter((e) => e.resultado === "fuera" || e.resultado === "poste").length;
+  const pct = Math.round((falloNoForzado / tirosJuegoAbierto.length) * 100);
+  if (pct < PCT_FALLO_NO_FORZADO_MINIMO) return [];
+  return [
+    {
+      texto: `${falloNoForzado} de cada ${tirosJuegoAbierto.length} tiros se van fuera o al poste — más fallo propio que del portero rival.`,
+      score: pct * Math.log2(tirosJuegoAbierto.length),
+      categoria: "ejecucion",
+    },
+  ];
+}
