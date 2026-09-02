@@ -211,9 +211,13 @@ En las tres páginas, `<InsightsCard />` se monta **arriba del todo** del
 contenido de la ficha (antes del marcador/anillos de eficacia) — lo
 primero que se ve al entrar:
 
-- `FichaTecnica.tsx`: antes de `<LineaMarcador />`.
-- `JugadorDetailPage.tsx`: antes del bloque de cabecera de estadística de
-  temporada.
+- `FichaTecnica.tsx`: primer elemento del `return`, antes de
+  `<LineaMarcador eventos={eventos} />`.
+- `JugadorDetailPage.tsx`: primer elemento dentro de la rama
+  `ambitoValido === "temporada"` (el `<div className="flex flex-col gap-4">`
+  que hoy empieza por la línea de pérdidas/robos) — no aplica a la vista de
+  un partido concreto (`ambitoValido !== "temporada"`, que renderiza
+  `DesgloseJugadorPartido`), ver "Casos límite".
 - `RivalDetailPage.tsx`: antes de las tarjetas de historial
   (Partidos/Victorias/Empates/Derrotas), en la vista "Todos los partidos"
   (no tiene sentido en la vista de un partido concreto contra ese rival,
@@ -230,6 +234,11 @@ ninguno nuevo) y llama a `generarInsights(...)`.
   portería" para ese jugador — solo de tiro propio. Mismo criterio que ya
   separa `esPortero` en el resto de `JugadorDetailPage.tsx`.
 - **Portero**: no se generan insights de "tiro propio" — solo de paradas.
+- **Ficha de jugador, vista de un partido concreto** (`ambitoValido !==
+  "temporada"`): no lleva `InsightsCard` propio — esa vista ya muestra
+  `DesgloseJugadorPartido`, un detalle puntual de ese partido, no el
+  dashboard completo; el `InsightsCard` de ese mismo partido ya está
+  disponible desde la ficha de partido.
 - **Partido con pocos tiros en total** (p.ej. partido recién empezado, o
   entrenamiento): `cortePorMediana` siempre devuelve un valor con `>= 1`
   tiro, pero el umbral `>= 5` por periodo en `insightsTendencia` ya filtra
@@ -243,10 +252,20 @@ ninguno nuevo) y llama a `generarInsights(...)`.
 
 ## Testing
 
-`src/lib/insights.test.ts` (Vitest, mismo patrón que el resto de
-`src/lib/*.ts`): casos por función (`insightsZona`, `insightsEjecucion`,
-`insightsTendencia`, `generarInsights`) cubriendo umbral no alcanzado,
-insight de ausencia, ranking con categorías mixtas, y el recorte a 4.
+El proyecto no tiene ningún framework de tests instalado hasta ahora
+(verificación siempre manual: `tsc`+`lint`+`build`+prueba del usuario). Se
+introduce Vitest **solo para este módulo** (lógica pura, sin React ni
+Supabase, con bastante ramificación de umbrales — encaja bien con tests
+unitarios rápidos), sin tocar el resto del proyecto: `vitest` como
+devDependency, script `"test": "vitest run"` en `package.json`, y
+`vitest.config.ts` mínimo con el alias `@` ya usado en `vite.config.ts`
+(`resolve.alias["@"] → ./src`), en modo `environment: "node"` (no hace
+falta DOM).
+
+`src/lib/insights.test.ts`: casos por función (`insightsZona`,
+`insightsEjecucion`, `insightsTendencia`, `generarInsights`,
+`cortePorMediana`) cubriendo umbral no alcanzado, insight de ausencia,
+ranking con categorías mixtas, y el recorte a 4.
 
 ## Fuera de esta iteración (posible trabajo futuro, no se construye ahora)
 
