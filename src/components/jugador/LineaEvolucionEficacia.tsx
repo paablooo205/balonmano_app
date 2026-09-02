@@ -1,13 +1,22 @@
 /**
- * Línea de tendencia de eficacia de tiro partido a partido — mismo espíritu
- * y matemática que `LineaMarcador` (SVG a medida, sin librería, coordenadas
- * con margen desde el principio para que ningún punto quede recortado
- * contra el borde del viewBox), pero una sola línea y eje X en partidos
- * jugados en vez de en tiempo dentro de un partido. Con menos de 2 partidos
- * con tiros registrados no hay tendencia que trazar — no renderiza nada.
+ * Línea de tendencia de eficacia de tiro (o de paradas, para porteros)
+ * partido a partido — mismo espíritu y matemática que `LineaMarcador` (SVG a
+ * medida, sin librería, coordenadas con margen desde el principio para que
+ * ningún punto quede recortado contra el borde del viewBox), pero una sola
+ * línea y eje X en partidos jugados en vez de en tiempo dentro de un
+ * partido. Con menos de 2 partidos con datos no hay tendencia que trazar —
+ * no renderiza nada.
  */
-export function LineaEvolucionEficacia({ puntos }: { puntos: { label: string; pct: number | null }[] }) {
-  const validos = puntos.filter((p): p is { label: string; pct: number } => p.pct !== null);
+export function LineaEvolucionEficacia({
+  puntos,
+  titulo = "Evolución de eficacia",
+}: {
+  puntos: { label: string; pct: number | null; aciertos: number | null; intentos: number | null }[];
+  titulo?: string;
+}) {
+  const validos = puntos.filter(
+    (p): p is { label: string; pct: number; aciertos: number; intentos: number } => p.pct !== null,
+  );
   if (validos.length < 2) return null;
 
   const w = 300;
@@ -26,9 +35,12 @@ export function LineaEvolucionEficacia({ puntos }: { puntos: { label: string; pc
     <div>
       <div className="mb-1 flex items-baseline justify-between">
         <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-[var(--color-text-faint)]">
-          Evolución de eficacia
+          {titulo}
         </span>
-        <span className="stat-number text-lg text-[var(--color-ink)]">{ultimo.pct}%</span>
+        <span className="text-right text-xs text-[var(--color-text-muted)]">
+          Último partido: <span className="stat-number text-[var(--color-ink)]">{ultimo.pct}%</span> ({ultimo.aciertos} de{" "}
+          {ultimo.intentos})
+        </span>
       </div>
       <div className="card-surface p-4">
         <svg viewBox={`0 0 ${w} ${h}`} className="h-16 w-full" preserveAspectRatio="none">

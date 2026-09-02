@@ -9,7 +9,15 @@ import { DesgloseJugadorPartido } from "@/components/partido/DesgloseJugadorPart
 import { LineaEvolucionEficacia } from "@/components/jugador/LineaEvolucionEficacia";
 import { JugadorFormModal } from "@/components/equipo/JugadorFormModal";
 import { Select } from "@/components/ui/field";
-import { desgloseResultados, distribucionPorZona, eficaciaConDetalle, esPortero, porcentajeParadas } from "@/lib/partidoStats";
+import {
+  desgloseResultados,
+  distribucionPorZona,
+  eficaciaConDetalle,
+  esPortero,
+  perdidas,
+  porcentajeParadas,
+  robos,
+} from "@/lib/partidoStats";
 import { MIN_TIROS_RECIBIDOS } from "@/lib/valoracion";
 import { cargarEventosEquipo } from "@/lib/eventos";
 import type { AsistenciaRow, EventosRow, JugadoresRow, PartidosRow, SesionesRow } from "@/types/database";
@@ -18,7 +26,7 @@ export function JugadorDetailPage() {
   const { equipoId } = useEquipo();
   const { jugadorId } = useParams<{ jugadorId: string }>();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [jugador, setJugador] = useState<JugadoresRow | null>(null);
   const [partidos, setPartidos] = useState<PartidosRow[]>([]);
   const [asistencia, setAsistencia] = useState<AsistenciaRow[]>([]);
@@ -26,7 +34,7 @@ export function JugadorDetailPage() {
   const [eventos, setEventos] = useState<EventosRow[]>([]);
   const [cargando, setCargando] = useState(true);
   const [editando, setEditando] = useState(false);
-  const [ambito, setAmbito] = useState<string>(searchParams.get("partido") ?? "temporada");
+  const ambito = searchParams.get("partido") ?? "temporada";
 
   async function cargar() {
     if (!jugadorId) return;
@@ -131,14 +139,23 @@ export function JugadorDetailPage() {
   const desgloseRivalPenalti = desgloseResultados(tirosRivalPenalti);
   const detalleParadasJuego = portero ? porcentajeParadas(eventosDelJugador, { soloPenalti: false }) : null;
   const detalleParadasPenalti = portero ? porcentajeParadas(eventosDelJugador, { soloPenalti: true }) : null;
-  const intentosRivalTotal = tirosRivalJuego.length + tirosRivalPenalti.length;
-  const muestraPequenaPortero = portero && intentosRivalTotal > 0 && intentosRivalTotal < MIN_TIROS_RECIBIDOS;
+  // Muestra pequeña evaluada por separado en cada anillo — 7m y juego abierto
+  // nunca se mezclan, tampoco para decidir si hay que avisar de cautela.
+  const muestraPequenaJuego = portero && tirosRivalJuego.length > 0 && tirosRivalJuego.length < MIN_TIROS_RECIBIDOS;
+  const muestraPequenaPenalti = portero && tirosRivalPenalti.length > 0 && tirosRivalPenalti.length < MIN_TIROS_RECIBIDOS;
 
-  // --- Línea de evolución de eficacia, partido a partido ---
+  // --- Línea de evolución, partido a partido: eficacia de tiro para un
+  // jugador de campo, % de paradas para un portero — nunca la mezcla de
+  // ambos criterios en la misma serie. ---
   const tendenciaEficacia = partidosJugadosOrdenados.map((p) => {
     const eventosDeEsePartido = eventosDelJugador.filter((e) => e.partido_id === p.id);
-    const detalle = eficaciaConDetalle(eventosDeEsePartido);
-    return { label: p.fecha, pct: detalle?.pct ?? null };
+    const detalle = portero ? porcentajeParadas(eventosDeEsePartido) : eficaciaConDetalle(eventosDeEsePartido);
+    return {
+      label: p.fecha,
+      pct: detalle?.pct ?? null,
+      aciertos: detalle?.aciertos ?? null,
+      intentos: detalle?.intentos ?? null,
+    };
   });
 
   return (
@@ -221,7 +238,15 @@ export function JugadorDetailPage() {
           Ficha técnica
         </div>
         {partidosJugadosOrdenados.length > 0 && (
-          <Select className="mb-3" value={ambitoValido} onChange={(e) => setAmbito(e.target.value)}>
+          <Select
+            className="mb-3"
+            aria-label="Ámbito de la ficha técnica"
+            value={ambitoValido}
+            onChange={(e) => {
+              const valor = e.target.value;
+              setSearchParams(valor === "temporada" ? {} : { partido: valor }, { replace: true });
+            }}
+          >
             <option value="temporada">Toda la temporada</option>
             {partidosJugadosOrdenados.map((p) => (
               <option key={p.id} value={p.id}>
@@ -233,78 +258,21 @@ export function JugadorDetailPage() {
 
         {ambitoValido === "temporada" ? (
           <div className="flex flex-col gap-4">
-            <div>
-              <div className="mb-2 text-[9px] font-bold uppercase tracking-[0.16em] text-[var(--color-text-faint)]">Eficacia de tiro</div>
-              <div className="flex items-center justify-center gap-6 card-surface p-4">
-                <AnilloDonut
-                  tamano={96}
-                  segmentos={[
-                    { label: "Gol", valor: desgloseJuego.gol, color: "var(--color-success)" },
-                    { label: "Parado", valor: desgloseJuego.parado, color: "#3d8ad6" },
-                    { label: "Fuera", valor: desgloseJuego.fuera, color: "var(--color-accent)" },
-                    { label: "Poste", valor: desgloseJuego.poste, color: "color-mix(in srgb, var(--color-accent) 55%, white)" },
-                  ]}
-                  centro={
-                    pctJuego === null ? (
-                      <span className="px-1 text-center text-[8px] uppercase leading-tight tracking-[0.06em] text-[var(--color-text-faint)]">Juego abierto</span>
-                    ) : (
-                      <div className="flex flex-col items-center leading-none">
-                        <span className="stat-number text-lg text-[var(--color-ink)]">{pctJuego}%</span>
-                        <span className="mt-0.5 px-1 text-center text-[7px] uppercase leading-tight tracking-[0.06em] text-[var(--color-text-faint)]">Juego abierto</span>
-                      </div>
-                    )
-                  }
-                />
-                <AnilloDonut
-                  tamano={96}
-                  segmentos={[
-                    { label: "Gol", valor: desglosePenalti.gol, color: "var(--color-success)" },
-                    { label: "Parado", valor: desglosePenalti.parado, color: "#3d8ad6" },
-                    { label: "Fuera", valor: desglosePenalti.fuera, color: "var(--color-accent)" },
-                    { label: "Poste", valor: desglosePenalti.poste, color: "color-mix(in srgb, var(--color-accent) 55%, white)" },
-                  ]}
-                  centro={
-                    pctPenalti === null ? (
-                      <span className="px-1 text-center text-[8px] uppercase leading-tight tracking-[0.06em] text-[var(--color-text-faint)]">7 metros</span>
-                    ) : (
-                      <div className="flex flex-col items-center leading-none">
-                        <span className="stat-number text-lg text-[var(--color-ink)]">{pctPenalti}%</span>
-                        <span className="mt-0.5 px-1 text-center text-[7px] uppercase leading-tight tracking-[0.06em] text-[var(--color-text-faint)]">7 metros</span>
-                      </div>
-                    )
-                  }
-                />
-              </div>
+            <div className="flex gap-4 text-xs text-[var(--color-text-muted)]">
+              <span>
+                <span className="stat-number text-[var(--color-ink)]">{perdidas(eventosDelJugador)}</span> pérdidas
+              </span>
+              <span>
+                <span className="stat-number text-[var(--color-ink)]">{robos(eventosDelJugador)}</span> robos
+              </span>
             </div>
 
-            <div className="card-surface p-4">
-              <div className="mb-2 text-[9px] font-bold uppercase tracking-[0.16em] text-[var(--color-text-faint)]">Tiro propio</div>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <BloqueTiro
-                  titulo="Juego abierto"
-                  detalle={eficaciaConDetalle(eventosDelJugador, { soloPenalti: false })}
-                  zonas={zonasJuego}
-                  total={tirosJuego.length}
-                  aciertosPorZona={golesZonasJuego}
-                  etiquetaAcierto="goles"
-                />
-                <BloqueTiro
-                  titulo="7 metros"
-                  detalle={eficaciaConDetalle(eventosDelJugador, { soloPenalti: true })}
-                  zonas={zonasPenalti}
-                  total={tirosPenalti.length}
-                  aciertosPorZona={golesZonasPenalti}
-                  etiquetaAcierto="goles"
-                />
-              </div>
-            </div>
-
-            <LineaEvolucionEficacia puntos={tendenciaEficacia} />
-
-            {portero && (
+            {portero ? (
               <>
                 <div>
-                  <div className="mb-2 text-[9px] font-bold uppercase tracking-[0.16em] text-[var(--color-text-faint)]">Portería</div>
+                  <div className="mb-2 text-[9px] font-bold uppercase tracking-[0.16em] text-[var(--color-text-faint)]">
+                    Eficacia de paradas
+                  </div>
                   <div className="flex items-center justify-center gap-6 card-surface p-4">
                     <AnilloDonut
                       tamano={96}
@@ -345,14 +313,26 @@ export function JugadorDetailPage() {
                       }
                     />
                   </div>
-                  {muestraPequenaPortero && (
-                    <p className="mt-2 text-[10px] text-[var(--color-text-faint)]">
-                      Menos de {MIN_TIROS_RECIBIDOS} tiros recibidos en la temporada — interpreta el % con cautela.
-                    </p>
+                  {(muestraPequenaJuego || muestraPequenaPenalti) && (
+                    <div className="mt-2 flex flex-col gap-0.5">
+                      {muestraPequenaJuego && (
+                        <p className="text-[10px] text-[var(--color-text-faint)]">
+                          Juego abierto: menos de {MIN_TIROS_RECIBIDOS} tiros recibidos en la temporada — interpreta el % con cautela.
+                        </p>
+                      )}
+                      {muestraPequenaPenalti && (
+                        <p className="text-[10px] text-[var(--color-text-faint)]">
+                          7 metros: menos de {MIN_TIROS_RECIBIDOS} tiros recibidos en la temporada — interpreta el % con cautela.
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
 
                 <div className="card-surface p-4">
+                  <div className="mb-2 text-[9px] font-bold uppercase tracking-[0.16em] text-[var(--color-text-faint)]">
+                    Tiros recibidos
+                  </div>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <BloqueTiro
                       titulo="Juego abierto"
@@ -373,7 +353,84 @@ export function JugadorDetailPage() {
                   </div>
                 </div>
               </>
+            ) : (
+              <>
+                <div>
+                  <div className="mb-2 text-[9px] font-bold uppercase tracking-[0.16em] text-[var(--color-text-faint)]">
+                    Eficacia de tiro
+                  </div>
+                  <div className="flex items-center justify-center gap-6 card-surface p-4">
+                    <AnilloDonut
+                      tamano={96}
+                      segmentos={[
+                        { label: "Gol", valor: desgloseJuego.gol, color: "var(--color-success)" },
+                        { label: "Parado", valor: desgloseJuego.parado, color: "#3d8ad6" },
+                        { label: "Fuera", valor: desgloseJuego.fuera, color: "var(--color-accent)" },
+                        { label: "Poste", valor: desgloseJuego.poste, color: "color-mix(in srgb, var(--color-accent) 55%, white)" },
+                      ]}
+                      centro={
+                        pctJuego === null ? (
+                          <span className="px-1 text-center text-[8px] uppercase leading-tight tracking-[0.06em] text-[var(--color-text-faint)]">Juego abierto</span>
+                        ) : (
+                          <div className="flex flex-col items-center leading-none">
+                            <span className="stat-number text-lg text-[var(--color-ink)]">{pctJuego}%</span>
+                            <span className="mt-0.5 px-1 text-center text-[7px] uppercase leading-tight tracking-[0.06em] text-[var(--color-text-faint)]">Juego abierto</span>
+                          </div>
+                        )
+                      }
+                    />
+                    <AnilloDonut
+                      tamano={96}
+                      segmentos={[
+                        { label: "Gol", valor: desglosePenalti.gol, color: "var(--color-success)" },
+                        { label: "Parado", valor: desglosePenalti.parado, color: "#3d8ad6" },
+                        { label: "Fuera", valor: desglosePenalti.fuera, color: "var(--color-accent)" },
+                        { label: "Poste", valor: desglosePenalti.poste, color: "color-mix(in srgb, var(--color-accent) 55%, white)" },
+                      ]}
+                      centro={
+                        pctPenalti === null ? (
+                          <span className="px-1 text-center text-[8px] uppercase leading-tight tracking-[0.06em] text-[var(--color-text-faint)]">7 metros</span>
+                        ) : (
+                          <div className="flex flex-col items-center leading-none">
+                            <span className="stat-number text-lg text-[var(--color-ink)]">{pctPenalti}%</span>
+                            <span className="mt-0.5 px-1 text-center text-[7px] uppercase leading-tight tracking-[0.06em] text-[var(--color-text-faint)]">7 metros</span>
+                          </div>
+                        )
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="card-surface p-4">
+                  <div className="mb-2 text-[9px] font-bold uppercase tracking-[0.16em] text-[var(--color-text-faint)]">
+                    Tiro propio
+                  </div>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <BloqueTiro
+                      titulo="Juego abierto"
+                      detalle={eficaciaConDetalle(eventosDelJugador, { soloPenalti: false })}
+                      zonas={zonasJuego}
+                      total={tirosJuego.length}
+                      aciertosPorZona={golesZonasJuego}
+                      etiquetaAcierto="goles"
+                    />
+                    <BloqueTiro
+                      titulo="7 metros"
+                      detalle={eficaciaConDetalle(eventosDelJugador, { soloPenalti: true })}
+                      zonas={zonasPenalti}
+                      total={tirosPenalti.length}
+                      aciertosPorZona={golesZonasPenalti}
+                      etiquetaAcierto="goles"
+                    />
+                  </div>
+                </div>
+              </>
             )}
+
+            <LineaEvolucionEficacia
+              puntos={tendenciaEficacia}
+              titulo={portero ? "Evolución de paradas" : "Evolución de eficacia"}
+            />
           </div>
         ) : (
           <div className="flex flex-col gap-3">
