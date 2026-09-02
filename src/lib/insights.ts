@@ -158,3 +158,41 @@ export function insightsTendencia(
     },
   ];
 }
+
+export type EntradasInsights = {
+  zonaPropioJuego: EventosRow[];
+  zonaPropioPenalti: EventosRow[];
+  zonaRivalJuego: EventosRow[];
+  zonaRivalPenalti: EventosRow[];
+  ejecucionPropioJuego: EventosRow[];
+  /** Frase que completa "No hemos tirado nada por abajo {contextoAusencia}." — p.ej. "en el partido", "en la temporada", "en los enfrentamientos contra este rival". */
+  contextoAusencia: string;
+  tendencia?: {
+    propio: [EventosRow[], EventosRow[]];
+    rival: [EventosRow[], EventosRow[]];
+    etiquetas: { a: string; b: string };
+  };
+};
+
+const MAX_INSIGHTS = 4;
+
+/** Punto de entrada único que usan las tres fichas: recopila todas las
+ * categorías aplicables, ordena por `score` descendente y recorta al top 4
+ * — sin cuota fija por categoría. */
+export function generarInsights(entradas: EntradasInsights): Insight[] {
+  const insights: Insight[] = [
+    ...insightsZona(entradas.zonaPropioJuego, { etiquetaAcierto: "goles", contextoAusencia: entradas.contextoAusencia }),
+    ...insightsZona(entradas.zonaPropioPenalti, { etiquetaAcierto: "goles", contextoAusencia: entradas.contextoAusencia }),
+    ...insightsZona(entradas.zonaRivalJuego, { etiquetaAcierto: "paradas", contextoAusencia: entradas.contextoAusencia }),
+    ...insightsZona(entradas.zonaRivalPenalti, { etiquetaAcierto: "paradas", contextoAusencia: entradas.contextoAusencia }),
+    ...insightsEjecucion(entradas.ejecucionPropioJuego),
+  ];
+  if (entradas.tendencia) {
+    const { propio, rival, etiquetas } = entradas.tendencia;
+    insights.push(
+      ...insightsTendencia(propio[0], propio[1], etiquetas, { etiquetaAcierto: "goles" }),
+      ...insightsTendencia(rival[0], rival[1], etiquetas, { etiquetaAcierto: "paradas" }),
+    );
+  }
+  return insights.sort((a, b) => b.score - a.score).slice(0, MAX_INSIGHTS);
+}

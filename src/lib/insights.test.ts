@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cortePorMediana, dividirPorCorte, insightsEjecucion, insightsTendencia, insightsZona } from "./insights";
+import { generarInsights, cortePorMediana, dividirPorCorte, insightsEjecucion, insightsTendencia, insightsZona } from "./insights";
 import type { EventosRow } from "@/types/database";
 
 function tiro(overrides: Partial<EventosRow> & Pick<EventosRow, "resultado" | "zona">): EventosRow {
@@ -168,5 +168,73 @@ describe("insightsTendencia", () => {
     expect(insights[0].texto).toBe(
       "En los últimos 3 partidos hemos parado el 80% (4/5), frente al 20% (1/5) del resto de la temporada.",
     );
+  });
+});
+
+describe("generarInsights", () => {
+  it("combina categorías y recorta al top 4 por score descendente", () => {
+    // Zona: fila "abajo" al 100% (5/5) vs 50% del resto (score alto).
+    const zonaPropioJuego = [
+      ...Array.from({ length: 5 }, () => tiro({ resultado: "gol", zona: 8 })),
+      ...Array.from({ length: 4 }, () => tiro({ resultado: "gol", zona: 1 })),
+      ...Array.from({ length: 4 }, () => tiro({ resultado: "fuera", zona: 1 })),
+      ...Array.from({ length: 2 }, () => tiro({ resultado: "gol", zona: 5 })),
+    ];
+    // Ejecución: 6/10 fuera+poste (score medio).
+    const ejecucionPropioJuego = [
+      ...Array.from({ length: 4 }, () => tiro({ resultado: "gol", zona: 5 })),
+      ...Array.from({ length: 6 }, () => tiro({ resultado: "fuera", zona: 5 })),
+    ];
+    const insights = generarInsights({
+      zonaPropioJuego,
+      zonaPropioPenalti: [],
+      zonaRivalJuego: [],
+      zonaRivalPenalti: [],
+      ejecucionPropioJuego,
+      contextoAusencia: "en el partido",
+    });
+    expect(insights.length).toBeLessThanOrEqual(4);
+    for (let i = 1; i < insights.length; i++) {
+      expect(insights[i - 1].score).toBeGreaterThanOrEqual(insights[i].score);
+    }
+    expect(insights.some((i) => i.categoria === "zona")).toBe(true);
+    expect(insights.some((i) => i.categoria === "ejecucion")).toBe(true);
+  });
+
+  it("incluye insights de tendencia (propio y rival) cuando se pasa `tendencia`", () => {
+    const periodoA = [
+      ...Array.from({ length: 4 }, () => tiro({ resultado: "gol", zona: 1 })),
+      tiro({ resultado: "fuera", zona: 1 }),
+    ];
+    const periodoB = [
+      tiro({ resultado: "gol", zona: 1 }),
+      ...Array.from({ length: 4 }, () => tiro({ resultado: "fuera", zona: 1 })),
+    ];
+    const insights = generarInsights({
+      zonaPropioJuego: [],
+      zonaPropioPenalti: [],
+      zonaRivalJuego: [],
+      zonaRivalPenalti: [],
+      ejecucionPropioJuego: [],
+      contextoAusencia: "en el partido",
+      tendencia: {
+        propio: [periodoA, periodoB],
+        rival: [[], []],
+        etiquetas: { a: "la 1ª parte", b: "la 2ª parte" },
+      },
+    });
+    expect(insights.some((i) => i.categoria === "tendencia")).toBe(true);
+  });
+
+  it("sin ninguna entrada con datos suficientes, devuelve un array vacío", () => {
+    const insights = generarInsights({
+      zonaPropioJuego: [],
+      zonaPropioPenalti: [],
+      zonaRivalJuego: [],
+      zonaRivalPenalti: [],
+      ejecucionPropioJuego: [],
+      contextoAusencia: "en el partido",
+    });
+    expect(insights).toEqual([]);
   });
 });
