@@ -33,7 +33,7 @@ export function BloqueTiro({
       <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-faint)]">{titulo}</div>
       {detalle ? (
         <div className="mb-2 text-sm text-[var(--color-text-muted)]">
-          <span className="stat-number text-lg text-[var(--color-ink)]">{detalle.pct}%</span> ({detalle.aciertos} de {detalle.intentos})
+          El <span className="stat-number text-lg text-[var(--color-ink)]">{detalle.pct}%</span> de los tiros han sido {etiquetaAcierto} ({detalle.aciertos} de {detalle.intentos})
         </div>
       ) : (
         <div className="mb-2 text-sm text-[var(--color-text-faint)]">Sin tiros.</div>
