@@ -8,6 +8,7 @@ import { BloqueTiro } from "@/components/partido/BloqueTiro";
 import { DesgloseJugadorPartido } from "@/components/partido/DesgloseJugadorPartido";
 import { LineaEvolucionEficacia } from "@/components/jugador/LineaEvolucionEficacia";
 import { JugadorFormModal } from "@/components/equipo/JugadorFormModal";
+import { InsightsCard } from "@/components/dashboard/InsightsCard";
 import { Select } from "@/components/ui/field";
 import {
   desgloseResultados,
@@ -20,6 +21,7 @@ import {
 } from "@/lib/partidoStats";
 import { MIN_TIROS_RECIBIDOS } from "@/lib/valoracion";
 import { cargarEventosEquipo } from "@/lib/eventos";
+import { generarInsights } from "@/lib/insights";
 import type { AsistenciaRow, EventosRow, JugadoresRow, PartidosRow, SesionesRow } from "@/types/database";
 
 export function JugadorDetailPage() {
@@ -158,6 +160,32 @@ export function JugadorDetailPage() {
     };
   });
 
+  // --- Insights de temporada: últimos 3 partidos vs el resto (solo si hay
+  // "resto" con el que comparar de forma justa). ---
+  const ultimosPartidos = partidosJugadosOrdenados.slice(-3);
+  const restoPartidos = partidosJugadosOrdenados.slice(0, -3);
+  const idsUltimos = new Set(ultimosPartidos.map((p) => p.id));
+  const idsResto = new Set(restoPartidos.map((p) => p.id));
+  const enResto = (e: EventosRow) => e.partido_id !== null && idsResto.has(e.partido_id);
+  const enUltimos = (e: EventosRow) => e.partido_id !== null && idsUltimos.has(e.partido_id);
+
+  const insights = generarInsights({
+    zonaPropioJuego: tirosJuego,
+    zonaPropioPenalti: tirosPenalti,
+    zonaRivalJuego: tirosRivalJuego,
+    zonaRivalPenalti: tirosRivalPenalti,
+    ejecucionPropioJuego: tirosJuego,
+    contextoAusencia: "en toda la temporada",
+    tendencia:
+      restoPartidos.length > 0 && ultimosPartidos.length > 0
+        ? {
+            propio: [tirosJuego.filter(enResto), tirosJuego.filter(enUltimos)],
+            rival: [tirosRivalJuego.filter(enResto), tirosRivalJuego.filter(enUltimos)],
+            etiquetas: { a: "del resto de la temporada", b: "los últimos 3 partidos" },
+          }
+        : undefined,
+  });
+
   return (
     <div className="flex flex-col gap-4">
       <div className="hero-band">
@@ -258,6 +286,8 @@ export function JugadorDetailPage() {
 
         {ambitoValido === "temporada" ? (
           <div className="flex flex-col gap-4">
+            <InsightsCard insights={insights} />
+
             <div className="flex gap-4 text-xs text-[var(--color-text-muted)]">
               <span>
                 <span className="stat-number text-[var(--color-ink)]">{perdidas(eventosDelJugador)}</span> pérdidas
