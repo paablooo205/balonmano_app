@@ -79,18 +79,21 @@ export function InicioPage() {
   const diasSemana = getWeekDates(hoy).map(toISODate);
   const entrenamientosSemana = sesiones.filter((s) => diasSemana.includes(s.fecha)).length;
   const partidosSemana = partidos.filter((p) => diasSemana.includes(p.fecha)).length;
+  const asistenciaEntreno = asistencia.filter((a) => a.sesion_id);
   const asistenciaMedia =
-    asistencia.length > 0 ? Math.round((asistencia.filter((a) => a.presente).length / asistencia.length) * 100) : null;
+    asistenciaEntreno.length > 0
+      ? Math.round((asistenciaEntreno.filter((a) => a.presente).length / asistenciaEntreno.length) * 100)
+      : null;
 
   // Fecha de cada evento (para ordenar la asistencia de un jugador cronológicamente).
   const fechaDeEvento = new Map<string, string>();
   for (const s of sesiones) fechaDeEvento.set(s.id, s.fecha);
   for (const p of partidos) fechaDeEvento.set(p.id, p.fecha);
 
-  const alertas: { dot: string; texto: string; sub: string }[] = [];
+  const alertas: { dot: string; texto: string; sub: string; partidoId?: string }[] = [];
   for (const j of jugadores) {
     const registros = asistencia
-      .filter((a) => a.jugador_id === j.id)
+      .filter((a) => a.jugador_id === j.id && a.sesion_id)
       .map((a) => ({ ...a, fecha: fechaDeEvento.get(a.sesion_id ?? a.partido_id ?? "") ?? "" }))
       .filter((a) => a.fecha)
       .sort((a, b) => b.fecha.localeCompare(a.fecha));
@@ -115,6 +118,16 @@ export function InicioPage() {
         sub: "Revisar motivo antes de la próxima convocatoria",
       });
     }
+  }
+
+  const partidosSinConvocatoria = partidos.filter((p) => !asistencia.some((a) => a.partido_id === p.id));
+  for (const p of partidosSinConvocatoria) {
+    alertas.push({
+      dot: "var(--color-warning)",
+      texto: `Convocatoria pendiente: vs ${p.rival}`,
+      sub: `${new Date(p.fecha + "T00:00:00").toLocaleDateString("es-ES", { day: "2-digit", month: "short" })} — hazla antes de registrar el partido en directo`,
+      partidoId: p.id,
+    });
   }
 
   const todayLong = `${DIAS_SEMANA[hoy.getDay()].toLowerCase()} ${hoy.getDate()} de ${MESES[hoy.getMonth()].toLowerCase()}`;
@@ -251,15 +264,30 @@ export function InicioPage() {
           </div>
         ) : (
           <div className="flex flex-col gap-2">
-            {alertas.map((a, i) => (
-              <div key={i} className="flex items-center gap-3 rounded-[14px] bg-[var(--color-ink)] px-4 py-3.5">
-                <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: a.dot }} />
-                <div className="min-w-0 flex-1">
-                  <div className="text-[13px] font-medium text-white">{a.texto}</div>
-                  <div className="mt-0.5 truncate text-[11px] text-white/50">{a.sub}</div>
+            {alertas.map((a, i) => {
+              const contenido = (
+                <>
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: a.dot }} />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[13px] font-medium text-white">{a.texto}</div>
+                    <div className="mt-0.5 truncate text-[11px] text-white/50">{a.sub}</div>
+                  </div>
+                </>
+              );
+              return a.partidoId ? (
+                <button
+                  key={i}
+                  onClick={() => navigate(`/equipos/${equipoId}/partido/${a.partidoId}?vista=convocatoria`)}
+                  className="flex w-full items-center gap-3 rounded-[14px] bg-[var(--color-ink)] px-4 py-3.5 text-left"
+                >
+                  {contenido}
+                </button>
+              ) : (
+                <div key={i} className="flex items-center gap-3 rounded-[14px] bg-[var(--color-ink)] px-4 py-3.5">
+                  {contenido}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
