@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
-/** Nombre del entrenador con la sesión activa (fila propia en `entrenadores`, vía RLS). */
+/** Entrenador con la sesión activa (fila propia en `entrenadores`, vía RLS) — id y nombre. */
 export function useEntrenador() {
+  const [id, setId] = useState<string | null>(null);
   const [nombre, setNombre] = useState<string | null>(null);
   const [cargando, setCargando] = useState(true);
 
@@ -18,10 +19,11 @@ export function useEntrenador() {
       }
       const { data } = await supabase
         .from("entrenadores")
-        .select("nombre")
+        .select("id, nombre")
         .eq("auth_user_id", user.id)
         .maybeSingle();
       if (!activo) return;
+      setId(data?.id ?? null);
       setNombre(data?.nombre ?? null);
       setCargando(false);
     })();
@@ -30,5 +32,5 @@ export function useEntrenador() {
     };
   }, []);
 
-  return { nombre, cargando };
+  return { id, nombre, cargando };
 }
