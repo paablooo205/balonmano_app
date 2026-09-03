@@ -11,6 +11,7 @@ import { EjercicioFormModal } from "@/components/ejercicios/EjercicioFormModal";
 export function EjerciciosPage() {
   const { equipoId } = useEquipo();
   const [ejercicios, setEjercicios] = useState<EjerciciosRow[]>([]);
+  const [favoritoIds, setFavoritoIds] = useState<Set<string>>(new Set());
   const [cargando, setCargando] = useState(true);
   const [busqueda, setBusqueda] = useState("");
   const [categoria, setCategoria] = useState("");
@@ -21,12 +22,16 @@ export function EjerciciosPage() {
 
   async function cargar() {
     setCargando(true);
-    const { data } = await supabase
-      .from("ejercicios")
-      .select("*")
-      .eq("equipo_id", equipoId)
-      .order("nombre");
-    setEjercicios(data ?? []);
+    const [ej, fav] = await Promise.all([
+      supabase
+        .from("ejercicios")
+        .select("*")
+        .or(`equipo_id.eq.${equipoId},compartido.eq.true`)
+        .order("nombre"),
+      supabase.from("ejercicio_favoritos").select("ejercicio_id").eq("equipo_id", equipoId),
+    ]);
+    setEjercicios(ej.data ?? []);
+    setFavoritoIds(new Set((fav.data ?? []).map((f) => f.ejercicio_id)));
     setCargando(false);
   }
 
@@ -45,7 +50,7 @@ export function EjerciciosPage() {
   );
 
   const filtrados = ejercicios.filter((e) => {
-    if (soloFavoritos && !e.favorito) return false;
+    if (soloFavoritos && !favoritoIds.has(e.id)) return false;
     if (categoria && e.categoria !== categoria) return false;
     if (dificultad && e.dificultad !== dificultad) return false;
     if (busqueda) {
@@ -77,7 +82,11 @@ export function EjerciciosPage() {
   }
 
   async function toggleFavorito(e: EjerciciosRow) {
-    await supabase.from("ejercicios").update({ favorito: !e.favorito }).eq("id", e.id);
+    if (favoritoIds.has(e.id)) {
+      await supabase.from("ejercicio_favoritos").delete().eq("equipo_id", equipoId).eq("ejercicio_id", e.id);
+    } else {
+      await supabase.from("ejercicio_favoritos").insert({ equipo_id: equipoId, ejercicio_id: e.id });
+    }
     cargar();
   }
 
@@ -145,61 +154,72 @@ export function EjerciciosPage() {
       )}
 
       <div className="flex flex-col gap-3">
-        {filtrados.map((e) => (
-          <button
-            key={e.id}
-            onClick={() => abrirEdicion(e)}
-            className="card-surface flex flex-col gap-2 p-4 text-left transition-colors hover:border-[var(--color-accent)]"
-          >
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <div className="font-semibold">{e.nombre}</div>
-                <div className="text-sm text-[var(--color-text-muted)]">
-                  {[e.categoria, e.dificultad].filter(Boolean).join(" · ") || "Sin clasificar"}
+        {filtrados.map((e) => {
+          const esAjeno = e.equipo_id !== equipoId;
+          const esFavorito = favoritoIds.has(e.id);
+          return (
+            <button
+              key={e.id}
+              onClick={() => abrirEdicion(e)}
+              className="card-surface flex flex-col gap-2 p-4 text-left transition-colors hover:border-[var(--color-accent)]"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <div className="font-semibold">{e.nombre}</div>
+                  <div className="text-sm text-[var(--color-text-muted)]">
+                    {[e.categoria, e.dificultad].filter(Boolean).join(" · ") || "Sin clasificar"}
+                  </div>
                 </div>
+                <span
+                  role="button"
+                  tabIndex={0}
+                  onClick={(ev) => {
+                    ev.stopPropagation();
+                    toggleFavorito(e);
+                  }}
+                  className="shrink-0 text-[var(--color-text-muted)] hover:text-[var(--color-accent)]"
+                >
+                  <Star size={20} fill={esFavorito ? "currentColor" : "none"} className={esFavorito ? "text-[var(--color-accent)]" : ""} />
+                </span>
               </div>
-              <span
-                role="button"
-                tabIndex={0}
-                onClick={(ev) => {
-                  ev.stopPropagation();
-                  toggleFavorito(e);
-                }}
-                className="shrink-0 text-[var(--color-text-muted)] hover:text-[var(--color-accent)]"
-              >
-                <Star size={20} fill={e.favorito ? "currentColor" : "none"} className={e.favorito ? "text-[var(--color-accent)]" : ""} />
-              </span>
-            </div>
 
-            {e.contenido.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {e.contenido.map((tag) => (
-                  <span
-                    key={tag}
-                    className="rounded-full bg-[var(--color-card-hover)] px-2 py-0.5 text-xs text-[var(--color-text-muted)]"
-                  >
-                    {tag}
+              {esAjeno && (
+                <span className="w-fit rounded-full bg-[var(--color-card-hover)] px-2 py-0.5 text-xs text-[var(--color-text-muted)]">
+                  by {e.creado_por_nombre ?? "otro equipo"}
+                  {e.equipo_origen_nombre ? ` · ${e.equipo_origen_nombre}` : ""}
+                </span>
+              )}
+
+              {e.contenido.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {e.contenido.map((tag) => (
+                    <span
+                      key={tag}
+                      className="rounded-full bg-[var(--color-card-hover)] px-2 py-0.5 text-xs text-[var(--color-text-muted)]"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex gap-4 text-xs text-[var(--color-text-muted)]">
+                {(e.jugadores_min || e.jugadores_max) && (
+                  <span className="flex items-center gap-1">
+                    <Users size={14} />
+                    {e.jugadores_min ?? "?"}–{e.jugadores_max ?? "?"}
                   </span>
-                ))}
+                )}
+                {e.duracion_min && (
+                  <span className="flex items-center gap-1">
+                    <Clock size={14} />
+                    {e.duracion_min} min
+                  </span>
+                )}
               </div>
-            )}
-
-            <div className="flex gap-4 text-xs text-[var(--color-text-muted)]">
-              {(e.jugadores_min || e.jugadores_max) && (
-                <span className="flex items-center gap-1">
-                  <Users size={14} />
-                  {e.jugadores_min ?? "?"}–{e.jugadores_max ?? "?"}
-                </span>
-              )}
-              {e.duracion_min && (
-                <span className="flex items-center gap-1">
-                  <Clock size={14} />
-                  {e.duracion_min} min
-                </span>
-              )}
-            </div>
-          </button>
-        ))}
+            </button>
+          );
+        })}
       </div>
 
       <EjercicioFormModal
