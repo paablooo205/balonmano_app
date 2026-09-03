@@ -281,6 +281,7 @@ export function InicioPage() {
                   className="flex w-full items-center gap-3 rounded-[14px] bg-[var(--color-ink)] px-4 py-3.5 text-left"
                 >
                   {contenido}
+                  <ChevronRight size={18} className="shrink-0 text-white/40" />
                 </button>
               ) : (
                 <div key={i} className="flex items-center gap-3 rounded-[14px] bg-[var(--color-ink)] px-4 py-3.5">

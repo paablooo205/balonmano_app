@@ -132,8 +132,8 @@ export function PartidoDetailPage() {
             backLabel="Partido"
             variant="accent"
           />
-          <div className="card-surface flex flex-col items-center gap-4 p-6 text-center text-[var(--color-text-muted)]">
-            <p>Haz la convocatoria antes de registrar estadísticas.</p>
+          <div className="card-surface flex flex-col gap-3 p-4 text-center">
+            <p className="text-sm text-[var(--color-text-muted)]">Haz la convocatoria antes de registrar estadísticas.</p>
             <Button onClick={() => setVista("convocatoria")}>Ir a convocatoria</Button>
           </div>
         </div>
@@ -251,7 +251,7 @@ export function PartidoDetailPage() {
 
       <button
         onClick={() => setVista("convocatoria")}
-        className="text-center text-sm font-medium text-[var(--color-ink)] hover:text-[var(--color-accent)]"
+        className="text-center text-sm text-[var(--color-text-muted)] hover:text-[var(--color-accent)]"
       >
         Convocatoria
       </button>
