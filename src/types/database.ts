@@ -160,10 +160,23 @@ export type EjerciciosRow = {
   errores_frecuentes: string | null;
   correcciones: string | null;
   transferencia_partido: string | null;
-  favorito: boolean;
+  /** Visible en la biblioteca de cualquier equipo del club, no solo el dueño (ver 0023_ejercicios_compartidos.sql) — solo lectura para los demás. */
+  compartido: boolean;
+  /** Referencia real al entrenador que lo creó; nullable porque los ejercicios de antes de esta función no tienen autor conocido. */
+  creado_por: UUID | null;
+  /** Copia de texto del nombre del entrenador en el momento de compartir/guardar — nunca un join en vivo contra `entrenadores` (esa tabla no tiene lectura entre equipos). */
+  creado_por_nombre: string | null;
+  /** Copia de texto del nombre del equipo dueño en ese mismo momento — mismo motivo que creado_por_nombre. */
+  equipo_origen_nombre: string | null;
   notas_adicionales: string | null;
   created_at: string;
   updated_at: string;
+};
+
+/** Favorito de un ejercicio, por equipo que lo marca — independiente del equipo dueño del ejercicio (ver 0023_ejercicios_compartidos.sql). */
+export type EjercicioFavoritosRow = {
+  equipo_id: UUID;
+  ejercicio_id: UUID;
 };
 
 export type JugadoresRow = {
@@ -385,11 +398,15 @@ export type Database = {
         | "errores_frecuentes"
         | "correcciones"
         | "transferencia_partido"
-        | "favorito"
+        | "compartido"
+        | "creado_por"
+        | "creado_por_nombre"
+        | "equipo_origen_nombre"
         | "notas_adicionales"
         | "created_at"
         | "updated_at"
       >;
+      ejercicio_favoritos: TableDef<EjercicioFavoritosRow>;
       jugadores: TableDef<
         JugadoresRow,
         | "id"
