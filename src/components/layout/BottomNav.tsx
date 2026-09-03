@@ -1,22 +1,32 @@
-import { useState } from "react";
-import { NavLink, useParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { NavLink, useLocation, useParams } from "react-router-dom";
 import { LogOut, MoreHorizontal, X } from "lucide-react";
 import { NAV_ITEMS } from "@/lib/navConfig";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabaseClient";
 import type { PreferenciaMenu } from "@/hooks/usePreferenciaMenu";
 import { useActividadReciente } from "@/hooks/useActividadReciente";
+import { useEjerciciosNuevos } from "@/hooks/useEjerciciosNuevos";
 
 const PRINCIPALES = NAV_ITEMS.filter((item) => item.enBarraInferior);
 const SECUNDARIOS = NAV_ITEMS.filter((item) => !item.enBarraInferior);
 
 export function BottomNav({ modo }: { modo: PreferenciaMenu }) {
   const { equipoId } = useParams();
+  const location = useLocation();
   const [masAbierto, setMasAbierto] = useState(false);
   const activa = useActividadReciente() || masAbierto;
   const haySeccionSecundariaActiva = SECUNDARIOS.some((item) =>
     location.pathname.includes(`/${item.path}`),
   );
+  const { hayNuevos: hayEjerciciosNuevos, marcarVistos: marcarEjerciciosVistos } = useEjerciciosNuevos(equipoId ?? "");
+
+  // Al entrar en Ejercicios se considera visto — la burbuja roja desaparece
+  // sin que el usuario tenga que hacer nada más.
+  useEffect(() => {
+    if (location.pathname.includes("/ejercicios")) marcarEjerciciosVistos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
 
   if (modo === "lateral") return null;
 
@@ -56,8 +66,11 @@ export function BottomNav({ modo }: { modo: PreferenciaMenu }) {
                     )
                   }
                 >
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center">
+                  <span className="relative flex h-7 w-7 shrink-0 items-center justify-center">
                     <item.icon size={22} />
+                    {item.key === "ejercicios" && hayEjerciciosNuevos && (
+                      <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-[var(--color-accent)] ring-2 ring-[var(--color-card-hover)]" />
+                    )}
                   </span>
                   {item.label}
                 </NavLink>
