@@ -282,6 +282,7 @@ export type AsistenciaRow = {
   partido_id: UUID | null;
   presente: boolean;
   motivo_ausencia: MotivoAusencia | null;
+  llego_tarde: boolean;
   notas_adicionales: string | null;
   created_at: string;
   updated_at: string;

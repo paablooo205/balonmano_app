@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Clock } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { Textarea } from "@/components/ui/field";
 import { Switch } from "@/components/ui/switch";
@@ -87,16 +87,20 @@ export function AsistenciaChecklist({
   async function marcar(jugadorId: string, presente: boolean, motivo_ausencia: MotivoAusencia | null = null) {
     if (!targetId) return;
     const existente = asistencias.find((a) => a.jugador_id === jugadorId);
+    // "Llegó tarde" es un eje independiente del de ausencia, pero solo tiene
+    // sentido si el jugador está presente — al marcar ausente se resetea,
+    // igual que exige la restricción asistencia_llego_tarde_solo_presente.
+    const llego_tarde = presente ? (existente?.llego_tarde ?? false) : false;
     if (existente) {
       const { error } = await supabase
         .from("asistencia")
-        .update({ presente, motivo_ausencia })
+        .update({ presente, motivo_ausencia, llego_tarde })
         .eq("id", existente.id);
       if (error) {
         alert("No se pudo guardar: " + error.message);
         return;
       }
-      setAsistencias((as) => as.map((a) => (a.id === existente.id ? { ...a, presente, motivo_ausencia } : a)));
+      setAsistencias((as) => as.map((a) => (a.id === existente.id ? { ...a, presente, motivo_ausencia, llego_tarde } : a)));
     } else {
       const payload = {
         equipo_id: equipoId,
@@ -105,6 +109,7 @@ export function AsistenciaChecklist({
         partido_id: columna === "partido_id" ? targetId : null,
         presente,
         motivo_ausencia,
+        llego_tarde,
       };
       const { data, error } = await supabase.from("asistencia").insert(payload).select("*").single();
       if (error || !data) {
@@ -113,6 +118,20 @@ export function AsistenciaChecklist({
       }
       setAsistencias((as) => [...as, data]);
     }
+  }
+
+  /** Toggle rápido, independiente del de presente/ausente — solo se llama
+   * cuando ya existe un registro con presente=true (el botón no se muestra
+   * si no). */
+  async function marcarLlegoTarde(jugadorId: string, llego_tarde: boolean) {
+    const existente = asistencias.find((a) => a.jugador_id === jugadorId);
+    if (!existente) return;
+    const { error } = await supabase.from("asistencia").update({ llego_tarde }).eq("id", existente.id);
+    if (error) {
+      alert("No se pudo guardar: " + error.message);
+      return;
+    }
+    setAsistencias((as) => as.map((a) => (a.id === existente.id ? { ...a, llego_tarde } : a)));
   }
 
   async function guardarNota(jugadorId: string, nota: string) {
@@ -157,6 +176,9 @@ export function AsistenciaChecklist({
                   {resumen
                     ? `${resumen.faltas} falta${resumen.faltas === 1 ? "" : "s"} de ${resumen.total}`
                     : "Sin registros todavía"}
+                  {registro?.presente && registro.llego_tarde && (
+                    <span className="font-medium text-[var(--color-warning)]"> · Llegó tarde</span>
+                  )}
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-2">
@@ -172,6 +194,20 @@ export function AsistenciaChecklist({
                   onChange={(presente) => marcar(j.id, presente, presente ? null : registro?.motivo_ausencia ?? null)}
                   label={registro?.presente ? "Marcar ausente" : "Marcar presente"}
                 />
+                {registro?.presente === true && (
+                  <button
+                    onClick={() => marcarLlegoTarde(j.id, !registro.llego_tarde)}
+                    aria-label={registro.llego_tarde ? "Quitar llegada tarde" : "Marcar llegada tarde"}
+                    className={cn(
+                      "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition-colors",
+                      registro.llego_tarde
+                        ? "border-[var(--color-warning)] bg-[var(--color-warning)] text-white"
+                        : "border-[var(--color-border)] text-[var(--color-text-muted)] hover:border-[var(--color-warning)] hover:text-[var(--color-warning)]",
+                    )}
+                  >
+                    <Clock size={16} />
+                  </button>
+                )}
                 {registro && (
                   <button
                     onClick={() => setNotaAbierta(notaVisible ? null : j.id)}
