@@ -150,10 +150,15 @@ export function SesionDetailPage() {
           <div className="flex flex-col gap-2">
             {sesion.bloques.map((b, i) => {
               const ejercicio = b.ejercicio_id ? ejercicios.find((e) => e.id === b.ejercicio_id) : null;
-              const nombre = ejercicio?.nombre || b.descripcion_libre || "Bloque sin descripción";
+              // Distingue "el bloque nunca tuvo un ejercicio enlazado" (cae al
+              // texto libre, comportamiento de siempre) de "tenía uno enlazado
+              // pero ya no es accesible" (dejó de compartirse desde otro
+              // equipo, o se borró) — nunca debe romper la carga de la sesión.
+              const sinAcceso = Boolean(b.ejercicio_id) && !ejercicio;
+              const nombre = ejercicio?.nombre || (sinAcceso ? "Ejercicio ya no disponible" : b.descripcion_libre || "Bloque sin descripción");
               const detalle = ejercicio
                 ? [ejercicio.categoria, ejercicio.dificultad].filter(Boolean).join(" · ")
-                : b.objetivo || b.consignas || "";
+                : sinAcceso ? "" : b.objetivo || b.consignas || "";
               return (
                 <div key={i} className="card-surface flex items-center gap-3 p-3">
                   <span className="stat-number flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] bg-[var(--color-ink)] text-base text-white">
