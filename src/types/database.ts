@@ -154,14 +154,6 @@ export type EjerciciosRow = {
   duracion_min: number | null;
   dificultad: string | null;
   descripcion: string | null;
-  organizacion: string | null;
-  reglas: string | null;
-  consignas: string | null;
-  progresion: string | null;
-  regresion: string | null;
-  errores_frecuentes: string | null;
-  correcciones: string | null;
-  transferencia_partido: string | null;
   /** Enlace externo opcional (portal de ejercicios, vídeo, etc.) — se abre directamente, no se enruta dentro de la app. */
   enlace: string | null;
   /** Visible en la biblioteca de cualquier equipo del club, no solo el dueño (ver 0023_ejercicios_compartidos.sql) — solo lectura para los demás. */
@@ -404,14 +396,6 @@ export type Database = {
         | "duracion_min"
         | "dificultad"
         | "descripcion"
-        | "organizacion"
-        | "reglas"
-        | "consignas"
-        | "progresion"
-        | "regresion"
-        | "errores_frecuentes"
-        | "correcciones"
-        | "transferencia_partido"
         | "enlace"
         | "compartido"
         | "creado_por"
