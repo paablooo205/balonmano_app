@@ -189,6 +189,8 @@ export type JugadoresRow = {
   nombre: string;
   año_nacimiento: number | null;
   dorsal: number | null;
+  altura_cm: number | null;
+  peso_kg: number | null;
   puesto: string | null;
   puestos_secundarios: string[];
   nivel_actual: string | null;
@@ -417,6 +419,8 @@ export type Database = {
         | "id"
         | "año_nacimiento"
         | "dorsal"
+        | "altura_cm"
+        | "peso_kg"
         | "puesto"
         | "puestos_secundarios"
         | "nivel_actual"

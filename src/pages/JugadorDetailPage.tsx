@@ -120,6 +120,8 @@ export function JugadorDetailPage() {
   }
 
   const edad = jugador.año_nacimiento ? `${new Date().getFullYear() - jugador.año_nacimiento} años` : null;
+  const altura = jugador.altura_cm ? `${jugador.altura_cm} cm` : null;
+  const peso = jugador.peso_kg ? `${jugador.peso_kg} kg` : null;
 
   const stats = [
     { k: "Goles", v: String(goles) },
@@ -223,7 +225,7 @@ export function JugadorDetailPage() {
           <div className="min-w-0 flex-1 pb-1">
             <div className="hero-title truncate text-[1.6rem]">{jugador.nombre}</div>
             <div className="mt-1.5 truncate text-[11px] font-medium uppercase tracking-[0.12em] text-white/55">
-              {[jugador.puesto, edad].filter(Boolean).join(" · ") || "Sin datos"}
+              {[jugador.puesto, edad, altura, peso].filter(Boolean).join(" · ") || "Sin datos"}
             </div>
           </div>
         </div>

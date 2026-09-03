@@ -15,6 +15,8 @@ function estadoInicial(jugador: JugadoresRow | null) {
     nombre: jugador?.nombre ?? "",
     añoNacimiento: jugador?.año_nacimiento?.toString() ?? "",
     dorsal: jugador?.dorsal?.toString() ?? "",
+    alturaCm: jugador?.altura_cm?.toString() ?? "",
+    pesoKg: jugador?.peso_kg?.toString() ?? "",
     puesto: jugador?.puesto ?? "",
     puestosSecundarios: jugador?.puestos_secundarios?.join(", ") ?? "",
     nivelActual: jugador?.nivel_actual ?? "",
@@ -47,6 +49,8 @@ export function JugadorFormModal({
     nombre,
     añoNacimiento,
     dorsal,
+    alturaCm,
+    pesoKg,
     puesto,
     puestosSecundarios,
     nivelActual,
@@ -110,6 +114,8 @@ export function JugadorFormModal({
       nombre: nombre.trim(),
       año_nacimiento: añoNacimiento ? Number(añoNacimiento) : null,
       dorsal: dorsal ? Number(dorsal) : null,
+      altura_cm: alturaCm ? Number(alturaCm) : null,
+      peso_kg: pesoKg ? Number(pesoKg) : null,
       puesto: puesto || null,
       puestos_secundarios: puestosSecundarios
         .split(",")
@@ -167,6 +173,15 @@ export function JugadorFormModal({
           </Field>
           <Field label="Dorsal">
             <Input type="number" min={0} value={dorsal} onChange={(e) => set("dorsal", e.target.value)} />
+          </Field>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Altura (cm)">
+            <Input type="number" min={0} value={alturaCm} onChange={(e) => set("alturaCm", e.target.value)} />
+          </Field>
+          <Field label="Peso (kg)">
+            <Input type="number" min={0} step="0.1" value={pesoKg} onChange={(e) => set("pesoKg", e.target.value)} />
           </Field>
         </div>
 
