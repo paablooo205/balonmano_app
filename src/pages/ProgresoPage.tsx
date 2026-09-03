@@ -101,7 +101,7 @@ export function ProgresoPage() {
 
   // --- Asistencia por mes ---------------------------------------------------
   const porMes = new Map<string, { presentes: number; total: number }>();
-  for (const reg of asistencia) {
+  for (const reg of asistencia.filter((a) => a.sesion_id)) {
     const fecha = fechaDeAsistencia(reg, sesiones, partidos);
     if (!fecha) continue;
     const clave = fecha.slice(0, 7);
@@ -139,7 +139,7 @@ export function ProgresoPage() {
   const lesionados: { jugador: JugadoresRow; dias: number; notas: string | null }[] = [];
   for (const jugador of jugadores) {
     const registros = asistencia
-      .filter((a) => a.jugador_id === jugador.id)
+      .filter((a) => a.jugador_id === jugador.id && a.sesion_id)
       .map((a) => ({ registro: a, fecha: fechaDeAsistencia(a, sesiones, partidos) }))
       .filter((x): x is { registro: AsistenciaRow; fecha: string } => x.fecha !== null)
       .sort((a, b) => b.fecha.localeCompare(a.fecha));
