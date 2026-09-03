@@ -17,10 +17,11 @@ import {
   esPortero,
   perdidas,
   porcentajeParadas,
+  resultadoPartido,
   robos,
 } from "@/lib/partidoStats";
 import { MIN_TIROS_RECIBIDOS } from "@/lib/valoracion";
-import { cargarEventosEquipo } from "@/lib/eventos";
+import { agruparPorPartido, cargarEventosEquipo } from "@/lib/eventos";
 import { generarInsights } from "@/lib/insights";
 import type { AsistenciaRow, EventosRow, JugadoresRow, PartidosRow, SesionesRow } from "@/types/database";
 
@@ -68,22 +69,31 @@ export function JugadorDetailPage() {
     return <div className="card-surface p-6 text-center text-[var(--color-text-muted)]">Jugador/a no encontrado.</div>;
   }
 
-  // Goles y demás: eventos de la tabla `eventos` atribuidos a este jugador.
+  // "Jugado" = convocado (asistencia.presente=true para ese partido_id) y
+  // el partido ya tiene resultado resuelto — no "tiene algún evento", que
+  // contaba de más (un partido con eventos pero sin convocatoria hecha) y
+  // de menos (un suplente convocado que no llegó a tocar el balón) a la vez.
+  const partidosConvocado = new Set(
+    asistencia.filter((a) => a.partido_id && a.presente).map((a) => a.partido_id!),
+  );
+  const eventosPorPartido = agruparPorPartido(eventos);
+  const partidosJugadosOrdenados = partidos
+    .filter((p) => partidosConvocado.has(p.id) && resultadoPartido(p, eventosPorPartido.get(p.id) ?? []) !== null)
+    .sort((a, b) => a.fecha.localeCompare(b.fecha));
+  const partidosJugados = partidosJugadosOrdenados.length;
+
+  const idsPartidosJugados = new Set(partidosJugadosOrdenados.map((p) => p.id));
+  const eventosDelJugador = eventos.filter(
+    (e) => e.jugador_id === jugador.id && e.partido_id !== null && idsPartidosJugados.has(e.partido_id),
+  );
+
+  // Goles y demás: solo de los partidos que ahora cuentan como jugados.
   let goles = 0;
   let exclusiones = 0;
-  const partidosConEventoDelJugador = new Set<string>();
-  const eventosDelJugador = eventos.filter((e) => e.jugador_id === jugador.id);
   for (const e of eventosDelJugador) {
-    if (!e.partido_id) continue;
-    partidosConEventoDelJugador.add(e.partido_id);
     if (e.tipo === "tiro" && e.equipo_origen === "propio" && e.resultado === "gol") goles++;
     if (e.tipo === "exclusion") exclusiones++;
   }
-  const partidosJugados = partidosConEventoDelJugador.size;
-
-  const partidosJugadosOrdenados = partidos
-    .filter((p) => partidosConEventoDelJugador.has(p.id))
-    .sort((a, b) => a.fecha.localeCompare(b.fecha));
 
   const ambitoValido =
     ambito === "temporada" || partidosJugadosOrdenados.some((p) => p.id === ambito) ? ambito : "temporada";
