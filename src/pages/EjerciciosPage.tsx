@@ -185,7 +185,7 @@ export function EjerciciosPage() {
 
               {esAjeno && (
                 <span className="w-fit rounded-full bg-[var(--color-card-hover)] px-2 py-0.5 text-xs text-[var(--color-text-muted)]">
-                  by {e.creado_por_nombre ?? "otro equipo"}
+                  Por {e.creado_por_nombre ?? "otro equipo"}
                   {e.equipo_origen_nombre ? ` · ${e.equipo_origen_nombre}` : ""}
                 </span>
               )}

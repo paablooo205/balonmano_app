@@ -2,7 +2,7 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 const controlClass =
-  "w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-card-hover)] px-3 py-2.5 text-base text-[var(--color-text)] outline-none placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-accent)]";
+  "w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-card-hover)] px-3 py-2.5 text-base text-[var(--color-text)] outline-none placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-accent)] disabled:cursor-not-allowed disabled:text-[var(--color-text-muted)] disabled:opacity-70";
 
 /** Variante compacta para barras de búsqueda/filtro. */
 const pillClass =

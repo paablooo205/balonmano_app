@@ -232,12 +232,12 @@ export function EjercicioFormModal({
             </Field>
           </div>
 
-          <label className="flex items-center gap-2 text-sm">
+          <label className="flex items-center gap-2 text-sm has-[:disabled]:text-[var(--color-text-muted)] has-[:disabled]:opacity-70">
             <input
               type="checkbox"
               checked={form.compartido}
               onChange={(e) => set("compartido", e.target.checked)}
-              className="h-5 w-5 accent-[var(--color-accent)]"
+              className="h-5 w-5 accent-[var(--color-accent)] disabled:cursor-not-allowed"
             />
             Compartir con los demás equipos del club
           </label>
