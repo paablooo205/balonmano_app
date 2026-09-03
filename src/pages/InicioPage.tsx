@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronRight, FileText, Trophy } from "lucide-react";
+import { ChevronRight, FileText, Plus, Trophy, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { urlFirmada } from "@/lib/storage";
 import { useEquipo } from "@/hooks/useEquipo";
@@ -10,6 +10,9 @@ import { RESULTADO_BADGE, marcadorPartido, resultadoPartido, resumenResultados }
 import { agruparPorPartido, cargarEventosEquipo } from "@/lib/eventos";
 import { crearSesionRapida } from "@/lib/sesiones";
 import { DIAS_SEMANA, MESES, getWeekDates, toISODate } from "@/lib/calendar";
+import { Modal } from "@/components/ui/modal";
+import { Textarea } from "@/components/ui/field";
+import { Button } from "@/components/ui/button";
 import type {
   AsistenciaRow,
   DiaSemana,
@@ -18,6 +21,7 @@ import type {
   JugadoresRow,
   MesociclosRow,
   MicrociclosRow,
+  ObservacionesRow,
   PartidosRow,
   SesionesRow,
 } from "@/types/database";
@@ -34,7 +38,18 @@ export function InicioPage() {
   const [jugadores, setJugadores] = useState<JugadoresRow[]>([]);
   const [asistencia, setAsistencia] = useState<AsistenciaRow[]>([]);
   const [eventosPorPartido, setEventosPorPartido] = useState<Map<string, EventosRow[]>>(new Map());
+  const [observaciones, setObservaciones] = useState<ObservacionesRow[]>([]);
+  const [notaAbierta, setNotaAbierta] = useState(false);
   const [cargando, setCargando] = useState(true);
+
+  async function cargarObservaciones() {
+    const { data } = await supabase
+      .from("observaciones")
+      .select("*")
+      .eq("equipo_id", equipoId)
+      .order("created_at", { ascending: false });
+    setObservaciones(data ?? []);
+  }
 
   useEffect(() => {
     (async () => {
@@ -59,7 +74,15 @@ export function InicioPage() {
       setEventosPorPartido(agruparPorPartido(ev));
       setCargando(false);
     })();
+    cargarObservaciones();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [equipoId]);
+
+  async function borrarObservacion(id: string) {
+    if (!confirm("¿Borrar esta nota?")) return;
+    await supabase.from("observaciones").delete().eq("id", id);
+    cargarObservaciones();
+  }
 
   if (cargando) {
     return <div className="card-surface p-6 text-center text-[var(--color-text-muted)]">Cargando...</div>;
@@ -260,13 +283,13 @@ export function InicioPage() {
         <div className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-faint)]">
           Atención
         </div>
-        {alertas.length === 0 ? (
-          <div className="flex items-center gap-3 rounded-[14px] bg-[var(--color-ink)] px-4 py-3.5">
+        {alertas.length === 0 && observaciones.length === 0 ? (
+          <div className="mb-2 flex items-center gap-3 rounded-[14px] bg-[var(--color-ink)] px-4 py-3.5">
             <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#4ddc8a]" />
             <div className="text-[13px] font-medium text-white">Sin incidencias — todo al día</div>
           </div>
         ) : (
-          <div className="flex flex-col gap-2">
+          <div className="mb-2 flex flex-col gap-2">
             {alertas.map((a, i) => {
               const contenido = (
                 <>
@@ -292,10 +315,89 @@ export function InicioPage() {
                 </div>
               );
             })}
+            {observaciones.map((o) => (
+              <div key={o.id} className="flex items-center gap-3 rounded-[14px] bg-[var(--color-ink)] px-4 py-3.5">
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-white/35" />
+                <div className="min-w-0 flex-1 text-[13px] font-medium text-white">{o.texto}</div>
+                <button
+                  onClick={() => borrarObservacion(o.id)}
+                  aria-label="Borrar nota"
+                  className="shrink-0 text-white/40 hover:text-white/70"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            ))}
           </div>
         )}
+        <button
+          onClick={() => setNotaAbierta(true)}
+          className="flex w-full items-center justify-center gap-2 rounded-[14px] border border-dashed border-[var(--color-border)] py-3 text-sm text-[var(--color-text-muted)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
+        >
+          <Plus size={16} /> Añadir nota
+        </button>
       </div>
+
+      <NotaModal
+        open={notaAbierta}
+        onClose={() => setNotaAbierta(false)}
+        equipoId={equipoId}
+        onGuardada={() => {
+          setNotaAbierta(false);
+          cargarObservaciones();
+        }}
+      />
     </div>
+  );
+}
+
+function NotaModal({
+  open,
+  onClose,
+  equipoId,
+  onGuardada,
+}: {
+  open: boolean;
+  onClose: () => void;
+  equipoId: string;
+  onGuardada: () => void;
+}) {
+  const [texto, setTexto] = useState("");
+  const [guardando, setGuardando] = useState(false);
+
+  useEffect(() => {
+    if (open) setTexto("");
+  }, [open]);
+
+  async function guardar() {
+    if (!texto.trim()) return;
+    setGuardando(true);
+    const { error } = await supabase.from("observaciones").insert({ equipo_id: equipoId, texto: texto.trim() });
+    setGuardando(false);
+    if (error) {
+      alert("No se pudo guardar: " + error.message);
+      return;
+    }
+    onGuardada();
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} title="Añadir nota">
+      <Textarea
+        placeholder="Escribe una observación..."
+        value={texto}
+        onChange={(e) => setTexto(e.target.value)}
+        className="min-h-24"
+      />
+      <div className="mt-4 flex justify-end gap-2">
+        <Button variant="secondary" size="sm" onClick={onClose}>
+          Cancelar
+        </Button>
+        <Button size="sm" onClick={guardar} disabled={guardando || !texto.trim()}>
+          {guardando ? "Guardando..." : "Guardar"}
+        </Button>
+      </div>
+    </Modal>
   );
 }
 

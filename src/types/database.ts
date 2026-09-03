@@ -183,6 +183,14 @@ export type EjercicioFavoritosRow = {
   ejercicio_id: UUID;
 };
 
+/** Nota manual del entrenador, mostrada junto a los avisos automáticos de "Atención" en Inicio. */
+export type ObservacionesRow = {
+  id: UUID;
+  equipo_id: UUID;
+  texto: string;
+  created_at: string;
+};
+
 export type JugadoresRow = {
   id: UUID;
   equipo_id: UUID;
@@ -414,6 +422,7 @@ export type Database = {
         | "updated_at"
       >;
       ejercicio_favoritos: TableDef<EjercicioFavoritosRow>;
+      observaciones: TableDef<ObservacionesRow, "id" | "created_at">;
       jugadores: TableDef<
         JugadoresRow,
         | "id"

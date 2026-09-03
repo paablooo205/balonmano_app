@@ -110,6 +110,7 @@ export function JugadorDetailPage() {
     .sort((a, b) => b.fecha.localeCompare(a.fecha));
   const presentes = registrosEntreno.filter((a) => a.presente).length;
   const asistenciaPct = registrosEntreno.length > 0 ? Math.round((presentes / registrosEntreno.length) * 100) : null;
+  const llegadasTarde = registrosEntreno.filter((a) => a.presente && a.llego_tarde).length;
   const ultimas10 = registrosEntreno.slice(0, 10);
 
   function colorRegistro(a: AsistenciaRow): string {
@@ -269,6 +270,11 @@ export function JugadorDetailPage() {
               <div className="mt-2 text-[10px] uppercase tracking-[0.08em] text-[var(--color-text-faint)]">
                 Últimas {ultimas10.length} sesiones
               </div>
+              {llegadasTarde > 0 && (
+                <div className="mt-3 border-t border-[var(--color-border)] pt-3 text-xs text-[var(--color-text-muted)]">
+                  Llegó tarde a {llegadasTarde} de {presentes} sesiones
+                </div>
+              )}
             </>
           ) : (
             <p className="text-sm text-[var(--color-text-muted)]">Todavía no hay registros de asistencia.</p>
