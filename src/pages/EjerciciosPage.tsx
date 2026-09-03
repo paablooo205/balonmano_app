@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Star, Search, Users, Clock } from "lucide-react";
+import { Plus, Star, Search, Users, Clock, ExternalLink } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useEquipo } from "@/hooks/useEquipo";
 import type { EjerciciosRow } from "@/types/database";
@@ -214,6 +214,19 @@ export function EjerciciosPage() {
                   <span className="flex items-center gap-1">
                     <Clock size={14} />
                     {e.duracion_min} min
+                  </span>
+                )}
+                {e.enlace && (
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    onClick={(ev) => {
+                      ev.stopPropagation();
+                      window.open(e.enlace!, "_blank", "noopener,noreferrer");
+                    }}
+                    className="flex items-center gap-1 hover:text-[var(--color-accent)]"
+                  >
+                    <ExternalLink size={14} /> Enlace
                   </span>
                 )}
               </div>

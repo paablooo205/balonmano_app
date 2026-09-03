@@ -205,7 +205,7 @@ export function SesionDetailPage() {
               return (
                 <div key={i} className="card-surface flex items-center gap-1 p-3">
                   {sinAcceso ? (
-                    <div className="flex flex-1 items-center gap-3">{contenido}</div>
+                    <div className="flex min-w-0 flex-1 items-center gap-3">{contenido}</div>
                   ) : (
                     <button
                       onClick={() => {
@@ -215,7 +215,7 @@ export function SesionDetailPage() {
                           setBloqueModalAbierto(true);
                         }
                       }}
-                      className="flex flex-1 items-center gap-3 text-left transition-colors hover:text-[var(--color-accent)]"
+                      className="flex min-w-0 flex-1 items-center gap-3 text-left transition-colors hover:text-[var(--color-accent)]"
                     >
                       {contenido}
                     </button>

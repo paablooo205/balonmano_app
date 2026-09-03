@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { ExternalLink } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,7 @@ type FormState = {
   errores_frecuentes: string;
   correcciones: string;
   transferencia_partido: string;
+  enlace: string;
   compartido: boolean;
   notas_adicionales: string;
 };
@@ -53,6 +55,7 @@ function toFormState(e: EjerciciosRow | null): FormState {
     errores_frecuentes: e?.errores_frecuentes ?? "",
     correcciones: e?.correcciones ?? "",
     transferencia_partido: e?.transferencia_partido ?? "",
+    enlace: e?.enlace ?? "",
     compartido: e?.compartido ?? false,
     notas_adicionales: e?.notas_adicionales ?? "",
   };
@@ -137,6 +140,7 @@ export function EjercicioFormModal({
       errores_frecuentes: form.errores_frecuentes || null,
       correcciones: form.correcciones || null,
       transferencia_partido: form.transferencia_partido || null,
+      enlace: form.enlace.trim() || null,
       compartido: form.compartido,
       notas_adicionales: form.notas_adicionales || null,
       ...atribucion,
@@ -233,6 +237,25 @@ export function EjercicioFormModal({
               <Input value={form.material} onChange={(e) => set("material", e.target.value)} />
             </Field>
           </div>
+
+          <Field label="Enlace (opcional)">
+            <Input
+              type="url"
+              placeholder="https://..."
+              value={form.enlace}
+              onChange={(e) => set("enlace", e.target.value)}
+            />
+          </Field>
+          {form.enlace.trim() && (
+            <a
+              href={form.enlace.trim()}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="-mt-2.5 flex w-fit items-center gap-1.5 text-sm font-medium text-[var(--color-accent)] hover:underline"
+            >
+              <ExternalLink size={14} /> Abrir enlace
+            </a>
+          )}
 
           <label className="flex items-center gap-2 text-sm has-[:disabled]:text-[var(--color-text-muted)] has-[:disabled]:opacity-70">
             <input
