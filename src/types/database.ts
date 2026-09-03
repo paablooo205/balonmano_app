@@ -426,7 +426,7 @@ export type Database = {
       >;
       asistencia: TableDef<
         AsistenciaRow,
-        "id" | "sesion_id" | "partido_id" | "presente" | "notas_adicionales" | "created_at" | "updated_at"
+        "id" | "sesion_id" | "partido_id" | "presente" | "llego_tarde" | "notas_adicionales" | "created_at" | "updated_at"
       >;
       eventos: TableDef<
         EventosRow,

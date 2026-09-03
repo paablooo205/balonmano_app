@@ -198,8 +198,9 @@ export function AsistenciaChecklist({
                   <button
                     onClick={() => marcarLlegoTarde(j.id, !registro.llego_tarde)}
                     aria-label={registro.llego_tarde ? "Quitar llegada tarde" : "Marcar llegada tarde"}
+                    aria-pressed={registro.llego_tarde}
                     className={cn(
-                      "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition-colors",
+                      "flex h-9 w-9 shrink-0 items-center justify-center rounded-[15px] border transition-colors",
                       registro.llego_tarde
                         ? "border-[var(--color-warning)] bg-[var(--color-warning)] text-white"
                         : "border-[var(--color-border)] text-[var(--color-text-muted)] hover:border-[var(--color-warning)] hover:text-[var(--color-warning)]",
