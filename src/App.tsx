@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthGate } from "@/components/auth/AuthGate";
+import { PwaUpdateBanner } from "@/components/layout/PwaUpdateBanner";
 import { EquipoLayout } from "@/components/layout/EquipoLayout";
 import { TeamSelectPage } from "@/pages/TeamSelectPage";
 import { UnirseEquipoPage } from "@/pages/UnirseEquipoPage";
@@ -21,6 +22,7 @@ import { AjustesPage } from "@/pages/AjustesPage";
 export default function App() {
   return (
     <BrowserRouter>
+      <PwaUpdateBanner />
       <AuthGate>
         <Routes>
           <Route path="/" element={<TeamSelectPage />} />

@@ -15,7 +15,13 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: "autoUpdate",
+      // "prompt", nunca "autoUpdate": el usuario puede estar registrando
+      // estadísticas en directo cuando hay una versión nueva, y una recarga
+      // automática le interrumpiría a mitad de un partido. El registro se
+      // hace a mano desde PwaUpdateBanner.tsx (virtual:pwa-register/react),
+      // así que la inyección automática del plugin queda desactivada.
+      registerType: "prompt",
+      injectRegister: false,
       includeAssets: ["balonmano.webp", "icons/*.png"],
       manifest: {
         name: "Club Balonmano — Planificación Deportiva",
