@@ -23,6 +23,7 @@ export function PartidoDetailPage() {
   const [jugadores, setJugadores] = useState<JugadoresRow[]>([]);
   const [eventos, setEventos] = useState<EventosRow[]>([]);
   const [asistenciaPartido, setAsistenciaPartido] = useState<AsistenciaRow[]>([]);
+  const [asistenciaPartidoCargada, setAsistenciaPartidoCargada] = useState(false);
   const [cargando, setCargando] = useState(true);
   const [searchParams] = useSearchParams();
   const vistaParam = searchParams.get("vista");
@@ -62,6 +63,7 @@ export function PartidoDetailPage() {
     if (!partidoId) return;
     const { data } = await supabase.from("asistencia").select("*").eq("partido_id", partidoId);
     setAsistenciaPartido(data ?? []);
+    setAsistenciaPartidoCargada(true);
   }
 
   useEffect(() => {
@@ -117,6 +119,9 @@ export function PartidoDetailPage() {
   }
 
   if (vista === "live") {
+    if (!asistenciaPartidoCargada) {
+      return <div className="card-surface p-6 text-center text-[var(--color-text-muted)]">Cargando...</div>;
+    }
     if (asistenciaPartido.length === 0) {
       return (
         <div className="flex flex-col gap-4">
