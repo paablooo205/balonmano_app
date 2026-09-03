@@ -11,7 +11,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { aplicarPendientes, guardarCache, leerCache, obtenerCola, onQueueChange } from "@/lib/offline/queue";
 import { cargarEventosEquipo } from "@/lib/eventos";
 import { Button } from "@/components/ui/button";
-import type { EventosRow, JugadoresRow, PartidosRow } from "@/types/database";
+import type { AsistenciaRow, EventosRow, JugadoresRow, PartidosRow } from "@/types/database";
 
 type Vista = "info" | "live" | "ficha" | "convocatoria";
 
@@ -22,6 +22,7 @@ export function PartidoDetailPage() {
   const [partido, setPartido] = useState<PartidosRow | null>(null);
   const [jugadores, setJugadores] = useState<JugadoresRow[]>([]);
   const [eventos, setEventos] = useState<EventosRow[]>([]);
+  const [asistenciaPartido, setAsistenciaPartido] = useState<AsistenciaRow[]>([]);
   const [cargando, setCargando] = useState(true);
   const [searchParams] = useSearchParams();
   const vistaParam = searchParams.get("vista");
@@ -57,9 +58,20 @@ export function PartidoDetailPage() {
     setCargando(false);
   }
 
+  async function cargarAsistenciaPartido() {
+    if (!partidoId) return;
+    const { data } = await supabase.from("asistencia").select("*").eq("partido_id", partidoId);
+    setAsistenciaPartido(data ?? []);
+  }
+
   useEffect(() => {
     cargar();
     return onQueueChange(() => void cargar());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [partidoId]);
+
+  useEffect(() => {
+    cargarAsistenciaPartido();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [partidoId]);
 
@@ -83,13 +95,20 @@ export function PartidoDetailPage() {
     return <div className="card-surface p-6 text-center text-[var(--color-text-muted)]">Partido no encontrado.</div>;
   }
 
+  const jugadoresConvocados = jugadores.filter((j) =>
+    asistenciaPartido.some((a) => a.jugador_id === j.id && a.presente),
+  );
+
   if (vista === "convocatoria") {
     return (
       <div className="flex flex-col gap-4">
         <PageHeader
           title="Convocatoria"
           eyebrow={`vs ${partido.rival}`}
-          onBack={() => setVista("info")}
+          onBack={() => {
+            setVista("info");
+            cargarAsistenciaPartido();
+          }}
           backLabel="Partido"
         />
         <AsistenciaChecklist equipoId={equipoId} partidoId={partido.id} />
@@ -98,11 +117,28 @@ export function PartidoDetailPage() {
   }
 
   if (vista === "live") {
+    if (asistenciaPartido.length === 0) {
+      return (
+        <div className="flex flex-col gap-4">
+          <PageHeader
+            title="Partido en directo"
+            eyebrow={`vs ${partido.rival}`}
+            onBack={() => setVista("info")}
+            backLabel="Partido"
+            variant="accent"
+          />
+          <div className="card-surface flex flex-col items-center gap-4 p-6 text-center text-[var(--color-text-muted)]">
+            <p>Haz la convocatoria antes de registrar estadísticas.</p>
+            <Button onClick={() => setVista("convocatoria")}>Ir a convocatoria</Button>
+          </div>
+        </div>
+      );
+    }
     return (
       <ContadoresEnVivo
         partido={partido}
         equipoNombre={equipo?.nombre}
-        jugadores={jugadores}
+        jugadores={jugadoresConvocados}
         eventos={eventos}
         onActualizado={setPartido}
         onEventosActualizados={setEventos}
