@@ -43,6 +43,7 @@ alter table ejercicios drop column favorito;
 drop policy "equipo_del_entrenador" on ejercicios;
 
 create policy "ejercicios_select" on ejercicios for select
+  to authenticated
   using (private.equipo_del_entrenador(equipo_id) or compartido);
 
 create policy "ejercicios_insert" on ejercicios for insert
