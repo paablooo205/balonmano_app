@@ -190,6 +190,9 @@ export function InicioPage() {
               <div className="stat-number text-lg text-[var(--color-accent)]">
                 {new Date(proximoPartido.fecha + "T00:00:00").toLocaleDateString("es-ES", { day: "2-digit", month: "short" })}
               </div>
+              {proximoPartido.hora && (
+                <div className="text-[11px] text-[var(--color-text-muted)]">{proximoPartido.hora.slice(0, 5)}</div>
+              )}
             </div>
             <ChevronRight size={18} className="shrink-0 text-[var(--color-text-muted)]" />
           </button>

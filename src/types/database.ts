@@ -221,6 +221,7 @@ export type PartidosRow = {
   rival: string;
   rival_id: UUID | null;
   fecha: string;
+  hora: string | null;
   casa_fuera: "casa" | "fuera" | null;
   competicion: string | null;
   resultado: string | null;

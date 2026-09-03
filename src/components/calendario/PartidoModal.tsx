@@ -11,6 +11,7 @@ import type { PartidosRow, RivalesRow } from "@/types/database";
 function estadoInicial(partido: PartidosRow | null, fechaPorDefecto: string) {
   return {
     fecha: partido?.fecha ?? fechaPorDefecto,
+    hora: partido?.hora?.slice(0, 5) ?? "",
     rival: partido?.rival ?? "",
     rivalId: partido?.rival_id ?? null,
     casaFuera: (partido?.casa_fuera ?? "") as "casa" | "fuera" | "",
@@ -62,6 +63,7 @@ export function PartidoModal({
   const [modoRival, setModoRival] = useState<"existente" | "nuevo">("nuevo");
   const {
     fecha: fechaEstado,
+    hora,
     rival,
     rivalId,
     casaFuera,
@@ -157,6 +159,7 @@ export function PartidoModal({
       rival: rivalNombreFinal,
       rival_id: rivalIdFinal,
       fecha: fechaEstado,
+      hora: hora || null,
       casa_fuera: casaFuera || null,
       competicion: competicion || null,
       resultado: jugado ? resultado || null : null,
@@ -223,9 +226,14 @@ export function PartidoModal({
   return (
     <Modal open={open} onClose={onClose} title={partido ? "Editar partido" : "Nuevo partido"}>
       <div className="flex flex-col gap-4">
-        <Field label="Fecha">
-          <Input type="date" value={fechaEstado} onChange={(e) => set("fecha", e.target.value)} />
-        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Fecha">
+            <Input type="date" value={fechaEstado} onChange={(e) => set("fecha", e.target.value)} />
+          </Field>
+          <Field label="Hora">
+            <Input type="time" value={hora} onChange={(e) => set("hora", e.target.value)} />
+          </Field>
+        </div>
 
         <div>
           <span className="mb-1.5 block text-sm text-[var(--color-text-muted)]">Rival *</span>

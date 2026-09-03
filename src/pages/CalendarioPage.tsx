@@ -335,6 +335,7 @@ function MesConDiaSeleccionado({
                 <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-accent)]">
                   Partido{p.competicion ? ` · ${p.competicion}` : ""}
                 </span>
+                {p.hora && <span className="stat-number text-xl">{p.hora.slice(0, 5)}</span>}
               </div>
               <div className="mt-1.5 text-[19px] font-semibold leading-tight">vs {p.rival}</div>
               <div className="mt-1 text-[13px] text-[var(--color-text-muted)]">

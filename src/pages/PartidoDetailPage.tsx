@@ -210,6 +210,12 @@ export function PartidoDetailPage() {
             <div className="stat-number text-[22px] text-white">{fechaLarga}</div>
             <div className="mt-1 text-[10px] font-medium uppercase tracking-[0.12em] text-white/70">Fecha</div>
           </div>
+          {partido.hora && (
+            <div>
+              <div className="stat-number text-[22px] text-white">{partido.hora.slice(0, 5)}</div>
+              <div className="mt-1 text-[10px] font-medium uppercase tracking-[0.12em] text-white/70">Hora</div>
+            </div>
+          )}
           <div>
             <div className="stat-number text-[22px] text-white">
               {partido.casa_fuera === "casa" ? "Casa" : partido.casa_fuera === "fuera" ? "Fuera" : "—"}
