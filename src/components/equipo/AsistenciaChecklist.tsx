@@ -12,6 +12,14 @@ const MOTIVOS: { value: MotivoAusencia; label: string; color: string }[] = [
   { value: "lesion", label: "Lesión", color: "var(--color-text-muted)" },
 ];
 
+/** Solo tiene sentido en partidos — "no convocado" no es un motivo de falta
+ * a un entrenamiento, es una decisión del entrenador tomada antes de jugar. */
+const MOTIVO_NO_CONVOCADO: { value: MotivoAusencia; label: string; color: string } = {
+  value: "no_convocado",
+  label: "No convocado",
+  color: "var(--color-ink)",
+};
+
 /**
  * Checklist de asistencia para un entrenamiento o partido concreto (columna +
  * id de destino). Se usa tanto desde la pantalla de detalle de sesión
@@ -177,7 +185,7 @@ export function AsistenciaChecklist({
             </div>
             {registro?.presente === false && (
               <div className="mt-2 flex flex-wrap gap-1.5">
-                {MOTIVOS.map((m) => {
+                {(columna === "partido_id" ? [...MOTIVOS, MOTIVO_NO_CONVOCADO] : MOTIVOS).map((m) => {
                   const activo = registro.motivo_ausencia === m.value;
                   return (
                     <button

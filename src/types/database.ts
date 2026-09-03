@@ -271,7 +271,7 @@ export type EventosRow = {
   creado_en: string;
 };
 
-export type MotivoAusencia = "justificado" | "injustificado" | "lesion";
+export type MotivoAusencia = "justificado" | "injustificado" | "lesion" | "no_convocado";
 
 export type AsistenciaRow = {
   id: UUID;

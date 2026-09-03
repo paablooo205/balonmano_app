@@ -254,12 +254,9 @@ export function PartidoDetailPage() {
         </div>
       )}
 
-      <button
-        onClick={() => setVista("convocatoria")}
-        className="text-center text-sm text-[var(--color-text-muted)] hover:text-[var(--color-accent)]"
-      >
+      <Button size="lg" variant="secondary" className="w-full" onClick={() => setVista("convocatoria")}>
         Convocatoria
-      </button>
+      </Button>
       <Button size="lg" variant="ink" className="w-full gap-2.5" onClick={() => setVista("live")}>
         <span className="h-[7px] w-[7px] rounded-full bg-[var(--color-accent)]" />
         {eventos.length > 0 || (partido.estadisticas.eventos ?? []).length > 0
