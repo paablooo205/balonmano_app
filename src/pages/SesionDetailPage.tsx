@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ChevronLeft, FileText, Pencil, Plus, Trash2 } from "lucide-react";
+import { ChevronLeft, FileText, Pencil, Plus } from "lucide-react";
+import { DndContext, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, arrayMove, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { supabase } from "@/lib/supabaseClient";
 import { useEquipo } from "@/hooks/useEquipo";
 import { useCalendarData, mesocicloDeMicrociclo } from "@/hooks/useCalendarData";
@@ -8,6 +10,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { SesionModal } from "@/components/calendario/SesionModal";
 import { BloqueModal } from "@/components/sesion/BloqueModal";
+import { BloqueRow } from "@/components/sesion/BloqueRow";
 import { EjercicioFormModal } from "@/components/ejercicios/EjercicioFormModal";
 import { AsistenciaChecklist } from "@/components/equipo/AsistenciaChecklist";
 import { guardarBloques } from "@/lib/bloquesSesion";
@@ -27,6 +30,11 @@ export function SesionDetailPage() {
   const [bloqueModalAbierto, setBloqueModalAbierto] = useState(false);
   const [bloqueEditIndex, setBloqueEditIndex] = useState<number | null>(null);
   const [ejercicioAbierto, setEjercicioAbierto] = useState<EjerciciosRow | null>(null);
+  // Retraso antes de activar el arrastre: así un toque corto sigue abriendo
+  // el bloque o el icono de borrar con normalidad, y solo mantener pulsado y
+  // mover reordena — mismo patrón que recomienda dnd-kit para listas con
+  // elementos clicables.
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { delay: 250, tolerance: 5 } }));
 
   async function cargarEjercicios() {
     const { data } = await supabase
@@ -55,6 +63,20 @@ export function SesionDetailPage() {
       recargar();
     } catch (err) {
       alert("No se pudo quitar: " + (err as Error).message);
+    }
+  }
+
+  async function alTerminarArrastre(event: DragEndEvent) {
+    if (!sesion) return;
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = Number(active.id);
+    const newIndex = Number(over.id);
+    try {
+      await guardarBloques(sesion, arrayMove(sesion.bloques, oldIndex, newIndex));
+      recargar();
+    } catch (err) {
+      alert("No se pudo reordenar: " + (err as Error).message);
     }
   }
 
@@ -176,62 +198,48 @@ export function SesionDetailPage() {
             <span className="text-sm text-[var(--color-text-muted)]">Añadir ejercicios</span>
           </button>
         ) : (
-          <div className="flex flex-col gap-2">
-            {sesion.bloques.map((b, i) => {
-              const ejercicio = b.ejercicio_id ? ejercicios.find((e) => e.id === b.ejercicio_id) : null;
-              // Distingue "el bloque nunca tuvo un ejercicio enlazado" (cae al
-              // texto libre, comportamiento de siempre) de "tenía uno enlazado
-              // pero ya no es accesible" (dejó de compartirse desde otro
-              // equipo, o se borró) — nunca debe romper la carga de la sesión.
-              const sinAcceso = Boolean(b.ejercicio_id) && !ejercicio;
-              const nombre = ejercicio?.nombre || (sinAcceso ? "Ejercicio ya no disponible" : b.descripcion_libre || "Bloque sin descripción");
-              const detalle = ejercicio
-                ? [ejercicio.categoria, ejercicio.dificultad].filter(Boolean).join(" · ")
-                : sinAcceso ? "" : b.objetivo || b.consignas || "";
+          <DndContext sensors={sensors} onDragEnd={alTerminarArrastre}>
+            <SortableContext
+              items={sesion.bloques.map((_, i) => String(i))}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="flex flex-col gap-2">
+                {sesion.bloques.map((b, i) => {
+                  const ejercicio = b.ejercicio_id ? ejercicios.find((e) => e.id === b.ejercicio_id) : null;
+                  // Distingue "el bloque nunca tuvo un ejercicio enlazado" (cae al
+                  // texto libre, comportamiento de siempre) de "tenía uno enlazado
+                  // pero ya no es accesible" (dejó de compartirse desde otro
+                  // equipo, o se borró) — nunca debe romper la carga de la sesión.
+                  const sinAcceso = Boolean(b.ejercicio_id) && !ejercicio;
+                  const nombre = ejercicio?.nombre || (sinAcceso ? "Ejercicio ya no disponible" : b.descripcion_libre || "Bloque sin descripción");
+                  const detalle = ejercicio
+                    ? [ejercicio.categoria, ejercicio.dificultad].filter(Boolean).join(" · ")
+                    : sinAcceso ? "" : b.objetivo || b.consignas || "";
 
-              const contenido = (
-                <>
-                  <span className="stat-number flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] bg-[var(--color-ink)] text-base text-white">
-                    {i + 1}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-semibold">{nombre}</div>
-                    {detalle && <div className="truncate text-xs text-[var(--color-text-muted)]">{detalle}</div>}
-                  </div>
-                  <span className="stat-number shrink-0 text-[var(--color-accent)]">{b.tiempo_min}&apos;</span>
-                </>
-              );
-
-              return (
-                <div key={i} className="card-surface flex items-center gap-1 p-3">
-                  {sinAcceso ? (
-                    <div className="flex min-w-0 flex-1 items-center gap-3">{contenido}</div>
-                  ) : (
-                    <button
-                      onClick={() => {
+                  return (
+                    <BloqueRow
+                      key={i}
+                      id={String(i)}
+                      numero={i + 1}
+                      nombre={nombre}
+                      detalle={detalle}
+                      tiempoMin={b.tiempo_min}
+                      sinAcceso={sinAcceso}
+                      enlace={ejercicio?.enlace ?? b.enlace}
+                      onAbrir={() => {
                         if (ejercicio) setEjercicioAbierto(ejercicio);
                         else {
                           setBloqueEditIndex(i);
                           setBloqueModalAbierto(true);
                         }
                       }}
-                      className="flex min-w-0 flex-1 items-center gap-3 text-left transition-colors hover:text-[var(--color-accent)]"
-                    >
-                      {contenido}
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => quitarBloque(i)}
-                    aria-label="Quitar bloque"
-                    className="shrink-0 p-1.5 text-[var(--color-text-muted)] hover:text-red-500"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              );
-            })}
-          </div>
+                      onQuitar={() => quitarBloque(i)}
+                    />
+                  );
+                })}
+              </div>
+            </SortableContext>
+          </DndContext>
         )}
 
         {sesion.bloques.length > 0 && (

@@ -1,5 +1,6 @@
 // src/components/sesion/BloqueModal.tsx
 import { useEffect, useState } from "react";
+import { ExternalLink } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Field, Input, Textarea } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,7 @@ export function BloqueModal({
   const [descripcion, setDescripcion] = useState("");
   const [objetivo, setObjetivo] = useState("");
   const [consignas, setConsignas] = useState("");
+  const [enlace, setEnlace] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [borrando, setBorrando] = useState(false);
 
@@ -47,6 +49,7 @@ export function BloqueModal({
     setDescripcion(bloque?.descripcion_libre ?? "");
     setObjetivo(bloque?.objetivo ?? "");
     setConsignas(bloque?.consignas ?? "");
+    setEnlace(bloque?.enlace ?? "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, bloqueIndex]);
 
@@ -58,6 +61,7 @@ export function BloqueModal({
         descripcion_libre: descripcion || undefined,
         objetivo: objetivo || undefined,
         consignas: consignas || undefined,
+        enlace: enlace.trim() || undefined,
       };
       const nuevosBloques =
         bloqueIndex !== null
@@ -147,6 +151,19 @@ export function BloqueModal({
               <Field label="Consignas">
                 <Input value={consignas} onChange={(e) => setConsignas(e.target.value)} />
               </Field>
+              <Field label="Enlace (opcional)">
+                <Input type="url" placeholder="https://..." value={enlace} onChange={(e) => setEnlace(e.target.value)} />
+              </Field>
+              {enlace.trim() && (
+                <a
+                  href={enlace.trim()}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="-mt-2.5 flex w-fit items-center gap-1.5 text-sm font-medium text-[var(--color-accent)] hover:underline"
+                >
+                  <ExternalLink size={14} /> Abrir enlace
+                </a>
+              )}
             </>
           )}
         </div>

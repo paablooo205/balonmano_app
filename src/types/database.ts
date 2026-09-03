@@ -120,6 +120,8 @@ export type BloqueSesion = {
   descripcion_libre?: string;
   objetivo?: string;
   consignas?: string;
+  /** Enlace externo del bloque libre (portal, vídeo...) — solo tiene sentido sin `ejercicio_id`, ese caso ya usa el enlace del ejercicio. */
+  enlace?: string;
 };
 
 export type SesionesRow = {
