@@ -61,7 +61,12 @@ export function PartidoDetailPage() {
 
   async function cargarAsistenciaPartido() {
     if (!partidoId) return;
-    const { data } = await supabase.from("asistencia").select("*").eq("partido_id", partidoId);
+    const { data, error } = await supabase.from("asistencia").select("*").eq("partido_id", partidoId);
+    // Un fallo de red no puede confundirse con "no hay convocatoria": se deja
+    // `asistenciaPartidoCargada` en false y la vista en vivo se queda en
+    // "Cargando..." en vez de bloquear pidiendo hacer una convocatoria que
+    // quizá ya existe.
+    if (error) return;
     setAsistenciaPartido(data ?? []);
     setAsistenciaPartidoCargada(true);
   }

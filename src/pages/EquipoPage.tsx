@@ -13,7 +13,9 @@ export function EquipoPage() {
     (async () => {
       const [{ count }, { data: asistencia }] = await Promise.all([
         supabase.from("jugadores").select("id", { count: "exact", head: true }).eq("equipo_id", equipoId),
-        supabase.from("asistencia").select("presente").eq("equipo_id", equipoId),
+        // Solo entrenamientos: las filas de convocatoria de partido
+        // (sesion_id null) no cuentan como asistencia.
+        supabase.from("asistencia").select("presente, sesion_id").eq("equipo_id", equipoId).not("sesion_id", "is", null),
       ]);
       setTotalJugadores(count ?? 0);
       setAsistenciaMedia(

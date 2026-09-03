@@ -64,6 +64,7 @@ export function AsistenciaChecklist({
       .from("asistencia")
       .select("jugador_id, presente")
       .eq("equipo_id", equipoId)
+      .not("sesion_id", "is", null)
       .then(({ data }) => {
         const resumen: Record<string, { faltas: number; total: number }> = {};
         for (const row of data ?? []) {

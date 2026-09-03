@@ -74,7 +74,7 @@ export function JugadorDetailPage() {
   // contaba de más (un partido con eventos pero sin convocatoria hecha) y
   // de menos (un suplente convocado que no llegó a tocar el balón) a la vez.
   const partidosConvocado = new Set(
-    asistencia.filter((a) => a.partido_id && a.presente).map((a) => a.partido_id!),
+    asistencia.filter((a) => a.jugador_id === jugador.id && a.partido_id && a.presente).map((a) => a.partido_id!),
   );
   const eventosPorPartido = agruparPorPartido(eventos);
   const partidosJugadosOrdenados = partidos
