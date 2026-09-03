@@ -6,13 +6,14 @@ import { useEquipo } from "@/hooks/useEquipo";
 import { ContadoresEnVivo } from "@/components/partido/ContadoresEnVivo";
 import { FichaTecnica } from "@/components/partido/FichaTecnica";
 import { PartidoModal } from "@/components/calendario/PartidoModal";
+import { AsistenciaChecklist } from "@/components/equipo/AsistenciaChecklist";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { aplicarPendientes, guardarCache, leerCache, obtenerCola, onQueueChange } from "@/lib/offline/queue";
 import { cargarEventosEquipo } from "@/lib/eventos";
 import { Button } from "@/components/ui/button";
 import type { EventosRow, JugadoresRow, PartidosRow } from "@/types/database";
 
-type Vista = "info" | "live" | "ficha";
+type Vista = "info" | "live" | "ficha" | "convocatoria";
 
 export function PartidoDetailPage() {
   const { equipo, equipoId } = useEquipo();
@@ -24,7 +25,9 @@ export function PartidoDetailPage() {
   const [cargando, setCargando] = useState(true);
   const [searchParams] = useSearchParams();
   const vistaParam = searchParams.get("vista");
-  const [vista, setVista] = useState<Vista>(vistaParam === "ficha" || vistaParam === "live" ? vistaParam : "info");
+  const [vista, setVista] = useState<Vista>(
+    vistaParam === "ficha" || vistaParam === "live" || vistaParam === "convocatoria" ? vistaParam : "info",
+  );
   const [editando, setEditando] = useState(false);
 
   async function cargar() {
@@ -78,6 +81,20 @@ export function PartidoDetailPage() {
   }
   if (!partido) {
     return <div className="card-surface p-6 text-center text-[var(--color-text-muted)]">Partido no encontrado.</div>;
+  }
+
+  if (vista === "convocatoria") {
+    return (
+      <div className="flex flex-col gap-4">
+        <PageHeader
+          title="Convocatoria"
+          eyebrow={`vs ${partido.rival}`}
+          onBack={() => setVista("info")}
+          backLabel="Partido"
+        />
+        <AsistenciaChecklist equipoId={equipoId} partidoId={partido.id} />
+      </div>
+    );
   }
 
   if (vista === "live") {
@@ -191,6 +208,12 @@ export function PartidoDetailPage() {
         </div>
       )}
 
+      <button
+        onClick={() => setVista("convocatoria")}
+        className="text-center text-sm font-medium text-[var(--color-ink)] hover:text-[var(--color-accent)]"
+      >
+        Convocatoria
+      </button>
       <Button size="lg" variant="ink" className="w-full gap-2.5" onClick={() => setVista("live")}>
         <span className="h-[7px] w-[7px] rounded-full bg-[var(--color-accent)]" />
         {eventos.length > 0 || (partido.estadisticas.eventos ?? []).length > 0
