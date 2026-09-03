@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { Plus, Trash2, Upload, Loader2 } from "lucide-react";
+import { Trash2, Upload, Loader2 } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabaseClient";
 import { encolarOperacion, esErrorDeRed } from "@/lib/offline/queue";
 import { subirArchivo, borrarArchivo, urlFirmada, nombreArchivo } from "@/lib/storage";
-import type { BloqueSesion, DiaSemana, EstadoSesion, SesionesRow } from "@/types/database";
+import type { DiaSemana, EstadoSesion, SesionesRow } from "@/types/database";
 
 const ESTADOS: { value: EstadoSesion; label: string }[] = [
   { value: "planificada", label: "Planificada" },
@@ -41,21 +41,10 @@ export function SesionModal({
   const [estado, setEstado] = useState<EstadoSesion>(sesion?.estado ?? "planificada");
   const [valoracion, setValoracion] = useState(sesion?.valoracion?.toString() ?? "");
   const [notas, setNotas] = useState(sesion?.notas_adicionales ?? "");
-  const [bloques, setBloques] = useState<BloqueSesion[]>(sesion?.bloques ?? []);
   const [adjuntos, setAdjuntos] = useState<string[]>(sesion?.adjuntos ?? []);
   const [subiendo, setSubiendo] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [borrando, setBorrando] = useState(false);
-
-  function actualizarBloque(i: number, cambios: Partial<BloqueSesion>) {
-    setBloques((bs) => bs.map((b, idx) => (idx === i ? { ...b, ...cambios } : b)));
-  }
-  function añadirBloque() {
-    setBloques((bs) => [...bs, { tiempo_min: 10, descripcion_libre: "" }]);
-  }
-  function quitarBloque(i: number) {
-    setBloques((bs) => bs.filter((_, idx) => idx !== i));
-  }
 
   async function subirAdjunto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -92,7 +81,10 @@ export function SesionModal({
       dia_semana: diaSemana,
       duracion_min: duracion || null,
       estado,
-      bloques,
+      // Los bloques ya no se editan desde este modal (ver SesionDetailPage.tsx
+      // y BloqueModal.tsx) — se preservan tal cual para no borrarlos al
+      // guardar cambios de duración/estado/valoración/notas.
+      bloques: sesion?.bloques ?? [],
       adjuntos,
       valoracion: valoracion ? Number(valoracion) : null,
       notas_adicionales: notas || null,
@@ -180,54 +172,6 @@ export function SesionModal({
         <Field label="Valoración (1-5, opcional)">
           <Input type="number" min={1} max={5} value={valoracion} onChange={(e) => setValoracion(e.target.value)} />
         </Field>
-
-        <div>
-          <div className="mb-2 flex items-center justify-between">
-            <span className="text-sm text-[var(--color-text-muted)]">Bloques</span>
-            <button onClick={añadirBloque} className="flex items-center gap-1 text-sm text-[var(--color-accent)]">
-              <Plus size={16} /> Añadir bloque
-            </button>
-          </div>
-          <div className="flex flex-col gap-3">
-            {bloques.length === 0 && (
-              <p className="text-sm text-[var(--color-text-muted)]">Sin bloques todavía.</p>
-            )}
-            {bloques.map((b, i) => (
-              <div key={i} className="rounded-lg border border-[var(--color-border)] p-3">
-                <div className="mb-2 flex items-center gap-2">
-                  <Input
-                    type="number"
-                    min={0}
-                    value={b.tiempo_min}
-                    onChange={(e) => actualizarBloque(i, { tiempo_min: Number(e.target.value) })}
-                    className="w-20"
-                  />
-                  <span className="text-sm text-[var(--color-text-muted)]">min</span>
-                  <button onClick={() => quitarBloque(i)} className="ml-auto text-[var(--color-text-muted)] hover:text-red-500">
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-                <Textarea
-                  placeholder="Descripción libre del bloque"
-                  value={b.descripcion_libre ?? ""}
-                  onChange={(e) => actualizarBloque(i, { descripcion_libre: e.target.value })}
-                  className="mb-2 min-h-16"
-                />
-                <Input
-                  placeholder="Objetivo"
-                  value={b.objetivo ?? ""}
-                  onChange={(e) => actualizarBloque(i, { objetivo: e.target.value })}
-                  className="mb-2"
-                />
-                <Input
-                  placeholder="Consignas"
-                  value={b.consignas ?? ""}
-                  onChange={(e) => actualizarBloque(i, { consignas: e.target.value })}
-                />
-              </div>
-            ))}
-          </div>
-        </div>
 
         <div>
           <div className="mb-2 text-sm text-[var(--color-text-muted)]">
