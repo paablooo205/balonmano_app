@@ -7,6 +7,8 @@ import { useCalendarData, mesocicloDeMicrociclo } from "@/hooks/useCalendarData"
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { SesionModal } from "@/components/calendario/SesionModal";
+import { BloqueModal } from "@/components/sesion/BloqueModal";
+import { EjercicioFormModal } from "@/components/ejercicios/EjercicioFormModal";
 import { AsistenciaChecklist } from "@/components/equipo/AsistenciaChecklist";
 import { urlFirmada, nombreArchivo } from "@/lib/storage";
 import { DIAS_SEMANA, MESES } from "@/lib/calendar";
@@ -21,14 +23,28 @@ export function SesionDetailPage() {
   const [ejercicios, setEjercicios] = useState<EjerciciosRow[]>([]);
   const [editando, setEditando] = useState(false);
   const [vista, setVista] = useState<"detalle" | "asistencia">("detalle");
+  const [bloqueModalAbierto, setBloqueModalAbierto] = useState(false);
+  const [bloqueEditIndex, setBloqueEditIndex] = useState<number | null>(null);
+  const [ejercicioAbierto, setEjercicioAbierto] = useState<EjerciciosRow | null>(null);
 
-  useEffect(() => {
-    supabase
+  async function cargarEjercicios() {
+    const { data } = await supabase
       .from("ejercicios")
       .select("*")
-      .eq("equipo_id", equipoId)
-      .then(({ data }) => setEjercicios(data ?? []));
+      .or(`equipo_id.eq.${equipoId},compartido.eq.true`)
+      .order("nombre");
+    setEjercicios(data ?? []);
+  }
+
+  useEffect(() => {
+    cargarEjercicios();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [equipoId]);
+
+  function abrirNuevoBloque() {
+    setBloqueEditIndex(null);
+    setBloqueModalAbierto(true);
+  }
 
   const sesion = sesiones.find((s) => s.id === sesionId) ?? null;
   const microciclo = sesion ? microciclos.find((m) => m.id === sesion.microciclo_id) ?? null : null;
@@ -138,7 +154,7 @@ export function SesionDetailPage() {
 
         {sesion.bloques.length === 0 ? (
           <button
-            onClick={() => setEditando(true)}
+            onClick={abrirNuevoBloque}
             className="flex w-full flex-col items-center justify-center gap-3 py-14"
           >
             <span className="flex h-14 w-14 items-center justify-center rounded-full bg-[var(--color-ink)] text-white">
@@ -159,8 +175,9 @@ export function SesionDetailPage() {
               const detalle = ejercicio
                 ? [ejercicio.categoria, ejercicio.dificultad].filter(Boolean).join(" · ")
                 : sinAcceso ? "" : b.objetivo || b.consignas || "";
-              return (
-                <div key={i} className="card-surface flex items-center gap-3 p-3">
+
+              const contenido = (
+                <>
                   <span className="stat-number flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] bg-[var(--color-ink)] text-base text-white">
                     {i + 1}
                   </span>
@@ -169,10 +186,42 @@ export function SesionDetailPage() {
                     {detalle && <div className="truncate text-xs text-[var(--color-text-muted)]">{detalle}</div>}
                   </div>
                   <span className="stat-number shrink-0 text-[var(--color-accent)]">{b.tiempo_min}&apos;</span>
-                </div>
+                </>
+              );
+
+              if (sinAcceso) {
+                return (
+                  <div key={i} className="card-surface flex items-center gap-3 p-3">
+                    {contenido}
+                  </div>
+                );
+              }
+              return (
+                <button
+                  key={i}
+                  onClick={() => {
+                    if (ejercicio) setEjercicioAbierto(ejercicio);
+                    else {
+                      setBloqueEditIndex(i);
+                      setBloqueModalAbierto(true);
+                    }
+                  }}
+                  className="card-surface flex w-full items-center gap-3 p-3 text-left transition-colors hover:border-[var(--color-accent)]"
+                >
+                  {contenido}
+                </button>
               );
             })}
           </div>
+        )}
+
+        {sesion.bloques.length > 0 && (
+          <button
+            onClick={abrirNuevoBloque}
+            className="mt-2.5 flex w-full items-center justify-center gap-2 rounded-[14px] border border-dashed border-[var(--color-border)] py-3 text-sm text-[var(--color-text-muted)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
+          >
+            <Plus size={18} /> Añadir ejercicio
+          </button>
         )}
       </div>
 
@@ -216,6 +265,33 @@ export function SesionDetailPage() {
       <Button size="lg" className="w-full" onClick={() => setVista("asistencia")}>
         Pasar lista de asistencia
       </Button>
+
+      <BloqueModal
+        open={bloqueModalAbierto}
+        onClose={() => setBloqueModalAbierto(false)}
+        equipoId={equipoId}
+        sesion={sesion}
+        bloqueIndex={bloqueEditIndex}
+        onSaved={() => {
+          setBloqueModalAbierto(false);
+          recargar();
+        }}
+      />
+
+      <EjercicioFormModal
+        open={ejercicioAbierto !== null}
+        onClose={() => setEjercicioAbierto(null)}
+        equipoId={equipoId}
+        ejercicio={ejercicioAbierto}
+        onSaved={() => {
+          setEjercicioAbierto(null);
+          cargarEjercicios();
+        }}
+        onDeleted={() => {
+          setEjercicioAbierto(null);
+          cargarEjercicios();
+        }}
+      />
 
       <SesionModal
         open={editando}
