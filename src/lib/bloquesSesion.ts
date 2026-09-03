@@ -22,7 +22,7 @@ export async function guardarBloques(sesion: SesionesRow, nuevosBloques: BloqueS
     return;
   }
 
-  const { error, status } = await supabase.from("sesiones").update(payload).eq("id", sesion.id);
+  const { error, status } = await supabase.from("sesiones").upsert(payload);
   if (error) {
     if (esErrorDeRed(status)) {
       await encolarOperacion({ tabla: "sesiones", tipo: "update", rowId: sesion.id, payload });

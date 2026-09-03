@@ -65,6 +65,7 @@ export function EjercicioFormModal({
   ejercicio,
   onSaved,
   onDeleted,
+  permitirBorrar = true,
 }: {
   open: boolean;
   onClose: () => void;
@@ -72,6 +73,7 @@ export function EjercicioFormModal({
   ejercicio: EjerciciosRow | null;
   onSaved: () => void;
   onDeleted: () => void;
+  permitirBorrar?: boolean;
 }) {
   const { equipo } = useEquipo();
   const { id: entrenadorId, nombre: entrenadorNombre } = useEntrenador();
@@ -287,7 +289,7 @@ export function EjercicioFormModal({
         </div>
       ) : (
         <div className="mt-2 flex items-center justify-between gap-2">
-          {ejercicio ? (
+          {ejercicio && permitirBorrar ? (
             <Button type="button" variant="destructive" size="sm" onClick={handleDelete} disabled={borrando}>
               {borrando ? "Borrando..." : "Borrar"}
             </Button>

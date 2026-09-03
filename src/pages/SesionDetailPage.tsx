@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ChevronLeft, FileText, Pencil, Plus } from "lucide-react";
+import { ChevronLeft, FileText, Pencil, Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useEquipo } from "@/hooks/useEquipo";
 import { useCalendarData, mesocicloDeMicrociclo } from "@/hooks/useCalendarData";
@@ -10,6 +10,7 @@ import { SesionModal } from "@/components/calendario/SesionModal";
 import { BloqueModal } from "@/components/sesion/BloqueModal";
 import { EjercicioFormModal } from "@/components/ejercicios/EjercicioFormModal";
 import { AsistenciaChecklist } from "@/components/equipo/AsistenciaChecklist";
+import { guardarBloques } from "@/lib/bloquesSesion";
 import { urlFirmada, nombreArchivo } from "@/lib/storage";
 import { DIAS_SEMANA, MESES } from "@/lib/calendar";
 import { imagenDeTemporada } from "@/lib/temporadaVisual";
@@ -46,16 +47,28 @@ export function SesionDetailPage() {
     setBloqueModalAbierto(true);
   }
 
-  const sesion = sesiones.find((s) => s.id === sesionId) ?? null;
-  const microciclo = sesion ? microciclos.find((m) => m.id === sesion.microciclo_id) ?? null : null;
-  const mesociclo = mesocicloDeMicrociclo(mesociclos, microciclo);
+  async function quitarBloque(i: number) {
+    if (!sesion) return;
+    if (!confirm("¿Quitar este bloque de la sesión?")) return;
+    try {
+      await guardarBloques(sesion, sesion.bloques.filter((_, j) => j !== i));
+      recargar();
+    } catch (err) {
+      alert("No se pudo quitar: " + (err as Error).message);
+    }
+  }
 
-  if (cargando) {
+  const sesion = sesiones.find((s) => s.id === sesionId) ?? null;
+
+  if (cargando && !sesion) {
     return <div className="card-surface p-6 text-center text-[var(--color-text-muted)]">Cargando...</div>;
   }
   if (!sesion) {
     return <div className="card-surface p-6 text-center text-[var(--color-text-muted)]">Sesión no encontrada.</div>;
   }
+
+  const microciclo = microciclos.find((m) => m.id === sesion.microciclo_id) ?? null;
+  const mesociclo = mesocicloDeMicrociclo(mesociclos, microciclo);
 
   const fecha = new Date(sesion.fecha + "T00:00:00");
   const diaSemana = (sesion.dia_semana ?? (fecha.getDay() as DiaSemana)) as DiaSemana;
@@ -189,27 +202,33 @@ export function SesionDetailPage() {
                 </>
               );
 
-              if (sinAcceso) {
-                return (
-                  <div key={i} className="card-surface flex items-center gap-3 p-3">
-                    {contenido}
-                  </div>
-                );
-              }
               return (
-                <button
-                  key={i}
-                  onClick={() => {
-                    if (ejercicio) setEjercicioAbierto(ejercicio);
-                    else {
-                      setBloqueEditIndex(i);
-                      setBloqueModalAbierto(true);
-                    }
-                  }}
-                  className="card-surface flex w-full items-center gap-3 p-3 text-left transition-colors hover:border-[var(--color-accent)]"
-                >
-                  {contenido}
-                </button>
+                <div key={i} className="card-surface flex items-center gap-1 p-3">
+                  {sinAcceso ? (
+                    <div className="flex flex-1 items-center gap-3">{contenido}</div>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        if (ejercicio) setEjercicioAbierto(ejercicio);
+                        else {
+                          setBloqueEditIndex(i);
+                          setBloqueModalAbierto(true);
+                        }
+                      }}
+                      className="flex flex-1 items-center gap-3 text-left transition-colors hover:text-[var(--color-accent)]"
+                    >
+                      {contenido}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => quitarBloque(i)}
+                    aria-label="Quitar bloque"
+                    className="shrink-0 p-1.5 text-[var(--color-text-muted)] hover:text-red-500"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
               );
             })}
           </div>
@@ -283,6 +302,7 @@ export function SesionDetailPage() {
         onClose={() => setEjercicioAbierto(null)}
         equipoId={equipoId}
         ejercicio={ejercicioAbierto}
+        permitirBorrar={false}
         onSaved={() => {
           setEjercicioAbierto(null);
           cargarEjercicios();
