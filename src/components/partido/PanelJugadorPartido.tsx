@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Download, X } from "lucide-react";
 import { DesgloseJugadorPartido } from "@/components/partido/DesgloseJugadorPartido";
+import { cargarEscudoPdf } from "@/lib/pdf/escudoPdf";
 import type { EventosRow, JugadoresRow, PartidosRow } from "@/types/database";
 
 /**
@@ -29,13 +30,14 @@ export function PanelJugadorPartido({
   async function descargarInformePdf() {
     setDescargando(true);
     try {
-      const [{ descargarPdf }, { InformeJugadorPartidoPdf }] = await Promise.all([
+      const [{ descargarPdf }, { InformeJugadorPartidoPdf }, escudo] = await Promise.all([
         import("@/lib/pdf/descargarPdf"),
         import("@/lib/pdf/InformeJugadorPartidoPdf"),
+        cargarEscudoPdf().catch(() => null),
       ]);
       await descargarPdf(
         `informe-${jugador.nombre}-vs-${partido.rival}-${partido.fecha}`,
-        <InformeJugadorPartidoPdf jugador={jugador} partido={partido} eventos={eventos} />,
+        <InformeJugadorPartidoPdf jugador={jugador} partido={partido} eventos={eventos} escudo={escudo} />,
       );
     } catch (err) {
       alert("No se pudo generar el PDF: " + (err as Error).message);

@@ -1,7 +1,16 @@
 import { Document, Page, Text, View } from "@react-pdf/renderer";
 import type { EficaciaDetalle } from "@/lib/partidoStats";
 import type { Insight } from "@/lib/insights";
-import { PdfCabecera, PdfListaInsights, PdfSeccion, PdfTablaEficacia, PdfTablaZonas, pdfEstilosBase } from "@/lib/pdf/PdfComponents";
+import {
+  PdfCabecera,
+  PdfEscudoFondo,
+  PdfListaInsights,
+  PdfSeccion,
+  PdfTablaEficacia,
+  PdfTablaZonas,
+  pdfEstilosBase,
+} from "@/lib/pdf/PdfComponents";
+import type { EscudoPdf } from "@/lib/pdf/escudoPdf";
 import type { JugadoresRow } from "@/types/database";
 
 export function FichaJugadorTemporadaPdf({
@@ -25,6 +34,7 @@ export function FichaJugadorTemporadaPdf({
   etiquetaAcierto,
   tendenciaEficacia,
   insights,
+  escudo,
 }: {
   jugador: JugadoresRow;
   nombreEquipo: string;
@@ -46,6 +56,7 @@ export function FichaJugadorTemporadaPdf({
   etiquetaAcierto: string;
   tendenciaEficacia: { label: string; pct: number | null }[];
   insights: Insight[];
+  escudo: EscudoPdf | null;
 }) {
   const edad = jugador.año_nacimiento ? `${new Date().getFullYear() - jugador.año_nacimiento} años` : null;
   const altura = jugador.altura_cm ? `${jugador.altura_cm} cm` : null;
@@ -55,6 +66,7 @@ export function FichaJugadorTemporadaPdf({
   return (
     <Document>
       <Page size="A4" style={pdfEstilosBase.pagina}>
+        <PdfEscudoFondo escudo={escudo} />
         <PdfCabecera
           eyebrow={`${nombreEquipo} · Temporada ${temporada}`}
           titulo={`#${jugador.dorsal ?? "—"} ${jugador.nombre}`}

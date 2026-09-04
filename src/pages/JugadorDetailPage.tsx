@@ -10,6 +10,7 @@ import { LineaEvolucionEficacia } from "@/components/jugador/LineaEvolucionEfica
 import { JugadorFormModal } from "@/components/equipo/JugadorFormModal";
 import { InsightsCard } from "@/components/dashboard/InsightsCard";
 import { Select } from "@/components/ui/field";
+import { cargarEscudoPdf } from "@/lib/pdf/escudoPdf";
 import {
   desgloseResultados,
   distribucionPorZona,
@@ -207,9 +208,10 @@ export function JugadorDetailPage() {
     if (!jugador) return;
     setDescargandoPdf(true);
     try {
-      const [{ descargarPdf }, { FichaJugadorTemporadaPdf }] = await Promise.all([
+      const [{ descargarPdf }, { FichaJugadorTemporadaPdf }, escudo] = await Promise.all([
         import("@/lib/pdf/descargarPdf"),
         import("@/lib/pdf/FichaJugadorTemporadaPdf"),
+        cargarEscudoPdf().catch(() => null),
       ]);
       const etiquetaAcierto = portero ? "paradas" : "goles";
       await descargarPdf(
@@ -235,6 +237,7 @@ export function JugadorDetailPage() {
           etiquetaAcierto={etiquetaAcierto}
           tendenciaEficacia={tendenciaEficacia}
           insights={insights}
+          escudo={escudo}
         />,
       );
     } catch (err) {

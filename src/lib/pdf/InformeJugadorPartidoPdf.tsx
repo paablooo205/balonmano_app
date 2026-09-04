@@ -10,17 +10,28 @@ import {
   porcentajeParadas,
   robos,
 } from "@/lib/partidoStats";
-import { PdfCabecera, PdfSeccion, PdfTablaEficacia, PdfTablaZonas, formatearFechaLarga, pdfEstilosBase } from "@/lib/pdf/PdfComponents";
+import {
+  PdfCabecera,
+  PdfEscudoFondo,
+  PdfSeccion,
+  PdfTablaEficacia,
+  PdfTablaZonas,
+  formatearFechaLarga,
+  pdfEstilosBase,
+} from "@/lib/pdf/PdfComponents";
+import type { EscudoPdf } from "@/lib/pdf/escudoPdf";
 import type { EventosRow, JugadoresRow, PartidosRow } from "@/types/database";
 
 export function InformeJugadorPartidoPdf({
   jugador,
   partido,
   eventos,
+  escudo,
 }: {
   jugador: JugadoresRow;
   partido: PartidosRow;
   eventos: EventosRow[];
+  escudo: EscudoPdf | null;
 }) {
   const propios = eventos.filter((e) => e.jugador_id === jugador.id);
   const portero = esPortero(jugador.puesto);
@@ -49,6 +60,7 @@ export function InformeJugadorPartidoPdf({
   return (
     <Document>
       <Page size="A4" style={pdfEstilosBase.pagina}>
+        <PdfEscudoFondo escudo={escudo} />
         <PdfCabecera
           eyebrow={`#${jugador.dorsal ?? "—"} ${jugador.nombre}`}
           titulo={`vs ${partido.rival}`}

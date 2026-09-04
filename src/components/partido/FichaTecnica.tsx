@@ -9,6 +9,7 @@ import { PanelJugadorPartido } from "@/components/partido/PanelJugadorPartido";
 import { InsightsCard } from "@/components/dashboard/InsightsCard";
 import { Button } from "@/components/ui/button";
 import { useEquipo } from "@/hooks/useEquipo";
+import { cargarEscudoPdf } from "@/lib/pdf/escudoPdf";
 import {
   desgloseResultados,
   distribucionPorZona,
@@ -37,13 +38,14 @@ export function FichaTecnica({
   async function descargarFichaPdf() {
     setDescargandoPdf(true);
     try {
-      const [{ descargarPdf }, { FichaPartidoPdf }] = await Promise.all([
+      const [{ descargarPdf }, { FichaPartidoPdf }, escudo] = await Promise.all([
         import("@/lib/pdf/descargarPdf"),
         import("@/lib/pdf/FichaPartidoPdf"),
+        cargarEscudoPdf().catch(() => null),
       ]);
       await descargarPdf(
         `ficha-partido-vs-${partido.rival}-${partido.fecha}`,
-        <FichaPartidoPdf partido={partido} eventos={eventos} nombreEquipo={equipo?.nombre ?? "Equipo"} />,
+        <FichaPartidoPdf partido={partido} eventos={eventos} nombreEquipo={equipo?.nombre ?? "Equipo"} escudo={escudo} />,
       );
     } catch (err) {
       alert("No se pudo generar el PDF: " + (err as Error).message);

@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
-import { StyleSheet, Text, View } from "@react-pdf/renderer";
+import { Image, StyleSheet, Text, View } from "@react-pdf/renderer";
 import type { EficaciaDetalle } from "@/lib/partidoStats";
 import type { Insight } from "@/lib/insights";
+import type { EscudoPdf } from "@/lib/pdf/escudoPdf";
 import { pdfColores } from "@/lib/pdf/pdfTheme";
 
 export function formatearFechaLarga(fecha: string): string {
@@ -53,6 +54,29 @@ export const pdfEstilosBase = StyleSheet.create({
   zonaEtiqueta: { fontSize: 7, color: pdfColores.textFaint, textTransform: "uppercase" },
   zonaValor: { fontSize: 9, marginTop: 1 },
 });
+
+/** Escudo del club como marca de agua en la esquina inferior derecha de la
+ * página — mismo tratamiento (grayscale + opacidad muy baja) que el fondo de
+ * la app. `escudo` puede ser null si la conversión a PNG falló (no bloquea la
+ * generación del resto del PDF). */
+export function PdfEscudoFondo({ escudo }: { escudo: EscudoPdf | null }) {
+  if (!escudo) return null;
+  const alto = 260;
+  const ancho = (escudo.width / escudo.height) * alto;
+  return (
+    <Image
+      src={escudo.uri}
+      style={{
+        position: "absolute",
+        bottom: -alto * 0.22,
+        right: -ancho * 0.22,
+        width: ancho,
+        height: alto,
+        opacity: 0.07,
+      }}
+    />
+  );
+}
 
 export function PdfCabecera({ eyebrow, titulo, subtitulo }: { eyebrow: string; titulo: string; subtitulo?: string }) {
   return (

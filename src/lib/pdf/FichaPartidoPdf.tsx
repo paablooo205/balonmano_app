@@ -8,17 +8,29 @@ import {
   robos,
 } from "@/lib/partidoStats";
 import { cortePorMediana, dividirPorCorte, generarInsights } from "@/lib/insights";
-import { PdfCabecera, PdfListaInsights, PdfSeccion, PdfTablaEficacia, PdfTablaZonas, formatearFechaLarga, pdfEstilosBase } from "@/lib/pdf/PdfComponents";
+import {
+  PdfCabecera,
+  PdfEscudoFondo,
+  PdfListaInsights,
+  PdfSeccion,
+  PdfTablaEficacia,
+  PdfTablaZonas,
+  formatearFechaLarga,
+  pdfEstilosBase,
+} from "@/lib/pdf/PdfComponents";
+import type { EscudoPdf } from "@/lib/pdf/escudoPdf";
 import type { EventosRow, PartidosRow } from "@/types/database";
 
 export function FichaPartidoPdf({
   partido,
   eventos,
   nombreEquipo,
+  escudo,
 }: {
   partido: PartidosRow;
   eventos: EventosRow[];
   nombreEquipo: string;
+  escudo: EscudoPdf | null;
 }) {
   const tirosJuego = eventos.filter((e) => e.tipo === "tiro" && e.equipo_origen === "propio" && !e.es_penalti);
   const tirosPenalti = eventos.filter((e) => e.tipo === "tiro" && e.equipo_origen === "propio" && e.es_penalti);
@@ -59,6 +71,7 @@ export function FichaPartidoPdf({
   return (
     <Document>
       <Page size="A4" style={pdfEstilosBase.pagina}>
+        <PdfEscudoFondo escudo={escudo} />
         <PdfCabecera
           eyebrow={nombreEquipo}
           titulo={`vs ${partido.rival}`}
