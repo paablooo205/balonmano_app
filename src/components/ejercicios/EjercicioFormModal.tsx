@@ -22,14 +22,6 @@ type FormState = {
   duracion_min: string;
   dificultad: string;
   descripcion: string;
-  organizacion: string;
-  reglas: string;
-  consignas: string;
-  progresion: string;
-  regresion: string;
-  errores_frecuentes: string;
-  correcciones: string;
-  transferencia_partido: string;
   enlace: string;
   compartido: boolean;
   notas_adicionales: string;
@@ -47,14 +39,6 @@ function toFormState(e: EjerciciosRow | null): FormState {
     duracion_min: e?.duracion_min?.toString() ?? "",
     dificultad: e?.dificultad ?? "",
     descripcion: e?.descripcion ?? "",
-    organizacion: e?.organizacion ?? "",
-    reglas: e?.reglas ?? "",
-    consignas: e?.consignas ?? "",
-    progresion: e?.progresion ?? "",
-    regresion: e?.regresion ?? "",
-    errores_frecuentes: e?.errores_frecuentes ?? "",
-    correcciones: e?.correcciones ?? "",
-    transferencia_partido: e?.transferencia_partido ?? "",
     enlace: e?.enlace ?? "",
     compartido: e?.compartido ?? false,
     notas_adicionales: e?.notas_adicionales ?? "",
@@ -132,14 +116,6 @@ export function EjercicioFormModal({
       duracion_min: form.duracion_min ? Number(form.duracion_min) : null,
       dificultad: form.dificultad || null,
       descripcion: form.descripcion || null,
-      organizacion: form.organizacion || null,
-      reglas: form.reglas || null,
-      consignas: form.consignas || null,
-      progresion: form.progresion || null,
-      regresion: form.regresion || null,
-      errores_frecuentes: form.errores_frecuentes || null,
-      correcciones: form.correcciones || null,
-      transferencia_partido: form.transferencia_partido || null,
       enlace: form.enlace.trim() || null,
       compartido: form.compartido,
       notas_adicionales: form.notas_adicionales || null,
@@ -270,36 +246,13 @@ export function EjercicioFormModal({
           <Field label="Descripción">
             <Textarea value={form.descripcion} onChange={(e) => set("descripcion", e.target.value)} />
           </Field>
-          <Field label="Organización">
-            <Textarea value={form.organizacion} onChange={(e) => set("organizacion", e.target.value)} />
-          </Field>
-          <Field label="Reglas">
-            <Textarea value={form.reglas} onChange={(e) => set("reglas", e.target.value)} />
-          </Field>
-          <Field label="Consignas">
-            <Textarea value={form.consignas} onChange={(e) => set("consignas", e.target.value)} />
-          </Field>
-
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Progresión">
-              <Textarea value={form.progresion} onChange={(e) => set("progresion", e.target.value)} />
-            </Field>
-            <Field label="Regresión">
-              <Textarea value={form.regresion} onChange={(e) => set("regresion", e.target.value)} />
-            </Field>
-          </div>
-
-          <Field label="Errores frecuentes">
-            <Textarea value={form.errores_frecuentes} onChange={(e) => set("errores_frecuentes", e.target.value)} />
-          </Field>
-          <Field label="Correcciones">
-            <Textarea value={form.correcciones} onChange={(e) => set("correcciones", e.target.value)} />
-          </Field>
-          <Field label="Transferencia al partido">
-            <Textarea value={form.transferencia_partido} onChange={(e) => set("transferencia_partido", e.target.value)} />
-          </Field>
           <Field label="Notas adicionales">
-            <Textarea value={form.notas_adicionales} onChange={(e) => set("notas_adicionales", e.target.value)} />
+            <Textarea
+              placeholder="Organización, reglas, consignas, progresiones, correcciones..."
+              value={form.notas_adicionales}
+              onChange={(e) => set("notas_adicionales", e.target.value)}
+              className="min-h-40"
+            />
           </Field>
         </fieldset>
       </form>
