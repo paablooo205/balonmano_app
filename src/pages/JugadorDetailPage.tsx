@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ChevronLeft, Pencil } from "lucide-react";
+import { ChevronLeft, Download, Pencil } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useEquipo } from "@/hooks/useEquipo";
 import { AnilloDonut } from "@/components/partido/AnilloDonut";
@@ -10,6 +10,8 @@ import { LineaEvolucionEficacia } from "@/components/jugador/LineaEvolucionEfica
 import { JugadorFormModal } from "@/components/equipo/JugadorFormModal";
 import { InsightsCard } from "@/components/dashboard/InsightsCard";
 import { Select } from "@/components/ui/field";
+import { FichaJugadorTemporadaPdf } from "@/lib/pdf/FichaJugadorTemporadaPdf";
+import { descargarPdf } from "@/lib/pdf/descargarPdf";
 import {
   desgloseResultados,
   distribucionPorZona,
@@ -26,7 +28,7 @@ import { generarInsights } from "@/lib/insights";
 import type { AsistenciaRow, EventosRow, JugadoresRow, PartidosRow, SesionesRow } from "@/types/database";
 
 export function JugadorDetailPage() {
-  const { equipoId } = useEquipo();
+  const { equipo, equipoId } = useEquipo();
   const { jugadorId } = useParams<{ jugadorId: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -202,6 +204,36 @@ export function JugadorDetailPage() {
         : undefined,
   });
 
+  async function descargarFichaTemporadaPdf() {
+    if (!jugador) return;
+    const etiquetaAcierto = portero ? "paradas" : "goles";
+    await descargarPdf(
+      `ficha-temporada-${jugador.nombre}`,
+      <FichaJugadorTemporadaPdf
+        jugador={jugador}
+        nombreEquipo={equipo?.nombre ?? "Equipo"}
+        temporada={equipo?.temporada ?? ""}
+        portero={portero}
+        partidosJugados={partidosJugados}
+        goles={goles}
+        exclusionesTotal={exclusiones}
+        asistenciaPct={asistenciaPct}
+        presentes={presentes}
+        totalSesiones={registrosEntreno.length}
+        llegadasTarde={llegadasTarde}
+        detalleJuego={portero ? detalleParadasJuego : eficaciaConDetalle(eventosDelJugador, { soloPenalti: false })}
+        detallePenalti={portero ? detalleParadasPenalti : eficaciaConDetalle(eventosDelJugador, { soloPenalti: true })}
+        zonasJuego={portero ? zonasRivalJuego : zonasJuego}
+        golesZonasJuego={portero ? paradasZonasRivalJuego : golesZonasJuego}
+        zonasPenalti={portero ? zonasRivalPenalti : zonasPenalti}
+        golesZonasPenalti={portero ? paradasZonasRivalPenalti : golesZonasPenalti}
+        etiquetaAcierto={etiquetaAcierto}
+        tendenciaEficacia={tendenciaEficacia}
+        insights={insights}
+      />,
+    );
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div className="hero-band">
@@ -212,12 +244,20 @@ export function JugadorDetailPage() {
           >
             <ChevronLeft size={16} className="text-[var(--color-accent)]" /> Plantilla
           </button>
-          <button
-            onClick={() => setEditando(true)}
-            className="flex items-center gap-1.5 text-sm text-white/70 hover:text-white"
-          >
-            <Pencil size={16} /> Editar
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={descargarFichaTemporadaPdf}
+              className="flex items-center gap-1.5 text-sm text-white/70 hover:text-white"
+            >
+              <Download size={16} /> PDF
+            </button>
+            <button
+              onClick={() => setEditando(true)}
+              className="flex items-center gap-1.5 text-sm text-white/70 hover:text-white"
+            >
+              <Pencil size={16} /> Editar
+            </button>
+          </div>
         </div>
         <div className="flex items-end gap-4">
           <div className="stat-number shrink-0 text-[4.25rem] leading-[0.85] text-[var(--color-accent)]">
