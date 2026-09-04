@@ -39,6 +39,11 @@ export function EjercicioDetailPage() {
   }
 
   const esPropio = ejercicio.equipo_id === equipoId;
+  // Esta página se abre tanto desde el listado de ejercicios como desde una
+  // sesión de entrenamiento (y también por enlace directo / recarga de PWA,
+  // donde no hay historial). navigate(-1) solo es seguro si de verdad hay
+  // una entrada de historial detrás; si no, volvemos siempre al listado.
+  const puedeVolver = window.history.state?.idx > 0;
   const datosRapidos = [
     ejercicio.dificultad,
     (ejercicio.jugadores_min || ejercicio.jugadores_max) && `${ejercicio.jugadores_min ?? "?"}–${ejercicio.jugadores_max ?? "?"} jugadores`,
@@ -50,8 +55,8 @@ export function EjercicioDetailPage() {
       <PageHeader
         title={ejercicio.nombre}
         eyebrow={ejercicio.categoria ?? "Ejercicio"}
-        onBack={() => navigate(-1)}
-        backLabel="Ejercicios"
+        onBack={() => (puedeVolver ? navigate(-1) : navigate(`/equipos/${equipoId}/ejercicios`))}
+        backLabel="Volver"
         action={
           esPropio ? (
             <Button size="sm" variant="secondary" onClick={() => setEditando(true)}>
@@ -156,7 +161,8 @@ export function EjercicioDetailPage() {
         }}
         onDeleted={() => {
           setEditando(false);
-          navigate(-1);
+          if (puedeVolver) navigate(-1);
+          else navigate(`/equipos/${equipoId}/ejercicios`);
         }}
       />
 

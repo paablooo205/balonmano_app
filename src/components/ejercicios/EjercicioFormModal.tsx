@@ -108,6 +108,12 @@ export function EjercicioFormModal({
   }
 
   function quitarImagen(ruta: string) {
+    // Si la imagen nunca llegó a guardarse (no está en imagenesOriginales),
+    // nada más la referencia: se puede borrar de Storage ya mismo, porque
+    // ni la limpieza de guardado (compara contra imagenesOriginales) ni la
+    // de cancelar (compara contra form.imagenes, del que esta ruta ya sale)
+    // la detectarían y quedaría huérfana para siempre.
+    if (!imagenesOriginales.includes(ruta)) void borrarArchivo(ruta).catch(() => {});
     setForm((f) => ({ ...f, imagenes: f.imagenes.filter((r) => r !== ruta) }));
   }
 

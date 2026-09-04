@@ -54,7 +54,14 @@ export default defineConfig({
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
         runtimeCaching: [
           {
-            urlPattern: ({ url }) => url.hostname.endsWith("supabase.co"),
+            // Excluye las URLs firmadas de Storage (usadas por MiniaturaImagen
+            // para <img src>, con token de un solo uso en la query string):
+            // cachearlas como si fueran respuestas de la API llenaría este
+            // caché de 100 entradas de basura irrecuperable en cada render,
+            // desplazando las respuestas reales de la API que este caché
+            // existe para guardar.
+            urlPattern: ({ url }) =>
+              url.hostname.endsWith("supabase.co") && !url.pathname.startsWith("/storage/v1/object/sign"),
             handler: "NetworkFirst",
             options: {
               cacheName: "supabase-api-cache",
