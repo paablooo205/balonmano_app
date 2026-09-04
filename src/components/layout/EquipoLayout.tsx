@@ -108,7 +108,7 @@ export function EquipoLayout() {
       )}
     >
       <EscudoFondo
-        className="-bottom-[15rem] -left-[15rem] h-[120vw] w-[120vw] max-h-[46rem] max-w-[46rem] rotate-[-8deg]"
+        className="-bottom-20 -right-20 h-[85vw] w-[85vw] max-h-[26rem] max-w-[26rem] rotate-[-8deg] md:-bottom-[15rem] md:-right-[15rem] md:h-[120vw] md:w-[120vw] md:max-h-[46rem] md:max-w-[46rem]"
         opacity={0.1}
       />
       <SyncStatusBadge />
