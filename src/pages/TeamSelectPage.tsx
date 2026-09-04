@@ -4,6 +4,7 @@ import { ChevronRight, KeyRound, Plus, ShieldAlert, ShieldPlus, X } from "lucide
 import { supabase } from "@/lib/supabaseClient";
 import { Field, Input } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
+import { EscudoFondo } from "@/components/layout/EscudoFondo";
 import type { EquiposRow } from "@/types/database";
 
 export function TeamSelectPage() {
@@ -83,6 +84,10 @@ export function TeamSelectPage() {
 
   return (
     <div className="relative z-10 flex min-h-screen flex-col items-center justify-center px-4 py-16">
+      <EscudoFondo
+        className="-bottom-24 -left-24 h-[140vw] w-[140vw] max-h-[52rem] max-w-[52rem] rotate-[6deg]"
+        opacity={0.08}
+      />
       <img
         src="/balonmano.webp"
         alt="Escudo del club"
@@ -213,11 +218,12 @@ export function TeamSelectPage() {
 
           {estado === "ok" &&
             !mostrarAgregar &&
-            equipos.map((equipo) => (
+            equipos.map((equipo, i) => (
               <button
                 key={equipo.id}
                 onClick={() => navigate(`/equipos/${equipo.id}/inicio`)}
-                className="card-surface flex items-center justify-between p-5 text-left transition-colors hover:border-[var(--color-accent)] active:bg-[var(--color-card-hover)]"
+                className="card-surface flex animate-entrada items-center justify-between p-5 text-left transition-colors hover:border-[var(--color-accent)] active:bg-[var(--color-card-hover)]"
+                style={{ animationDelay: `${i * 60}ms` }}
               >
                 <div>
                   <div className="text-lg font-bold" style={{ fontFamily: "var(--font-display)" }}>

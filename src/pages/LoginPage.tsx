@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
+import { EscudoFondo } from "@/components/layout/EscudoFondo";
 
 export function LoginPage({ onIrARegistro }: { onIrARegistro: () => void }) {
   const [email, setEmail] = useState("");
@@ -21,7 +22,8 @@ export function LoginPage({ onIrARegistro }: { onIrARegistro: () => void }) {
 
   return (
     <div className="relative z-10 flex min-h-screen items-center justify-center px-4">
-      <form onSubmit={handleSubmit} className="card-surface w-full max-w-sm p-6">
+      <EscudoFondo className="-bottom-24 -right-24 h-[130vw] w-[130vw] max-h-[48rem] max-w-[48rem] rotate-[-8deg]" />
+      <form onSubmit={handleSubmit} className="card-surface w-full max-w-sm animate-entrada p-6">
         <img
           src="/balonmano.webp"
           alt="Escudo del club"

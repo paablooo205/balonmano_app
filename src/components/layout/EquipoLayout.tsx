@@ -6,6 +6,7 @@ import { SideNav } from "./SideNav";
 import { BottomNav } from "./BottomNav";
 import { SyncStatusBadge } from "./SyncStatusBadge";
 import { OnboardingChecklist } from "./OnboardingChecklist";
+import { EscudoFondo } from "./EscudoFondo";
 import { comprobarNotificaciones } from "@/lib/notifications";
 import { usePreferenciaMenu } from "@/hooks/usePreferenciaMenu";
 import { useActividadReciente } from "@/hooks/useActividadReciente";
@@ -106,6 +107,10 @@ export function EquipoLayout() {
         modo === "lateral" && cn("pl-24", barraActiva ? "md:pl-[18rem]" : "md:pl-0"),
       )}
     >
+      <EscudoFondo
+        className="-bottom-[15rem] -left-[15rem] h-[120vw] w-[120vw] max-h-[46rem] max-w-[46rem] rotate-[-8deg]"
+        opacity={0.1}
+      />
       <SyncStatusBadge />
       <SideNav nombreEquipo={equipo?.nombre} modo={modo} activa={barraActiva} />
       <main
