@@ -1,6 +1,8 @@
-import { X } from "lucide-react";
+import { Download, X } from "lucide-react";
 import { DesgloseJugadorPartido } from "@/components/partido/DesgloseJugadorPartido";
-import type { EventosRow, JugadoresRow } from "@/types/database";
+import { InformeJugadorPartidoPdf } from "@/lib/pdf/InformeJugadorPartidoPdf";
+import { descargarPdf } from "@/lib/pdf/descargarPdf";
+import type { EventosRow, JugadoresRow, PartidosRow } from "@/types/database";
 
 /**
  * Overlay modal local (no navega de pantalla) que envuelve
@@ -14,13 +16,22 @@ import type { EventosRow, JugadoresRow } from "@/types/database";
  */
 export function PanelJugadorPartido({
   jugador,
+  partido,
   eventos,
   onCerrar,
 }: {
   jugador: JugadoresRow;
+  partido: PartidosRow;
   eventos: EventosRow[];
   onCerrar: () => void;
 }) {
+  async function descargarInformePdf() {
+    await descargarPdf(
+      `informe-${jugador.nombre}-vs-${partido.rival}-${partido.fecha}`,
+      <InformeJugadorPartidoPdf jugador={jugador} partido={partido} eventos={eventos} />,
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 md:items-center md:p-4" onClick={onCerrar}>
       <div
@@ -32,9 +43,18 @@ export function PanelJugadorPartido({
             <span className="stat-number text-sm text-[var(--color-text-muted)]">#{jugador.dorsal ?? "—"} </span>
             <span className="text-sm font-medium text-[var(--color-text)]">{jugador.nombre}</span>
           </div>
-          <button aria-label="Cerrar" onClick={onCerrar} className="text-[var(--color-text-muted)] hover:text-[var(--color-text)]">
-            <X size={20} />
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              aria-label="Descargar PDF"
+              onClick={descargarInformePdf}
+              className="text-[var(--color-text-muted)] hover:text-[var(--color-accent)]"
+            >
+              <Download size={18} />
+            </button>
+            <button aria-label="Cerrar" onClick={onCerrar} className="text-[var(--color-text-muted)] hover:text-[var(--color-text)]">
+              <X size={20} />
+            </button>
+          </div>
         </div>
         <DesgloseJugadorPartido jugador={jugador} eventos={eventos} />
       </div>

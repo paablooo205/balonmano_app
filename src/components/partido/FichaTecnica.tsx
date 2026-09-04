@@ -214,7 +214,9 @@ export function FichaTecnica({
         </div>
       )}
 
-      {jugadorPanel && <PanelJugadorPartido jugador={jugadorPanel} eventos={eventos} onCerrar={() => setJugadorPanel(null)} />}
+      {jugadorPanel && (
+        <PanelJugadorPartido jugador={jugadorPanel} partido={partido} eventos={eventos} onCerrar={() => setJugadorPanel(null)} />
+      )}
     </div>
   );
 }
