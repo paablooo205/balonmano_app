@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import { Search } from "lucide-react";
-import { Modal } from "@/components/ui/modal";
+import { Search, X } from "lucide-react";
 import { Input } from "@/components/ui/field";
 import { supabase } from "@/lib/supabaseClient";
 import type { EjerciciosRow } from "@/types/database";
@@ -41,9 +40,21 @@ export function EjercicioPickerModal({
     return e.nombre.toLowerCase().includes(q) || enTags;
   });
 
+  if (!open) return null;
+
   return (
-    <Modal open={open} onClose={onClose} title="Elegir ejercicio de la biblioteca">
-      <div className="flex flex-col gap-3">
+    <div
+      className="fixed inset-0 z-[60] flex flex-col bg-[var(--color-bg)]"
+      style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}
+    >
+      <div className="flex shrink-0 items-center justify-between border-b border-[var(--color-border)] bg-white px-4 py-3.5">
+        <h2 className="text-lg font-semibold">Elegir ejercicio</h2>
+        <button onClick={onClose} aria-label="Cerrar" className="text-[var(--color-text-muted)] hover:text-[var(--color-text)]">
+          <X size={22} />
+        </button>
+      </div>
+
+      <div className="shrink-0 border-b border-[var(--color-border)] bg-white px-4 py-3">
         <div className="relative">
           <Search size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
           <Input
@@ -52,9 +63,12 @@ export function EjercicioPickerModal({
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             className="pl-10"
+            autoFocus
           />
         </div>
+      </div>
 
+      <div className="flex-1 overflow-y-auto p-4">
         {cargando && <div className="py-6 text-center text-sm text-[var(--color-text-muted)]">Cargando...</div>}
 
         {!cargando && filtrados.length === 0 && (
@@ -65,7 +79,7 @@ export function EjercicioPickerModal({
           </div>
         )}
 
-        <div className="flex max-h-[50vh] flex-col gap-2 overflow-y-auto">
+        <div className="flex flex-col gap-2">
           {filtrados.map((e) => {
             const esAjeno = e.equipo_id !== equipoId;
             return (
@@ -90,6 +104,6 @@ export function EjercicioPickerModal({
           })}
         </div>
       </div>
-    </Modal>
+    </div>
   );
 }
