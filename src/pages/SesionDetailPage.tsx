@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button";
 import { SesionModal } from "@/components/calendario/SesionModal";
 import { BloqueModal } from "@/components/sesion/BloqueModal";
 import { BloqueRow } from "@/components/sesion/BloqueRow";
-import { EjercicioFormModal } from "@/components/ejercicios/EjercicioFormModal";
 import { AsistenciaChecklist } from "@/components/equipo/AsistenciaChecklist";
 import { guardarBloques } from "@/lib/bloquesSesion";
 import { urlFirmada, nombreArchivo } from "@/lib/storage";
@@ -29,7 +28,6 @@ export function SesionDetailPage() {
   const [vista, setVista] = useState<"detalle" | "asistencia">("detalle");
   const [bloqueModalAbierto, setBloqueModalAbierto] = useState(false);
   const [bloqueEditIndex, setBloqueEditIndex] = useState<number | null>(null);
-  const [ejercicioAbierto, setEjercicioAbierto] = useState<EjerciciosRow | null>(null);
   // Retraso antes de activar el arrastre: así un toque corto sigue abriendo
   // el bloque o el icono de borrar con normalidad, y solo mantener pulsado y
   // mover reordena — mismo patrón que recomienda dnd-kit para listas con
@@ -227,7 +225,7 @@ export function SesionDetailPage() {
                       sinAcceso={sinAcceso}
                       enlace={ejercicio?.enlace ?? b.enlace}
                       onAbrir={() => {
-                        if (ejercicio) setEjercicioAbierto(ejercicio);
+                        if (ejercicio) navigate(`/equipos/${equipoId}/ejercicios/${ejercicio.id}`);
                         else {
                           setBloqueEditIndex(i);
                           setBloqueModalAbierto(true);
@@ -302,22 +300,6 @@ export function SesionDetailPage() {
         onSaved={() => {
           setBloqueModalAbierto(false);
           recargar();
-        }}
-      />
-
-      <EjercicioFormModal
-        open={ejercicioAbierto !== null}
-        onClose={() => setEjercicioAbierto(null)}
-        equipoId={equipoId}
-        ejercicio={ejercicioAbierto}
-        permitirBorrar={false}
-        onSaved={() => {
-          setEjercicioAbierto(null);
-          cargarEjercicios();
-        }}
-        onDeleted={() => {
-          setEjercicioAbierto(null);
-          cargarEjercicios();
         }}
       />
 

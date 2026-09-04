@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Plus, Star, Search, Users, Clock, ExternalLink } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useEquipo } from "@/hooks/useEquipo";
@@ -10,6 +11,7 @@ import { EjercicioFormModal } from "@/components/ejercicios/EjercicioFormModal";
 
 export function EjerciciosPage() {
   const { equipoId } = useEquipo();
+  const navigate = useNavigate();
   const [ejercicios, setEjercicios] = useState<EjerciciosRow[]>([]);
   const [favoritoIds, setFavoritoIds] = useState<Set<string>>(new Set());
   const [cargando, setCargando] = useState(true);
@@ -18,7 +20,6 @@ export function EjerciciosPage() {
   const [dificultad, setDificultad] = useState("");
   const [soloFavoritos, setSoloFavoritos] = useState(false);
   const [modalAbierto, setModalAbierto] = useState(false);
-  const [editando, setEditando] = useState<EjerciciosRow | null>(null);
 
   async function cargar() {
     setCargando(true);
@@ -62,11 +63,6 @@ export function EjerciciosPage() {
   });
 
   function abrirNuevo() {
-    setEditando(null);
-    setModalAbierto(true);
-  }
-  function abrirEdicion(e: EjerciciosRow) {
-    setEditando(e);
     setModalAbierto(true);
   }
   function cerrarModal() {
@@ -160,7 +156,7 @@ export function EjerciciosPage() {
           return (
             <button
               key={e.id}
-              onClick={() => abrirEdicion(e)}
+              onClick={() => navigate(`/equipos/${equipoId}/ejercicios/${e.id}`)}
               className="card-surface flex flex-col gap-2 p-4 text-left transition-colors hover:border-[var(--color-accent)]"
             >
               <div className="flex items-start justify-between gap-2">
@@ -239,7 +235,7 @@ export function EjerciciosPage() {
         open={modalAbierto}
         onClose={cerrarModal}
         equipoId={equipoId}
-        ejercicio={editando}
+        ejercicio={null}
         onSaved={alGuardar}
         onDeleted={alBorrar}
       />
