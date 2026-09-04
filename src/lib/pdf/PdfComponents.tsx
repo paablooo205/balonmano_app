@@ -4,6 +4,14 @@ import type { EficaciaDetalle } from "@/lib/partidoStats";
 import type { Insight } from "@/lib/insights";
 import { pdfColores } from "@/lib/pdf/pdfTheme";
 
+export function formatearFechaLarga(fecha: string): string {
+  return new Date(fecha + "T00:00:00").toLocaleDateString("es-ES", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+}
+
 export const pdfEstilosBase = StyleSheet.create({
   pagina: { paddingBottom: 32, fontFamily: "Helvetica", fontSize: 9, color: pdfColores.ink },
   cabecera: { backgroundColor: pdfColores.ink, padding: 24, marginBottom: 16 },

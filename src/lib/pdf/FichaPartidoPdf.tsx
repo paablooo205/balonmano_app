@@ -8,7 +8,7 @@ import {
   robos,
 } from "@/lib/partidoStats";
 import { cortePorMediana, dividirPorCorte, generarInsights } from "@/lib/insights";
-import { PdfCabecera, PdfListaInsights, PdfSeccion, PdfTablaEficacia, PdfTablaZonas, pdfEstilosBase } from "@/lib/pdf/PdfComponents";
+import { PdfCabecera, PdfListaInsights, PdfSeccion, PdfTablaEficacia, PdfTablaZonas, formatearFechaLarga, pdfEstilosBase } from "@/lib/pdf/PdfComponents";
 import type { EventosRow, PartidosRow } from "@/types/database";
 
 export function FichaPartidoPdf({
@@ -54,11 +54,7 @@ export function FichaPartidoPdf({
   const exclusionesPropias = eventos.filter((e) => e.tipo === "exclusion" && e.equipo_origen === "propio").length;
   const exclusionesRival = eventos.filter((e) => e.tipo === "exclusion" && e.equipo_origen === "rival").length;
 
-  const fechaLarga = new Date(partido.fecha + "T00:00:00").toLocaleDateString("es-ES", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  });
+  const fechaLarga = formatearFechaLarga(partido.fecha);
 
   return (
     <Document>
@@ -66,7 +62,14 @@ export function FichaPartidoPdf({
         <PdfCabecera
           eyebrow={nombreEquipo}
           titulo={`vs ${partido.rival}`}
-          subtitulo={`${fechaLarga}${partido.competicion ? ` · ${partido.competicion}` : ""} · ${partido.casa_fuera === "casa" ? "Casa" : partido.casa_fuera === "fuera" ? "Fuera" : ""} · Resultado ${marcadorPartido(partido, eventos)}`}
+          subtitulo={[
+            fechaLarga,
+            partido.competicion,
+            partido.casa_fuera === "casa" ? "Casa" : partido.casa_fuera === "fuera" ? "Fuera" : null,
+            `Resultado ${marcadorPartido(partido, eventos)}`,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
         />
         <View style={pdfEstilosBase.cuerpo}>
           {insights.length > 0 && (

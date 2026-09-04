@@ -7,9 +7,10 @@ import type { DocumentProps } from "@react-pdf/renderer";
 export async function descargarPdf(nombreArchivo: string, documento: ReactElement<DocumentProps>): Promise<void> {
   const blob = await pdf(documento).toBlob();
   const url = URL.createObjectURL(blob);
+  const nombreSeguro = nombreArchivo.replace(/[\\/:*?"<>|]/g, "-");
   const a = document.createElement("a");
   a.href = url;
-  a.download = nombreArchivo.endsWith(".pdf") ? nombreArchivo : `${nombreArchivo}.pdf`;
+  a.download = nombreSeguro.endsWith(".pdf") ? nombreSeguro : `${nombreSeguro}.pdf`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);

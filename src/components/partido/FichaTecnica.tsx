@@ -9,8 +9,6 @@ import { PanelJugadorPartido } from "@/components/partido/PanelJugadorPartido";
 import { InsightsCard } from "@/components/dashboard/InsightsCard";
 import { Button } from "@/components/ui/button";
 import { useEquipo } from "@/hooks/useEquipo";
-import { FichaPartidoPdf } from "@/lib/pdf/FichaPartidoPdf";
-import { descargarPdf } from "@/lib/pdf/descargarPdf";
 import {
   desgloseResultados,
   distribucionPorZona,
@@ -32,14 +30,26 @@ export function FichaTecnica({
   eventos: EventosRow[];
 }) {
   const [jugadorPanel, setJugadorPanel] = useState<JugadoresRow | null>(null);
+  const [descargandoPdf, setDescargandoPdf] = useState(false);
 
   const { equipo } = useEquipo();
 
   async function descargarFichaPdf() {
-    await descargarPdf(
-      `ficha-partido-vs-${partido.rival}-${partido.fecha}`,
-      <FichaPartidoPdf partido={partido} eventos={eventos} nombreEquipo={equipo?.nombre ?? "Equipo"} />,
-    );
+    setDescargandoPdf(true);
+    try {
+      const [{ descargarPdf }, { FichaPartidoPdf }] = await Promise.all([
+        import("@/lib/pdf/descargarPdf"),
+        import("@/lib/pdf/FichaPartidoPdf"),
+      ]);
+      await descargarPdf(
+        `ficha-partido-vs-${partido.rival}-${partido.fecha}`,
+        <FichaPartidoPdf partido={partido} eventos={eventos} nombreEquipo={equipo?.nombre ?? "Equipo"} />,
+      );
+    } catch (err) {
+      alert("No se pudo generar el PDF: " + (err as Error).message);
+    } finally {
+      setDescargandoPdf(false);
+    }
   }
 
   const tirosJuego = eventos.filter((e) => e.tipo === "tiro" && e.equipo_origen === "propio" && !e.es_penalti);
@@ -80,8 +90,8 @@ export function FichaTecnica({
 
   return (
     <div className="flex flex-col gap-4">
-      <Button variant="secondary" size="sm" className="self-end" onClick={descargarFichaPdf}>
-        <Download size={16} /> Descargar PDF
+      <Button variant="secondary" size="sm" className="self-end" onClick={descargarFichaPdf} disabled={descargandoPdf}>
+        <Download size={16} /> {descargandoPdf ? "Generando..." : "Descargar PDF"}
       </Button>
       <InsightsCard insights={insights} />
       <LineaMarcador eventos={eventos} />

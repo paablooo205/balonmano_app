@@ -50,6 +50,7 @@ export function FichaJugadorTemporadaPdf({
   const edad = jugador.año_nacimiento ? `${new Date().getFullYear() - jugador.año_nacimiento} años` : null;
   const altura = jugador.altura_cm ? `${jugador.altura_cm} cm` : null;
   const peso = jugador.peso_kg ? `${jugador.peso_kg} kg` : null;
+  const totalAciertos = (detalleJuego?.aciertos ?? 0) + (detallePenalti?.aciertos ?? 0);
 
   return (
     <Document>
@@ -69,7 +70,7 @@ export function FichaJugadorTemporadaPdf({
 
           <PdfSeccion titulo="Estadísticas de partido (temporada)">
             <Text style={pdfEstilosBase.parrafo}>
-              {partidosJugados} partidos jugados · {goles} {portero ? "goles encajados evitados" : "goles"} ·{" "}
+              {partidosJugados} partidos jugados · {portero ? totalAciertos : goles} {etiquetaAcierto} ·{" "}
               {exclusionesTotal} exclusiones
             </Text>
           </PdfSeccion>
@@ -93,7 +94,7 @@ export function FichaJugadorTemporadaPdf({
                   <Text style={pdfEstilosBase.celdaCabecera}>%</Text>
                 </View>
                 {tendenciaEficacia.map((t, i) => (
-                  <View key={t.label} style={i === tendenciaEficacia.length - 1 ? pdfEstilosBase.filaTablaUltima : pdfEstilosBase.filaTabla}>
+                  <View key={`${t.label}-${i}`} style={i === tendenciaEficacia.length - 1 ? pdfEstilosBase.filaTablaUltima : pdfEstilosBase.filaTabla}>
                     <Text style={pdfEstilosBase.celda}>
                       {new Date(t.label + "T00:00:00").toLocaleDateString("es-ES", { day: "2-digit", month: "short" })}
                     </Text>

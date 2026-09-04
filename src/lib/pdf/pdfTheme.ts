@@ -7,5 +7,4 @@ export const pdfColores = {
   textMuted: "#6b6b70",
   textFaint: "#9a9a9f",
   border: "#e5e3e0",
-  bg: "#f7f6f4",
 };

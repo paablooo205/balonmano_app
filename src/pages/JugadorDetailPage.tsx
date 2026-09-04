@@ -10,8 +10,6 @@ import { LineaEvolucionEficacia } from "@/components/jugador/LineaEvolucionEfica
 import { JugadorFormModal } from "@/components/equipo/JugadorFormModal";
 import { InsightsCard } from "@/components/dashboard/InsightsCard";
 import { Select } from "@/components/ui/field";
-import { FichaJugadorTemporadaPdf } from "@/lib/pdf/FichaJugadorTemporadaPdf";
-import { descargarPdf } from "@/lib/pdf/descargarPdf";
 import {
   desgloseResultados,
   distribucionPorZona,
@@ -39,6 +37,7 @@ export function JugadorDetailPage() {
   const [eventos, setEventos] = useState<EventosRow[]>([]);
   const [cargando, setCargando] = useState(true);
   const [editando, setEditando] = useState(false);
+  const [descargandoPdf, setDescargandoPdf] = useState(false);
   const ambito = searchParams.get("partido") ?? "temporada";
 
   async function cargar() {
@@ -206,32 +205,43 @@ export function JugadorDetailPage() {
 
   async function descargarFichaTemporadaPdf() {
     if (!jugador) return;
-    const etiquetaAcierto = portero ? "paradas" : "goles";
-    await descargarPdf(
-      `ficha-temporada-${jugador.nombre}`,
-      <FichaJugadorTemporadaPdf
-        jugador={jugador}
-        nombreEquipo={equipo?.nombre ?? "Equipo"}
-        temporada={equipo?.temporada ?? ""}
-        portero={portero}
-        partidosJugados={partidosJugados}
-        goles={goles}
-        exclusionesTotal={exclusiones}
-        asistenciaPct={asistenciaPct}
-        presentes={presentes}
-        totalSesiones={registrosEntreno.length}
-        llegadasTarde={llegadasTarde}
-        detalleJuego={portero ? detalleParadasJuego : eficaciaConDetalle(eventosDelJugador, { soloPenalti: false })}
-        detallePenalti={portero ? detalleParadasPenalti : eficaciaConDetalle(eventosDelJugador, { soloPenalti: true })}
-        zonasJuego={portero ? zonasRivalJuego : zonasJuego}
-        golesZonasJuego={portero ? paradasZonasRivalJuego : golesZonasJuego}
-        zonasPenalti={portero ? zonasRivalPenalti : zonasPenalti}
-        golesZonasPenalti={portero ? paradasZonasRivalPenalti : golesZonasPenalti}
-        etiquetaAcierto={etiquetaAcierto}
-        tendenciaEficacia={tendenciaEficacia}
-        insights={insights}
-      />,
-    );
+    setDescargandoPdf(true);
+    try {
+      const [{ descargarPdf }, { FichaJugadorTemporadaPdf }] = await Promise.all([
+        import("@/lib/pdf/descargarPdf"),
+        import("@/lib/pdf/FichaJugadorTemporadaPdf"),
+      ]);
+      const etiquetaAcierto = portero ? "paradas" : "goles";
+      await descargarPdf(
+        `ficha-temporada-${jugador.nombre}-${equipo?.temporada ?? ""}`,
+        <FichaJugadorTemporadaPdf
+          jugador={jugador}
+          nombreEquipo={equipo?.nombre ?? "Equipo"}
+          temporada={equipo?.temporada ?? ""}
+          portero={portero}
+          partidosJugados={partidosJugados}
+          goles={goles}
+          exclusionesTotal={exclusiones}
+          asistenciaPct={asistenciaPct}
+          presentes={presentes}
+          totalSesiones={registrosEntreno.length}
+          llegadasTarde={llegadasTarde}
+          detalleJuego={portero ? detalleParadasJuego : eficaciaConDetalle(eventosDelJugador, { soloPenalti: false })}
+          detallePenalti={portero ? detalleParadasPenalti : eficaciaConDetalle(eventosDelJugador, { soloPenalti: true })}
+          zonasJuego={portero ? zonasRivalJuego : zonasJuego}
+          golesZonasJuego={portero ? paradasZonasRivalJuego : golesZonasJuego}
+          zonasPenalti={portero ? zonasRivalPenalti : zonasPenalti}
+          golesZonasPenalti={portero ? paradasZonasRivalPenalti : golesZonasPenalti}
+          etiquetaAcierto={etiquetaAcierto}
+          tendenciaEficacia={tendenciaEficacia}
+          insights={insights}
+        />,
+      );
+    } catch (err) {
+      alert("No se pudo generar el PDF: " + (err as Error).message);
+    } finally {
+      setDescargandoPdf(false);
+    }
   }
 
   return (
@@ -247,9 +257,10 @@ export function JugadorDetailPage() {
           <div className="flex items-center gap-3">
             <button
               onClick={descargarFichaTemporadaPdf}
-              className="flex items-center gap-1.5 text-sm text-white/70 hover:text-white"
+              disabled={descargandoPdf}
+              className="flex items-center gap-1.5 text-sm text-white/70 hover:text-white disabled:opacity-50"
             >
-              <Download size={16} /> PDF
+              <Download size={16} /> {descargandoPdf ? "Generando..." : "PDF"}
             </button>
             <button
               onClick={() => setEditando(true)}

@@ -10,7 +10,7 @@ import {
   porcentajeParadas,
   robos,
 } from "@/lib/partidoStats";
-import { PdfCabecera, PdfSeccion, PdfTablaEficacia, PdfTablaZonas, pdfEstilosBase } from "@/lib/pdf/PdfComponents";
+import { PdfCabecera, PdfSeccion, PdfTablaEficacia, PdfTablaZonas, formatearFechaLarga, pdfEstilosBase } from "@/lib/pdf/PdfComponents";
 import type { EventosRow, JugadoresRow, PartidosRow } from "@/types/database";
 
 export function InformeJugadorPartidoPdf({
@@ -44,11 +44,7 @@ export function InformeJugadorPartidoPdf({
 
   const minutos = minutosJugados(partido.estadisticas.eventos ?? [], jugador.id);
 
-  const fechaLarga = new Date(partido.fecha + "T00:00:00").toLocaleDateString("es-ES", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  });
+  const fechaLarga = formatearFechaLarga(partido.fecha);
 
   return (
     <Document>

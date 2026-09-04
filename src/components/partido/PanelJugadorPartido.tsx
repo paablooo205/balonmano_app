@@ -1,7 +1,6 @@
+import { useState } from "react";
 import { Download, X } from "lucide-react";
 import { DesgloseJugadorPartido } from "@/components/partido/DesgloseJugadorPartido";
-import { InformeJugadorPartidoPdf } from "@/lib/pdf/InformeJugadorPartidoPdf";
-import { descargarPdf } from "@/lib/pdf/descargarPdf";
 import type { EventosRow, JugadoresRow, PartidosRow } from "@/types/database";
 
 /**
@@ -25,11 +24,24 @@ export function PanelJugadorPartido({
   eventos: EventosRow[];
   onCerrar: () => void;
 }) {
+  const [descargando, setDescargando] = useState(false);
+
   async function descargarInformePdf() {
-    await descargarPdf(
-      `informe-${jugador.nombre}-vs-${partido.rival}-${partido.fecha}`,
-      <InformeJugadorPartidoPdf jugador={jugador} partido={partido} eventos={eventos} />,
-    );
+    setDescargando(true);
+    try {
+      const [{ descargarPdf }, { InformeJugadorPartidoPdf }] = await Promise.all([
+        import("@/lib/pdf/descargarPdf"),
+        import("@/lib/pdf/InformeJugadorPartidoPdf"),
+      ]);
+      await descargarPdf(
+        `informe-${jugador.nombre}-vs-${partido.rival}-${partido.fecha}`,
+        <InformeJugadorPartidoPdf jugador={jugador} partido={partido} eventos={eventos} />,
+      );
+    } catch (err) {
+      alert("No se pudo generar el PDF: " + (err as Error).message);
+    } finally {
+      setDescargando(false);
+    }
   }
 
   return (
@@ -47,7 +59,8 @@ export function PanelJugadorPartido({
             <button
               aria-label="Descargar PDF"
               onClick={descargarInformePdf}
-              className="text-[var(--color-text-muted)] hover:text-[var(--color-accent)]"
+              disabled={descargando}
+              className="text-[var(--color-text-muted)] hover:text-[var(--color-accent)] disabled:opacity-50"
             >
               <Download size={18} />
             </button>
