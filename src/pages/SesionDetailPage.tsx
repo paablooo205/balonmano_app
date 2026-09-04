@@ -10,6 +10,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { SesionModal } from "@/components/calendario/SesionModal";
 import { BloqueModal } from "@/components/sesion/BloqueModal";
+import { BloqueDetailModal } from "@/components/sesion/BloqueDetailModal";
 import { BloqueRow } from "@/components/sesion/BloqueRow";
 import { AsistenciaChecklist } from "@/components/equipo/AsistenciaChecklist";
 import { guardarBloques } from "@/lib/bloquesSesion";
@@ -28,6 +29,7 @@ export function SesionDetailPage() {
   const [vista, setVista] = useState<"detalle" | "asistencia">("detalle");
   const [bloqueModalAbierto, setBloqueModalAbierto] = useState(false);
   const [bloqueEditIndex, setBloqueEditIndex] = useState<number | null>(null);
+  const [bloqueVerIndex, setBloqueVerIndex] = useState<number | null>(null);
   // Retraso antes de activar el arrastre: así un toque corto sigue abriendo
   // el bloque o el icono de borrar con normalidad, y solo mantener pulsado y
   // mover reordena — mismo patrón que recomienda dnd-kit para listas con
@@ -226,10 +228,7 @@ export function SesionDetailPage() {
                       enlace={ejercicio?.enlace ?? b.enlace}
                       onAbrir={() => {
                         if (ejercicio) navigate(`/equipos/${equipoId}/ejercicios/${ejercicio.id}`);
-                        else {
-                          setBloqueEditIndex(i);
-                          setBloqueModalAbierto(true);
-                        }
+                        else setBloqueVerIndex(i);
                       }}
                       onQuitar={() => quitarBloque(i)}
                     />
@@ -290,6 +289,17 @@ export function SesionDetailPage() {
       <Button size="lg" className="w-full" onClick={() => setVista("asistencia")}>
         Pasar lista de asistencia
       </Button>
+
+      <BloqueDetailModal
+        open={bloqueVerIndex !== null}
+        onClose={() => setBloqueVerIndex(null)}
+        bloque={bloqueVerIndex !== null ? sesion.bloques[bloqueVerIndex] : null}
+        onEditar={() => {
+          setBloqueEditIndex(bloqueVerIndex);
+          setBloqueVerIndex(null);
+          setBloqueModalAbierto(true);
+        }}
+      />
 
       <BloqueModal
         open={bloqueModalAbierto}

@@ -32,13 +32,13 @@ export function SideNav({
   return (
     <aside
       className={cn(
-        "card-surface fixed left-2 top-4 bottom-4 z-30 flex-col items-center p-3 transition-all duration-500 ease-out md:left-4 md:w-64 md:items-stretch md:p-4",
+        "card-surface fixed left-2 top-4 bottom-4 z-30 flex-col items-center overflow-hidden p-3 transition-all duration-500 ease-out md:left-4 md:w-64 md:items-stretch md:p-4",
         modo === "lateral" ? "flex w-16 md:flex" : "hidden w-64 md:flex",
         activa ? "translate-x-0 opacity-100" : "pointer-events-none -translate-x-3 opacity-0",
       )}
     >
       <span
-        className="mb-5 hidden text-lg font-extrabold uppercase tracking-wide text-[var(--color-accent)] md:block"
+        className="mb-5 hidden shrink-0 text-lg font-extrabold uppercase tracking-wide text-[var(--color-accent)] md:block"
         style={{ fontFamily: "var(--font-display)" }}
       >
         Coras
@@ -46,7 +46,7 @@ export function SideNav({
 
       <NavLink
         to="/"
-        className="mb-6 flex items-center gap-2 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
+        className="mb-6 flex shrink-0 items-center gap-2 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
         title="Cambiar de equipo"
       >
         <ArrowLeft size={16} />
@@ -54,7 +54,7 @@ export function SideNav({
       </NavLink>
 
       {nombreEquipo && (
-        <div className="mb-4 hidden truncate text-lg font-semibold md:block">{nombreEquipo}</div>
+        <div className="mb-4 hidden shrink-0 truncate text-lg font-semibold md:block">{nombreEquipo}</div>
       )}
 
       <nav className="flex min-h-0 flex-1 flex-col items-center gap-1 overflow-y-auto md:items-stretch">
@@ -84,7 +84,7 @@ export function SideNav({
       <button
         onClick={() => supabase.auth.signOut()}
         title="Cerrar sesión"
-        className="mt-2 flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-card-hover)] hover:text-[var(--color-accent)]"
+        className="mt-2 flex shrink-0 items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-card-hover)] hover:text-[var(--color-accent)]"
       >
         <span className="flex h-7 w-7 shrink-0 items-center justify-center">
           <LogOut size={19} />
