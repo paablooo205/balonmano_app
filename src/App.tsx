@@ -9,6 +9,7 @@ import { CalendarioPage } from "@/pages/CalendarioPage";
 import { EntrenamientoDetailPage } from "@/pages/EntrenamientoDetailPage";
 import { SesionDetailPage } from "@/pages/SesionDetailPage";
 import { EjerciciosPage } from "@/pages/EjerciciosPage";
+import { EjercicioDetailPage } from "@/pages/EjercicioDetailPage";
 import { ModeloJuegoPage } from "@/pages/ModeloJuegoPage";
 import { EquipoPage } from "@/pages/EquipoPage";
 import { JugadorDetailPage } from "@/pages/JugadorDetailPage";
@@ -41,6 +42,7 @@ export default function App() {
             <Route path="rivales/:rivalId" element={<RivalDetailPage />} />
             <Route path="modelo-juego" element={<ModeloJuegoPage />} />
             <Route path="ejercicios" element={<EjerciciosPage />} />
+            <Route path="ejercicios/:ejercicioId" element={<EjercicioDetailPage />} />
             <Route path="progreso" element={<ProgresoPage />} />
             <Route path="ajustes" element={<AjustesPage />} />
           </Route>
