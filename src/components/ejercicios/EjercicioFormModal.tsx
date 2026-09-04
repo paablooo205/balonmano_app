@@ -247,7 +247,12 @@ export function EjercicioFormModal({
             <Textarea value={form.descripcion} onChange={(e) => set("descripcion", e.target.value)} />
           </Field>
           <Field label="Notas adicionales">
-            <Textarea value={form.notas_adicionales} onChange={(e) => set("notas_adicionales", e.target.value)} />
+            <Textarea
+              placeholder="Organización, reglas, consignas, progresiones, correcciones..."
+              value={form.notas_adicionales}
+              onChange={(e) => set("notas_adicionales", e.target.value)}
+              className="min-h-40"
+            />
           </Field>
         </fieldset>
       </form>
