@@ -57,7 +57,7 @@ export function SideNav({
         <div className="mb-4 hidden truncate text-lg font-semibold md:block">{nombreEquipo}</div>
       )}
 
-      <nav className="flex flex-1 flex-col items-center gap-1 md:items-stretch">
+      <nav className="flex min-h-0 flex-1 flex-col items-center gap-1 overflow-y-auto md:items-stretch">
         {NAV_ITEMS.map((item) => (
           <NavLink
             key={item.key}
