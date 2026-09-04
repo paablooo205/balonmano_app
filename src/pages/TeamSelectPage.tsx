@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronRight, ShieldAlert } from "lucide-react";
+import { ChevronRight, KeyRound, Plus, ShieldAlert, ShieldPlus, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { Field, Input } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ export function TeamSelectPage() {
   const [errorCrear, setErrorCrear] = useState<string | null>(null);
   const [uniendose, setUniendose] = useState(false);
   const [codigoInvitacion, setCodigoInvitacion] = useState("");
+  const [mostrarAgregar, setMostrarAgregar] = useState(false);
 
   useEffect(() => {
     let activo = true;
@@ -68,6 +69,18 @@ export function TeamSelectPage() {
     navigate(`/unirse/${codigoInvitacion.trim()}`);
   }
 
+  function cerrarAgregar() {
+    setMostrarAgregar(false);
+    setCreandoEquipo(false);
+    setUniendose(false);
+    setErrorCrear(null);
+  }
+
+  // Sin equipos todavía no hay lista que mostrar, así que el propio flujo de
+  // añadir equipo ocupa la pantalla directamente — con uno o más, vive
+  // detrás del botón "+".
+  const mostrarFlujoAgregar = equipos.length === 0 || mostrarAgregar;
+
   return (
     <div className="relative z-10 flex min-h-screen flex-col items-center justify-center px-4 py-16">
       <img
@@ -107,17 +120,54 @@ export function TeamSelectPage() {
             </div>
           )}
 
-          {estado === "ok" && equipos.length === 0 && !creandoEquipo && !uniendose && (
-            <div className="card-surface flex flex-col gap-3 p-4 text-center">
-              <p className="text-sm text-[var(--color-text-muted)]">Todavía no perteneces a ningún equipo.</p>
-              <Button onClick={() => setCreandoEquipo(true)}>Crear equipo</Button>
-              <Button variant="secondary" onClick={() => setUniendose(true)}>
-                Unirse a un equipo
-              </Button>
+          {estado === "ok" && mostrarFlujoAgregar && !creandoEquipo && !uniendose && (
+            <div className="card-surface flex flex-col gap-4 p-5">
+              {equipos.length === 0 ? (
+                <p className="text-center text-sm text-[var(--color-text-muted)]">Todavía no perteneces a ningún equipo.</p>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-[var(--color-text-muted)]">Añadir equipo</span>
+                  <button
+                    onClick={cerrarAgregar}
+                    aria-label="Cerrar"
+                    className="text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+              )}
+              <div className="grid gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => setCreandoEquipo(true)}
+                  className="card-surface flex flex-col items-center gap-3 p-6 text-center transition-colors hover:border-[var(--color-accent)]"
+                >
+                  <span className="flex h-14 w-14 items-center justify-center rounded-full bg-[var(--color-ink)] text-white">
+                    <ShieldPlus size={26} />
+                  </span>
+                  <div>
+                    <div className="font-semibold">Crear equipo</div>
+                    <div className="mt-1 text-sm text-[var(--color-text-muted)]">Empieza uno nuevo desde cero</div>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUniendose(true)}
+                  className="card-surface flex flex-col items-center gap-3 p-6 text-center transition-colors hover:border-[var(--color-accent)]"
+                >
+                  <span className="flex h-14 w-14 items-center justify-center rounded-full bg-[var(--color-ink)] text-white">
+                    <KeyRound size={26} />
+                  </span>
+                  <div>
+                    <div className="font-semibold">Unirme con un código</div>
+                    <div className="mt-1 text-sm text-[var(--color-text-muted)]">Usa el código de invitación de tu club</div>
+                  </div>
+                </button>
+              </div>
             </div>
           )}
 
-          {estado === "ok" && equipos.length === 0 && uniendose && (
+          {estado === "ok" && mostrarFlujoAgregar && uniendose && (
             <form onSubmit={unirseEquipo} className="card-surface flex flex-col gap-3 p-4 text-left">
               <Field label="Código de invitación">
                 <Input
@@ -136,7 +186,7 @@ export function TeamSelectPage() {
             </form>
           )}
 
-          {estado === "ok" && equipos.length === 0 && creandoEquipo && (
+          {estado === "ok" && mostrarFlujoAgregar && creandoEquipo && (
             <form onSubmit={crearEquipo} className="card-surface flex flex-col gap-3 p-4 text-left">
               <Field label="Nombre del equipo">
                 <Input value={nombreNuevo} onChange={(e) => setNombreNuevo(e.target.value)} required />
@@ -162,6 +212,7 @@ export function TeamSelectPage() {
           )}
 
           {estado === "ok" &&
+            !mostrarAgregar &&
             equipos.map((equipo) => (
               <button
                 key={equipo.id}
@@ -182,6 +233,15 @@ export function TeamSelectPage() {
                 />
               </button>
             ))}
+
+          {estado === "ok" && !mostrarAgregar && equipos.length > 0 && (
+            <button
+              onClick={() => setMostrarAgregar(true)}
+              className="flex items-center justify-center gap-2 rounded-[14px] border border-dashed border-[var(--color-border)] p-5 text-sm font-medium text-[var(--color-text-muted)] transition-colors hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
+            >
+              <Plus size={20} /> Añadir equipo
+            </button>
+          )}
         </div>
       </div>
     </div>
