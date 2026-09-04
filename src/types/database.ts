@@ -156,6 +156,8 @@ export type EjerciciosRow = {
   descripcion: string | null;
   /** Enlace externo opcional (portal de ejercicios, vídeo, etc.) — se abre directamente, no se enruta dentro de la app. */
   enlace: string | null;
+  /** Rutas de Storage (bucket "adjuntos") de las imágenes del ejercicio — nunca la URL firmada, que caduca. */
+  imagenes: string[];
   /** Visible en la biblioteca de cualquier equipo del club, no solo el dueño (ver 0023_ejercicios_compartidos.sql) — solo lectura para los demás. */
   compartido: boolean;
   /** Referencia real al entrenador que lo creó; nullable porque los ejercicios de antes de esta función no tienen autor conocido. */
@@ -397,6 +399,7 @@ export type Database = {
         | "dificultad"
         | "descripcion"
         | "enlace"
+        | "imagenes"
         | "compartido"
         | "creado_por"
         | "creado_por_nombre"
