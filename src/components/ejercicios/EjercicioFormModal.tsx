@@ -1,11 +1,13 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Loader2, Upload, X } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabaseClient";
 import { useEquipo } from "@/hooks/useEquipo";
 import { useEntrenador } from "@/hooks/useEntrenador";
+import { subirArchivo, borrarArchivo } from "@/lib/storage";
+import { MiniaturaImagen } from "@/components/ejercicios/MiniaturaImagen";
 import type { EjerciciosRow } from "@/types/database";
 
 const CATEGORIAS = ["Calentamiento", "Técnica individual", "Táctica colectiva", "Sistema de juego", "Físico", "Portero", "Otro"];
@@ -23,6 +25,7 @@ type FormState = {
   dificultad: string;
   descripcion: string;
   enlace: string;
+  imagenes: string[];
   compartido: boolean;
   notas_adicionales: string;
 };
@@ -40,6 +43,7 @@ function toFormState(e: EjerciciosRow | null): FormState {
     dificultad: e?.dificultad ?? "",
     descripcion: e?.descripcion ?? "",
     enlace: e?.enlace ?? "",
+    imagenes: e?.imagenes ?? [],
     compartido: e?.compartido ?? false,
     notas_adicionales: e?.notas_adicionales ?? "",
   };
@@ -52,7 +56,6 @@ export function EjercicioFormModal({
   ejercicio,
   onSaved,
   onDeleted,
-  permitirBorrar = true,
 }: {
   open: boolean;
   onClose: () => void;
@@ -60,28 +63,52 @@ export function EjercicioFormModal({
   ejercicio: EjerciciosRow | null;
   onSaved: () => void;
   onDeleted: () => void;
-  permitirBorrar?: boolean;
 }) {
   const { equipo } = useEquipo();
   const { id: entrenadorId, nombre: entrenadorNombre } = useEntrenador();
   const [form, setForm] = useState<FormState>(() => toFormState(ejercicio));
+  const [imagenesOriginales, setImagenesOriginales] = useState<string[]>(ejercicio?.imagenes ?? []);
+  const [subiendoImagen, setSubiendoImagen] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [borrando, setBorrando] = useState(false);
-
-  // Un ejercicio ajeno compartido se ve, nunca se edita — ver spec
-  // "Formulario", modo de solo lectura.
-  const readOnly = ejercicio !== null && ejercicio.equipo_id !== equipoId;
 
   // El modal permanece montado entre aperturas, así que sin este efecto
   // reabrirlo (para el mismo ejercicio tras cancelar, para uno distinto, o
   // para "nuevo" otra vez) mostraría datos de la sesión de edición anterior.
+  // `imagenesOriginales` se resetea aquí también: sin esto quedaría fijado
+  // al `ejercicio` del primer montaje (normalmente null) para siempre, y la
+  // limpieza de Storage al guardar/cancelar compararía contra ese valor
+  // obsoleto en vez del ejercicio que de verdad se está editando.
   useEffect(() => {
-    if (open) setForm(toFormState(ejercicio));
-
+    if (open) {
+      setForm(toFormState(ejercicio));
+      setImagenesOriginales(ejercicio?.imagenes ?? []);
+    }
   }, [open, ejercicio]);
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));
+  }
+
+  async function subirImagen(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    if (files.length === 0) return;
+    setSubiendoImagen(true);
+    try {
+      for (const file of files) {
+        const ruta = await subirArchivo(`ejercicios/${equipoId}`, file);
+        setForm((f) => ({ ...f, imagenes: [...f.imagenes, ruta] }));
+      }
+    } catch (err) {
+      alert("No se pudo subir la imagen: " + (err as Error).message);
+    } finally {
+      setSubiendoImagen(false);
+    }
+  }
+
+  function quitarImagen(ruta: string) {
+    setForm((f) => ({ ...f, imagenes: f.imagenes.filter((r) => r !== ruta) }));
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -117,6 +144,7 @@ export function EjercicioFormModal({
       dificultad: form.dificultad || null,
       descripcion: form.descripcion || null,
       enlace: form.enlace.trim() || null,
+      imagenes: form.imagenes,
       compartido: form.compartido,
       notas_adicionales: form.notas_adicionales || null,
       ...atribucion,
@@ -130,6 +158,13 @@ export function EjercicioFormModal({
     if (error) {
       alert("No se pudo guardar: " + error.message);
       return;
+    }
+
+    // Imágenes que estaban antes y ya no están en el array final: se
+    // quitaron deliberadamente y el guardado se confirmó — ahora sí se
+    // borran de Storage.
+    for (const ruta of imagenesOriginales) {
+      if (!form.imagenes.includes(ruta)) void borrarArchivo(ruta).catch(() => {});
     }
     onSaved();
   }
@@ -147,141 +182,167 @@ export function EjercicioFormModal({
     onDeleted();
   }
 
+  function cancelar() {
+    // Imágenes subidas en esta sesión de edición que nunca llegaron a
+    // guardarse no deben quedar huérfanas en Storage.
+    for (const ruta of form.imagenes) {
+      if (!imagenesOriginales.includes(ruta)) void borrarArchivo(ruta).catch(() => {});
+    }
+    onClose();
+  }
+
   return (
-    <Modal open={open} onClose={onClose} title={readOnly ? "Ejercicio compartido" : ejercicio ? "Editar ejercicio" : "Nuevo ejercicio"}>
-      {readOnly && (
-        <div className="mb-3 rounded-lg bg-[var(--color-card-hover)] px-3 py-2 text-sm text-[var(--color-text-muted)]">
-          Compartido por {ejercicio?.creado_por_nombre ?? "otro equipo"}
-          {ejercicio?.equipo_origen_nombre ? ` · ${ejercicio.equipo_origen_nombre}` : ""}
-        </div>
-      )}
-
+    <Modal open={open} onClose={cancelar} title={ejercicio ? "Editar ejercicio" : "Nuevo ejercicio"}>
       <form id="ejercicio-form" onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <fieldset disabled={readOnly} className="contents">
-          <Field label="Nombre *">
-            <Input required value={form.nombre} onChange={(e) => set("nombre", e.target.value)} />
-          </Field>
+        <Field label="Nombre *">
+          <Input required value={form.nombre} onChange={(e) => set("nombre", e.target.value)} />
+        </Field>
 
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Categoría">
-              <Select value={form.categoria} onChange={(e) => set("categoria", e.target.value)}>
-                <option value="">—</option>
-                {CATEGORIAS.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Categoría">
+            <Select value={form.categoria} onChange={(e) => set("categoria", e.target.value)}>
+              <option value="">—</option>
+              {CATEGORIAS.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Dificultad">
+            <Select value={form.dificultad} onChange={(e) => set("dificultad", e.target.value)}>
+              <option value="">—</option>
+              {DIFICULTADES.map((d) => (
+                <option key={d} value={d}>
+                  {d}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        </div>
+
+        <Field label="Contenido / tags (separados por comas)">
+          <Input
+            placeholder="lanzamiento, 2x2, ataque vs 6:0..."
+            value={form.contenido}
+            onChange={(e) => set("contenido", e.target.value)}
+          />
+        </Field>
+
+        <div className="grid grid-cols-3 gap-3">
+          <Field label="Jugadores mín.">
+            <Input type="number" min={0} value={form.jugadores_min} onChange={(e) => set("jugadores_min", e.target.value)} />
+          </Field>
+          <Field label="Jugadores máx.">
+            <Input type="number" min={0} value={form.jugadores_max} onChange={(e) => set("jugadores_max", e.target.value)} />
+          </Field>
+          <Field label="Duración (min)">
+            <Input type="number" min={0} value={form.duracion_min} onChange={(e) => set("duracion_min", e.target.value)} />
+          </Field>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Espacio">
+            <Input value={form.espacio} onChange={(e) => set("espacio", e.target.value)} />
+          </Field>
+          <Field label="Material">
+            <Input value={form.material} onChange={(e) => set("material", e.target.value)} />
+          </Field>
+        </div>
+
+        <Field label="Enlace (opcional)">
+          <Input
+            type="url"
+            placeholder="https://..."
+            value={form.enlace}
+            onChange={(e) => set("enlace", e.target.value)}
+          />
+        </Field>
+        {form.enlace.trim() && (
+          <a
+            href={form.enlace.trim()}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="-mt-2.5 flex w-fit items-center gap-1.5 text-sm font-medium text-[var(--color-accent)] hover:underline"
+          >
+            <ExternalLink size={14} /> Abrir enlace
+          </a>
+        )}
+
+        <Field label="Imágenes">
+          <div className="flex flex-col gap-2">
+            {form.imagenes.length > 0 && (
+              <div className="grid grid-cols-3 gap-2">
+                {form.imagenes.map((ruta) => (
+                  <div key={ruta} className="relative">
+                    <MiniaturaImagen ruta={ruta} className="aspect-square w-full rounded-[10px]" />
+                    <button
+                      type="button"
+                      onClick={() => quitarImagen(ruta)}
+                      aria-label="Quitar imagen"
+                      className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
                 ))}
-              </Select>
-            </Field>
-            <Field label="Dificultad">
-              <Select value={form.dificultad} onChange={(e) => set("dificultad", e.target.value)}>
-                <option value="">—</option>
-                {DIFICULTADES.map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
-              </Select>
-            </Field>
+              </div>
+            )}
+            <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-[var(--color-border)] py-3 text-sm text-[var(--color-text-muted)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]">
+              {subiendoImagen ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+              {subiendoImagen ? "Subiendo..." : "Añadir imagen"}
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={subirImagen}
+                disabled={subiendoImagen}
+              />
+            </label>
           </div>
+        </Field>
 
-          <Field label="Contenido / tags (separados por comas)">
-            <Input
-              placeholder="lanzamiento, 2x2, ataque vs 6:0..."
-              value={form.contenido}
-              onChange={(e) => set("contenido", e.target.value)}
-            />
-          </Field>
+        <label className="flex items-center gap-2 text-sm has-[:disabled]:text-[var(--color-text-muted)] has-[:disabled]:opacity-70">
+          <input
+            type="checkbox"
+            checked={form.compartido}
+            onChange={(e) => set("compartido", e.target.checked)}
+            className="h-5 w-5 accent-[var(--color-accent)] disabled:cursor-not-allowed"
+          />
+          Compartir con los demás equipos del club
+        </label>
 
-          <div className="grid grid-cols-3 gap-3">
-            <Field label="Jugadores mín.">
-              <Input type="number" min={0} value={form.jugadores_min} onChange={(e) => set("jugadores_min", e.target.value)} />
-            </Field>
-            <Field label="Jugadores máx.">
-              <Input type="number" min={0} value={form.jugadores_max} onChange={(e) => set("jugadores_max", e.target.value)} />
-            </Field>
-            <Field label="Duración (min)">
-              <Input type="number" min={0} value={form.duracion_min} onChange={(e) => set("duracion_min", e.target.value)} />
-            </Field>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Espacio">
-              <Input value={form.espacio} onChange={(e) => set("espacio", e.target.value)} />
-            </Field>
-            <Field label="Material">
-              <Input value={form.material} onChange={(e) => set("material", e.target.value)} />
-            </Field>
-          </div>
-
-          <Field label="Enlace (opcional)">
-            <Input
-              type="url"
-              placeholder="https://..."
-              value={form.enlace}
-              onChange={(e) => set("enlace", e.target.value)}
-            />
-          </Field>
-          {form.enlace.trim() && (
-            <a
-              href={form.enlace.trim()}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="-mt-2.5 flex w-fit items-center gap-1.5 text-sm font-medium text-[var(--color-accent)] hover:underline"
-            >
-              <ExternalLink size={14} /> Abrir enlace
-            </a>
-          )}
-
-          <label className="flex items-center gap-2 text-sm has-[:disabled]:text-[var(--color-text-muted)] has-[:disabled]:opacity-70">
-            <input
-              type="checkbox"
-              checked={form.compartido}
-              onChange={(e) => set("compartido", e.target.checked)}
-              className="h-5 w-5 accent-[var(--color-accent)] disabled:cursor-not-allowed"
-            />
-            Compartir con los demás equipos del club
-          </label>
-
-          <Field label="Descripción">
-            <Textarea value={form.descripcion} onChange={(e) => set("descripcion", e.target.value)} />
-          </Field>
-          <Field label="Notas adicionales">
-            <Textarea
-              placeholder="Organización, reglas, consignas, progresiones, correcciones..."
-              value={form.notas_adicionales}
-              onChange={(e) => set("notas_adicionales", e.target.value)}
-              className="min-h-40"
-            />
-          </Field>
-        </fieldset>
+        <Field label="Descripción">
+          <Textarea value={form.descripcion} onChange={(e) => set("descripcion", e.target.value)} />
+        </Field>
+        <Field label="Notas adicionales">
+          <Textarea
+            placeholder="Organización, reglas, consignas, progresiones, correcciones..."
+            value={form.notas_adicionales}
+            onChange={(e) => set("notas_adicionales", e.target.value)}
+            className="min-h-40"
+          />
+        </Field>
       </form>
 
-      {readOnly ? (
-        <div className="mt-2 flex items-center justify-end gap-2">
-          <Button type="button" variant="secondary" size="sm" onClick={onClose}>
-            Cerrar
+      <div className="mt-2 flex items-center justify-between gap-2">
+        {ejercicio ? (
+          <Button type="button" variant="destructive" size="sm" onClick={handleDelete} disabled={borrando}>
+            {borrando ? "Borrando..." : "Borrar"}
+          </Button>
+        ) : (
+          <span />
+        )}
+        <div className="flex gap-2">
+          <Button type="button" variant="secondary" size="sm" onClick={cancelar}>
+            Cancelar
+          </Button>
+          <Button type="submit" form="ejercicio-form" size="sm" disabled={guardando || subiendoImagen}>
+            {guardando ? "Guardando..." : "Guardar"}
           </Button>
         </div>
-      ) : (
-        <div className="mt-2 flex items-center justify-between gap-2">
-          {ejercicio && permitirBorrar ? (
-            <Button type="button" variant="destructive" size="sm" onClick={handleDelete} disabled={borrando}>
-              {borrando ? "Borrando..." : "Borrar"}
-            </Button>
-          ) : (
-            <span />
-          )}
-          <div className="flex gap-2">
-            <Button type="button" variant="secondary" size="sm" onClick={onClose}>
-              Cancelar
-            </Button>
-            <Button type="submit" form="ejercicio-form" size="sm" disabled={guardando}>
-              {guardando ? "Guardando..." : "Guardar"}
-            </Button>
-          </div>
-        </div>
-      )}
+      </div>
     </Modal>
   );
 }
