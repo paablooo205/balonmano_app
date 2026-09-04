@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Download } from "lucide-react";
 import { AnilloDonut } from "@/components/partido/AnilloDonut";
 import { BarrasJugador } from "@/components/partido/BarrasJugador";
 import { BloqueTiro } from "@/components/partido/BloqueTiro";
@@ -6,6 +7,10 @@ import { LineaMarcador } from "@/components/partido/LineaMarcador";
 import { MarcadorExclusiones } from "@/components/partido/MarcadorExclusiones";
 import { PanelJugadorPartido } from "@/components/partido/PanelJugadorPartido";
 import { InsightsCard } from "@/components/dashboard/InsightsCard";
+import { Button } from "@/components/ui/button";
+import { useEquipo } from "@/hooks/useEquipo";
+import { FichaPartidoPdf } from "@/lib/pdf/FichaPartidoPdf";
+import { descargarPdf } from "@/lib/pdf/descargarPdf";
 import {
   desgloseResultados,
   distribucionPorZona,
@@ -27,6 +32,15 @@ export function FichaTecnica({
   eventos: EventosRow[];
 }) {
   const [jugadorPanel, setJugadorPanel] = useState<JugadoresRow | null>(null);
+
+  const { equipo } = useEquipo();
+
+  async function descargarFichaPdf() {
+    await descargarPdf(
+      `ficha-partido-vs-${partido.rival}-${partido.fecha}`,
+      <FichaPartidoPdf partido={partido} eventos={eventos} nombreEquipo={equipo?.nombre ?? "Equipo"} />,
+    );
+  }
 
   const tirosJuego = eventos.filter((e) => e.tipo === "tiro" && e.equipo_origen === "propio" && !e.es_penalti);
   const tirosPenalti = eventos.filter((e) => e.tipo === "tiro" && e.equipo_origen === "propio" && e.es_penalti);
@@ -66,6 +80,9 @@ export function FichaTecnica({
 
   return (
     <div className="flex flex-col gap-4">
+      <Button variant="secondary" size="sm" className="self-end" onClick={descargarFichaPdf}>
+        <Download size={16} /> Descargar PDF
+      </Button>
       <InsightsCard insights={insights} />
       <LineaMarcador eventos={eventos} />
 
