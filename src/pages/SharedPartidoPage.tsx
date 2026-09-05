@@ -2,20 +2,21 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/lib/supabaseClient";
 import { FichaTecnica } from "@/components/partido/FichaTecnica";
-import { PanelJugadorPartido } from "@/components/partido/PanelJugadorPartido";
 import { EscudoFondo } from "@/components/layout/EscudoFondo";
-import type { JugadoresRow, PartidoCompartidoPayload } from "@/types/database";
+import type { PartidoCompartidoPayload } from "@/types/database";
 
 /**
  * Página pública, sin sesión — enlace generado desde "Compartir ficha" en
  * FichaTecnica.tsx. Fuera de AuthGate y de EquipoLayout (ver App.tsx): sin
  * SideNav/BottomNav, sin ningún <Link>/navigate() hacia el resto de la app.
+ * La selección de jugador para ver/descargar su ficha individual vive en la
+ * propia FichaTecnica (sección "Por jugador"), no aquí — no duplicar esa
+ * lista en esta página.
  */
 export function SharedPartidoPage() {
   const { token } = useParams<{ token: string }>();
   const [datos, setDatos] = useState<PartidoCompartidoPayload>(null);
   const [estado, setEstado] = useState<"cargando" | "ok" | "no-encontrado">("cargando");
-  const [jugadorPanel, setJugadorPanel] = useState<JugadoresRow | null>(null);
 
   useEffect(() => {
     if (!token) {
@@ -64,29 +65,6 @@ export function SharedPartidoPage() {
           <h1 className="hero-title mt-0.5">vs {partido.rival}</h1>
         </div>
 
-        <div>
-          <div className="flex flex-col gap-2">
-            <button
-              type="button"
-              onClick={() => setJugadorPanel(null)}
-              className="card-surface flex items-center p-3 text-left transition-colors hover:border-[var(--color-accent)]"
-            >
-              <span className="text-sm font-semibold text-[var(--color-accent)]">Equipo completo</span>
-            </button>
-            {jugadores.map((j) => (
-              <button
-                key={j.id}
-                type="button"
-                onClick={() => setJugadorPanel(j)}
-                className="card-surface flex items-center gap-3 p-3 text-left transition-colors hover:border-[var(--color-accent)]"
-              >
-                <span className="stat-number text-sm text-[var(--color-text-muted)]">#{j.dorsal ?? "—"}</span>
-                <span className="text-sm font-medium">{j.nombre}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
         <FichaTecnica
           partido={partido}
           jugadores={jugadores}
@@ -95,15 +73,6 @@ export function SharedPartidoPage() {
           soloLectura
         />
       </div>
-
-      {jugadorPanel && (
-        <PanelJugadorPartido
-          jugador={jugadorPanel}
-          partido={partido}
-          eventos={eventos}
-          onCerrar={() => setJugadorPanel(null)}
-        />
-      )}
     </div>
   );
 }
