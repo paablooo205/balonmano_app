@@ -57,19 +57,26 @@ export const pdfEstilosBase = StyleSheet.create({
 
 /** Escudo del club como marca de agua en la esquina inferior derecha de la
  * página — mismo tratamiento (grayscale + opacidad muy baja) que el fondo de
- * la app. `escudo` puede ser null si la conversión a PNG falló (no bloquea la
- * generación del resto del PDF). */
+ * la app, pero SIN el sangrado fuera del borde que usa el fondo web: una
+ * <Image> cuyo cuadro de layout se sale de los límites de la página es un
+ * bug conocido de @react-pdf/renderer que cuelga la generación sin lanzar
+ * ningún error (github.com/diegomura/react-pdf/issues/2242) — pasaba de
+ * verdad en la ficha de partido, el único documento con contenido
+ * suficiente para que la posición del escudo llegara a importar. `escudo`
+ * puede ser null si la conversión a PNG falló (no bloquea el resto del PDF).
+ * `fixed`: se repite igual en cada página, fuera del cálculo de paginación. */
 export function PdfEscudoFondo({ escudo }: { escudo: EscudoPdf | null }) {
   if (!escudo) return null;
-  const alto = 260;
+  const alto = 180;
   const ancho = (escudo.width / escudo.height) * alto;
   return (
     <Image
+      fixed
       src={escudo.uri}
       style={{
         position: "absolute",
-        bottom: -alto * 0.22,
-        right: -ancho * 0.22,
+        bottom: 16,
+        right: 16,
         width: ancho,
         height: alto,
         opacity: 0.07,
