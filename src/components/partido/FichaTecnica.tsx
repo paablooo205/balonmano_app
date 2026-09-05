@@ -4,7 +4,7 @@ import { AnilloDonut } from "@/components/partido/AnilloDonut";
 import { BarrasJugador } from "@/components/partido/BarrasJugador";
 import { BloqueTiro } from "@/components/partido/BloqueTiro";
 import { LineaMarcador } from "@/components/partido/LineaMarcador";
-import { MarcadorExclusiones } from "@/components/partido/MarcadorExclusiones";
+import { MarcadorSanciones } from "@/components/partido/MarcadorSanciones";
 import { PanelJugadorPartido } from "@/components/partido/PanelJugadorPartido";
 import { InsightsCard } from "@/components/dashboard/InsightsCard";
 import { Button } from "@/components/ui/button";
@@ -264,7 +264,7 @@ export function FichaTecnica({
         </div>
       </div>
 
-      <MarcadorExclusiones eventos={eventos} />
+      <MarcadorSanciones eventos={eventos} />
 
       {(partido.problemas_detectados || partido.acciones_siguiente_semana || partido.notas_adicionales) && (
         <div className="card-surface flex flex-col gap-3 p-4">

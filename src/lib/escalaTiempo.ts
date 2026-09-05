@@ -6,10 +6,10 @@
  * milisegundo), siempre devuelve 0 — nunca división por cero, y no hay
  * "transcurrido" real que repartir en esos casos.
  *
- * Cada gráfico que la usa (`LineaMarcador`, `MarcadorExclusiones`) calcula
- * su propia escala a partir de sus propios puntos — no hay un eje temporal
- * compartido entre gráficos distintos de la pantalla, cada uno es su
- * propia ventana temporal local (ver spec, decisión explícita).
+ * Cada gráfico que la usa (`LineaMarcador`) calcula su propia escala a
+ * partir de sus propios puntos — no hay un eje temporal compartido entre
+ * gráficos distintos de la pantalla, cada uno es su propia ventana
+ * temporal local (ver spec, decisión explícita).
  */
 export function crearEscalaTiempo(timestamps: string[], ancho: number): (ts: string) => number {
   if (timestamps.length === 0) return () => 0;
