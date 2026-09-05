@@ -43,6 +43,7 @@ export function ProgresoPage() {
   const [jugadores, setJugadores] = useState<JugadoresRow[]>([]);
   const [eventos, setEventos] = useState<EventosRow[]>([]);
   const [cargando, setCargando] = useState(true);
+  const [ambito, setAmbito] = useState<"liga" | "amistosos" | "todos">("liga");
 
   useEffect(() => {
     (async () => {
@@ -70,12 +71,20 @@ export function ProgresoPage() {
   const hoyISO = toISODate(new Date());
   const eventosPorPartido = agruparPorPartido(eventos);
 
+  // --- Ámbito: Liga / Amistosos / Todos -----------------------------------
+  // Un partido sin competición asignada nunca cuenta como Liga (inflaría el
+  // record con partidos sin clasificar) — cae en Amistosos/Todos.
+  const partidosAmbito =
+    ambito === "todos" ? partidos : ambito === "liga" ? partidos.filter((p) => p.competicion === "Liga") : partidos.filter((p) => p.competicion !== "Liga");
+  const idsPartidosAmbito = new Set(partidosAmbito.map((p) => p.id));
+  const eventosAmbito = eventos.filter((e) => e.partido_id !== null && idsPartidosAmbito.has(e.partido_id));
+
   // --- Resultados / jornadas ---------------------------------------------
-  const jornadas = partidos
+  const jornadas = partidosAmbito
     .map((partido) => ({ partido, marcador: marcadorNumerico(partido, eventosPorPartido.get(partido.id) ?? []) }))
     .filter((x): x is { partido: PartidosRow; marcador: { favor: number; contra: number } } => x.marcador !== null);
 
-  const { g, e, p: perd } = resumenResultados(partidos, eventosPorPartido);
+  const { g, e, p: perd } = resumenResultados(partidosAmbito, eventosPorPartido);
   const puntos = g * 2 + e;
   const totalFavor = jornadas.reduce((sum, x) => sum + x.marcador.favor, 0);
   const totalContra = jornadas.reduce((sum, x) => sum + x.marcador.contra, 0);
@@ -89,7 +98,7 @@ export function ProgresoPage() {
   // --- Juego vs 7 metros ---------------------------------------------------
   let favorJuego = 0;
   let favor7m = 0;
-  for (const evento of eventos) {
+  for (const evento of eventosAmbito) {
     if (evento.tipo === "tiro" && evento.equipo_origen === "propio" && evento.resultado === "gol") {
       if (evento.es_penalti) favor7m++;
       else favorJuego++;
@@ -123,7 +132,7 @@ export function ProgresoPage() {
 
   // --- Máximos goleadores ---------------------------------------------------
   const golesPorJugador = new Map<string, number>();
-  for (const evento of eventos) {
+  for (const evento of eventosAmbito) {
     if (!evento.jugador_id) continue;
     if (evento.tipo === "tiro" && evento.equipo_origen === "propio" && evento.resultado === "gol") {
       golesPorJugador.set(evento.jugador_id, (golesPorJugador.get(evento.jugador_id) ?? 0) + 1);
@@ -181,6 +190,18 @@ export function ProgresoPage() {
             <div className="mt-1.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-white/45">Partidos</div>
           </div>
         </div>
+      </div>
+
+      <div className="tab-pill-group">
+        <button type="button" className="tab-pill" data-active={ambito === "liga"} onClick={() => setAmbito("liga")}>
+          Liga
+        </button>
+        <button type="button" className="tab-pill" data-active={ambito === "amistosos"} onClick={() => setAmbito("amistosos")}>
+          Amistosos
+        </button>
+        <button type="button" className="tab-pill" data-active={ambito === "todos"} onClick={() => setAmbito("todos")}>
+          Todos
+        </button>
       </div>
 
       <div>
