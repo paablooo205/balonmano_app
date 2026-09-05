@@ -276,6 +276,16 @@ export function minutoActual(c: CronometroPartido | undefined, duracionParteMin 
   return Math.floor(segundosPartido(c, duracionParteMin) / 60) + 1;
 }
 
+/** El partido ha llegado al final de la 2ª parte y se ha parado solo (ver el
+ * useEffect de auto-stop en ContadoresEnVivo.tsx) — distinto de "en pausa a
+ * mitad de la 2ª parte", que no debe bloquear el registro. A partir de aquí
+ * la pantalla en vivo pasa a solo lectura: sin más registro de datos, sin
+ * reanudar el cronómetro ni cambiar de parte. */
+export function partidoFinalizado(c: CronometroPartido | undefined, duracionParteMin = 30): boolean {
+  if (!c) return false;
+  return c.parte === 2 && !c.corriendo && segundosActuales(c) >= duracionParteMin * 60;
+}
+
 export function formatoReloj(segundos: number): string {
   const s = Math.floor(segundos);
   const mm = Math.floor(s / 60)

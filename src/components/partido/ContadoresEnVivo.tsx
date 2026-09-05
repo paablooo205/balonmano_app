@@ -29,6 +29,7 @@ import {
   marcadorHastaTabla,
   minutoActual,
   origenPorPuesto,
+  partidoFinalizado,
   pausar,
   perdidas,
   requiereZona,
@@ -103,6 +104,7 @@ export function ContadoresEnVivo({
   const cronometro = partido.estadisticas.cronometro;
   const eventosJsonb = partido.estadisticas.eventos ?? [];
   const duracionParteMin = partido.duracion_parte_min;
+  const finalizado = partidoFinalizado(cronometro, duracionParteMin);
 
   const jugadorActual = jugadores.find((j) => j.id === jugadorSel) ?? null;
   const esJugadorActualPortero = jugadorActual ? esPortero(jugadorActual.puesto) : false;
@@ -231,11 +233,13 @@ export function ContadoresEnVivo({
   }
 
   function alternarCronometro() {
+    if (finalizado) return;
     const nuevo = cronometro?.corriendo ? pausar(cronometro) : iniciarOReanudar(cronometro);
     void persistirEstadisticas({ ...partido.estadisticas, cronometro: nuevo });
   }
 
   function siguienteParte() {
+    if (finalizado) return;
     void persistirEstadisticas({ ...partido.estadisticas, cronometro: cambiarParte(cronometro) });
   }
 
@@ -247,7 +251,7 @@ export function ContadoresEnVivo({
   }
 
   function registrarTiro(equipoOrigen: EquipoOrigenEvento, resultado: ResultadoTiro, zona: number | null) {
-    if (!jugadorSel) return;
+    if (finalizado || !jugadorSel) return;
     const nuevo: EventosRow = {
       id: crypto.randomUUID(),
       equipo_id: partido.equipo_id,
@@ -274,7 +278,7 @@ export function ContadoresEnVivo({
   }
 
   function tocarBotonTiro(boton: BotonTiro) {
-    if (!jugadorSel) return;
+    if (finalizado || !jugadorSel) return;
     if (!requiereZona(boton.resultado)) {
       registrarTiro(boton.equipoOrigen, boton.resultado, null);
       anular();
@@ -289,7 +293,7 @@ export function ContadoresEnVivo({
   }
 
   function tocarZona(zona: number) {
-    if (!jugadorSel) return;
+    if (finalizado || !jugadorSel) return;
     if (accionPendiente) {
       registrarTiro(accionPendiente.equipoOrigen, accionPendiente.resultado, zona);
       setAccionPendiente(null);
@@ -304,7 +308,7 @@ export function ContadoresEnVivo({
   }
 
   function registrarPerdidaRobo(equipoOrigen: EquipoOrigenEvento) {
-    if (!jugadorSel) return;
+    if (finalizado || !jugadorSel) return;
     const nuevo: EventosRow = {
       id: crypto.randomUUID(),
       equipo_id: partido.equipo_id,
@@ -327,7 +331,7 @@ export function ContadoresEnVivo({
   }
 
   function registrarExclusion() {
-    if (!jugadorSel) return;
+    if (finalizado || !jugadorSel) return;
     const nuevo: EventosRow = {
       id: crypto.randomUUID(),
       equipo_id: partido.equipo_id,
@@ -350,7 +354,7 @@ export function ContadoresEnVivo({
   }
 
   function registrarTarjeta(color: ColorTarjeta) {
-    if (!jugadorSel) return;
+    if (finalizado || !jugadorSel) return;
     const nuevo: EventosRow = {
       id: crypto.randomUUID(),
       equipo_id: partido.equipo_id,
@@ -373,13 +377,14 @@ export function ContadoresEnVivo({
   }
 
   function registrarJsonb(tipo: TipoEventoPartido) {
-    if (!jugadorSel) return;
+    if (finalizado || !jugadorSel) return;
     const evento = crearEventoJsonb(tipo, jugadorSel, minutoActual(cronometro, duracionParteMin));
     void persistirEstadisticas({ ...partido.estadisticas, eventos: [...eventosJsonb, evento] });
     anular();
   }
 
   function registrarSustitucion(tipo: "entra_pista" | "sale_pista") {
+    if (finalizado) return;
     if (!jugadorSel) {
       alert("Selecciona primero un jugador/a en la fila de arriba.");
       return;
@@ -389,7 +394,7 @@ export function ContadoresEnVivo({
   }
 
   function deshacer() {
-    if (toquesDesc.length === 0) return;
+    if (finalizado || toquesDesc.length === 0) return;
     const ultimo = toquesDesc[0];
     if (ultimo.origen === "tabla") {
       onEventosActualizados(eventos.filter((e) => e.id !== ultimo.id));
@@ -413,7 +418,7 @@ export function ContadoresEnVivo({
   }, [toquesDesc, cronometro]);
 
   const corriendo = !!cronometro?.corriendo;
-  const estado = corriendo ? "En juego" : toquesDesc.length > 0 ? "Pausado" : "Sin empezar";
+  const estado = finalizado ? "Finalizado" : corriendo ? "En juego" : toquesDesc.length > 0 ? "Pausado" : "Sin empezar";
 
   let statusMain = "Selecciona un jugador";
   let statusHint = "Paso 1 de 2";
@@ -436,13 +441,15 @@ export function ContadoresEnVivo({
         <div className="flex gap-1.5">
           <button
             onClick={() => registrarSustitucion("entra_pista")}
-            className="flex h-9 items-center gap-1 rounded-[3px] bg-white/[.08] px-2.5 text-[11px] font-medium text-[#4ddc8a]"
+            disabled={finalizado}
+            className="flex h-9 items-center gap-1 rounded-[3px] bg-white/[.08] px-2.5 text-[11px] font-medium text-[#4ddc8a] disabled:pointer-events-none disabled:opacity-35"
           >
             <LogIn size={12} /> Entra
           </button>
           <button
             onClick={() => registrarSustitucion("sale_pista")}
-            className="flex h-9 items-center gap-1 rounded-[3px] bg-white/[.08] px-2.5 text-[11px] font-medium text-white/60"
+            disabled={finalizado}
+            className="flex h-9 items-center gap-1 rounded-[3px] bg-white/[.08] px-2.5 text-[11px] font-medium text-white/60 disabled:pointer-events-none disabled:opacity-35"
           >
             <LogOut size={12} /> Sale
           </button>
@@ -478,7 +485,7 @@ export function ContadoresEnVivo({
   const zonaBlock = (
     <div className="flex flex-col gap-3">
       <CuadriculaPorteria
-        tocable={!!jugadorSel}
+        tocable={!!jugadorSel && !finalizado}
         resaltado={!!accionPendiente || zonaPendiente !== null}
         compacto={compacto}
         onZona={tocarZona}
@@ -492,8 +499,9 @@ export function ContadoresEnVivo({
     <div className="flex flex-col gap-3">
       <button
         onClick={() => setSietePendiente((v) => !v)}
+        disabled={finalizado}
         className={cn(
-          "flex h-11 items-center justify-center rounded text-[12px] font-semibold transition-colors",
+          "flex h-11 items-center justify-center rounded text-[12px] font-semibold transition-colors disabled:pointer-events-none disabled:opacity-35",
           sietePendiente ? "bg-[var(--color-accent)] text-white" : "bg-white/[.08] text-white/60",
         )}
       >
@@ -508,7 +516,7 @@ export function ContadoresEnVivo({
             color={b.color}
             count={contarBotonTiro(eventos, b)}
             armado={esBotonArmado(b)}
-            disabled={!jugadorSel}
+            disabled={!jugadorSel || finalizado}
             onClick={() => tocarBotonTiro(b)}
           />
         ))}
@@ -522,26 +530,26 @@ export function ContadoresEnVivo({
             color={b.color}
             count={contarBotonTiro(eventos, b)}
             armado={esBotonArmado(b)}
-            disabled={!jugadorSel || !esJugadorActualPortero}
+            disabled={!jugadorSel || !esJugadorActualPortero || finalizado}
             onClick={() => tocarBotonTiro(b)}
           />
         ))}
       </GrupoBotones>
 
       <GrupoBotones titulo="Pérdida / Robo" cols={2} conBorde>
-        <BotonAccion label="Robo" color="var(--color-success)" count={robos(eventos)} disabled={!jugadorSel} onClick={() => registrarPerdidaRobo("rival")} />
-        <BotonAccion label="Pérdida" color="var(--color-warning)" count={perdidas(eventos)} disabled={!jugadorSel} onClick={() => registrarPerdidaRobo("propio")} />
+        <BotonAccion label="Robo" color="var(--color-success)" count={robos(eventos)} disabled={!jugadorSel || finalizado} onClick={() => registrarPerdidaRobo("rival")} />
+        <BotonAccion label="Pérdida" color="var(--color-warning)" count={perdidas(eventos)} disabled={!jugadorSel || finalizado} onClick={() => registrarPerdidaRobo("propio")} />
       </GrupoBotones>
 
       <GrupoBotones titulo="Sanción" cols={4} conBorde>
-        <BotonAccion label="Exclusión 2'" color="var(--color-warning)" count={exclusiones(eventos)} disabled={!jugadorSel} onClick={registrarExclusion} />
+        <BotonAccion label="Exclusión 2'" color="var(--color-warning)" count={exclusiones(eventos)} disabled={!jugadorSel || finalizado} onClick={registrarExclusion} />
         {BOTONES_TARJETA.map((b) => (
           <BotonAccion
             key={b.color}
             label={b.label}
             color={b.hex}
             count={eventos.filter((e) => e.tipo === "tarjeta" && e.color_tarjeta === b.color).length}
-            disabled={!jugadorSel}
+            disabled={!jugadorSel || finalizado}
             onClick={() => registrarTarjeta(b.color)}
           />
         ))}
@@ -554,7 +562,7 @@ export function ContadoresEnVivo({
             label={a.label}
             color={a.color}
             count={eventosJsonb.filter((e) => e.tipo === a.tipo).length}
-            disabled={!jugadorSel}
+            disabled={!jugadorSel || finalizado}
             onClick={() => registrarJsonb(a.tipo)}
           />
         ))}
@@ -665,22 +673,25 @@ export function ContadoresEnVivo({
 
           <button
             onClick={alternarCronometro}
+            disabled={finalizado}
             aria-label={corriendo ? "Pausar cronómetro" : "Iniciar cronómetro"}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded disabled:pointer-events-none disabled:opacity-35"
             style={{ backgroundColor: corriendo ? "rgba(255,255,255,.12)" : "var(--color-accent)" }}
           >
             {corriendo ? <Pause size={15} className="text-white" /> : <Play size={15} className="text-white" />}
           </button>
           <button
             onClick={siguienteParte}
-            className="flex h-9 shrink-0 items-center justify-center rounded bg-white/[.08] px-2.5 text-[11px] font-semibold text-white/75"
+            disabled={finalizado}
+            className="flex h-9 shrink-0 items-center justify-center rounded bg-white/[.08] px-2.5 text-[11px] font-semibold text-white/75 disabled:pointer-events-none disabled:opacity-35"
           >
             {cronometro?.parte === 2 ? "1ª" : "2ª"}
           </button>
           <button
             onClick={deshacer}
+            disabled={finalizado}
             aria-label="Deshacer último toque"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded bg-white/[.08] text-white/60"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded bg-white/[.08] text-white/60 disabled:pointer-events-none disabled:opacity-35"
           >
             <Undo2 size={15} />
           </button>
@@ -743,21 +754,30 @@ export function ContadoresEnVivo({
         <div className="mt-3 flex gap-2">
           <button
             onClick={alternarCronometro}
-            className="flex h-[42px] flex-1 items-center justify-center rounded text-xs font-semibold text-white active:scale-[0.985]"
-            style={{ backgroundColor: corriendo ? "rgba(255,255,255,.12)" : "var(--color-accent)" }}
+            disabled={finalizado}
+            className="flex h-[42px] flex-1 items-center justify-center rounded text-xs font-semibold text-white active:scale-[0.985] disabled:pointer-events-none disabled:opacity-50"
+            style={{ backgroundColor: finalizado ? "rgba(255,255,255,.12)" : corriendo ? "rgba(255,255,255,.12)" : "var(--color-accent)" }}
           >
-            {corriendo ? "Pausar cronómetro" : toquesDesc.length > 0 ? "Reanudar" : "Iniciar partido"}
+            {finalizado
+              ? "Partido finalizado"
+              : corriendo
+                ? "Pausar cronómetro"
+                : toquesDesc.length > 0
+                  ? "Reanudar"
+                  : "Iniciar partido"}
           </button>
           <button
             onClick={siguienteParte}
-            className="flex h-[42px] shrink-0 items-center justify-center rounded bg-white/[.08] px-4 text-xs font-semibold text-white/75"
+            disabled={finalizado}
+            className="flex h-[42px] shrink-0 items-center justify-center rounded bg-white/[.08] px-4 text-xs font-semibold text-white/75 disabled:pointer-events-none disabled:opacity-35"
           >
             {cronometro?.parte === 2 ? "1ª parte" : "2ª parte"}
           </button>
           <button
             onClick={deshacer}
+            disabled={finalizado}
             aria-label="Deshacer último toque"
-            className="flex h-[42px] w-[52px] shrink-0 items-center justify-center rounded bg-white/[.08] text-white/60"
+            className="flex h-[42px] w-[52px] shrink-0 items-center justify-center rounded bg-white/[.08] text-white/60 disabled:pointer-events-none disabled:opacity-35"
           >
             <Undo2 size={17} />
           </button>

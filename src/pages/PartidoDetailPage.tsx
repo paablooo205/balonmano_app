@@ -10,6 +10,7 @@ import { AsistenciaChecklist } from "@/components/equipo/AsistenciaChecklist";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { aplicarPendientes, guardarCache, leerCache, obtenerCola, onQueueChange } from "@/lib/offline/queue";
 import { cargarEventosEquipo } from "@/lib/eventos";
+import { partidoFinalizado } from "@/lib/partidoStats";
 import { Button } from "@/components/ui/button";
 import type { AsistenciaRow, EventosRow, JugadoresRow, PartidosRow } from "@/types/database";
 
@@ -270,10 +271,15 @@ export function PartidoDetailPage() {
         Convocatoria
       </Button>
       <Button size="lg" variant="ink" className="w-full gap-2.5" onClick={() => setVista("live")}>
-        <span className="h-[7px] w-[7px] rounded-full bg-[var(--color-accent)]" />
-        {eventos.length > 0 || (partido.estadisticas.eventos ?? []).length > 0
-          ? "Continuar partido en directo"
-          : "Iniciar partido en directo"}
+        <span
+          className="h-[7px] w-[7px] rounded-full"
+          style={{ background: partidoFinalizado(partido.estadisticas.cronometro, partido.duracion_parte_min) ? "var(--color-text-faint)" : "var(--color-accent)" }}
+        />
+        {partidoFinalizado(partido.estadisticas.cronometro, partido.duracion_parte_min)
+          ? "Partido finalizado"
+          : eventos.length > 0 || (partido.estadisticas.eventos ?? []).length > 0
+            ? "Continuar partido en directo"
+            : "Iniciar partido en directo"}
       </Button>
       <button
         onClick={() => setVista("ficha")}
