@@ -264,7 +264,7 @@ export function FichaTecnica({
         </div>
       </div>
 
-      <MarcadorSanciones eventos={eventos} />
+      <MarcadorSanciones eventos={eventos} jugadores={jugadores} />
 
       {(partido.problemas_detectados || partido.acciones_siguiente_semana || partido.notas_adicionales) && (
         <div className="card-surface flex flex-col gap-3 p-4">
