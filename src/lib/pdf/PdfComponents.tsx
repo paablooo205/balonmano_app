@@ -89,8 +89,13 @@ export function PdfCabecera({ eyebrow, titulo, subtitulo }: { eyebrow: string; t
 }
 
 export function PdfSeccion({ titulo, children }: { titulo: string; children: ReactNode }) {
+  // Sin wrap={false}: forzar un bloque "no partible" que resulte más alto
+  // que el espacio restante de página puede colgar el motor de paginación
+  // de @react-pdf/renderer en vez de simplemente saltar de página — pasaba
+  // de verdad con las notas del entrenador cuando son largas (único de los
+  // 3 documentos con texto libre sin límite de longitud).
   return (
-    <View wrap={false}>
+    <View>
       <Text style={pdfEstilosBase.seccionTitulo}>{titulo}</Text>
       {children}
     </View>
@@ -132,7 +137,7 @@ export function PdfTablaZonas({
   etiquetaAcierto: string;
 }) {
   return (
-    <View style={{ marginBottom: 8 }} wrap={false}>
+    <View style={{ marginBottom: 8 }}>
       <Text style={pdfEstilosBase.parrafoNegrita}>{titulo}</Text>
       <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
         {ZONAS.map((z) => (
