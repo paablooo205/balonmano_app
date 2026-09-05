@@ -68,18 +68,7 @@ export function SharedPartidoPage() {
           <h1 className="hero-title mt-0.5">vs {partido.rival}</h1>
         </div>
 
-        <FichaTecnica
-          partido={partido}
-          jugadores={jugadores}
-          eventos={eventos}
-          nombreEquipo={equipo_nombre}
-          soloLectura
-        />
-
         <div>
-          <div className="mb-2 text-[9px] font-bold uppercase tracking-[0.16em] text-[var(--color-text-faint)]">
-            Fichas individuales
-          </div>
           <div className="relative mb-3">
             <Search
               size={18}
@@ -94,6 +83,16 @@ export function SharedPartidoPage() {
             />
           </div>
           <div className="flex flex-col gap-2">
+            {/* Siempre visible, sin filtrar por la búsqueda — es la otra opción
+                del buscador ("por jugador o por equipo completo"), no un
+                resultado más de la lista de nombres. */}
+            <button
+              type="button"
+              onClick={() => setJugadorPanel(null)}
+              className="card-surface flex items-center p-3 text-left transition-colors hover:border-[var(--color-accent)]"
+            >
+              <span className="text-sm font-semibold text-[var(--color-accent)]">Equipo completo</span>
+            </button>
             {convocadosFiltrados.map((j) => (
               <button
                 key={j.id}
@@ -105,13 +104,21 @@ export function SharedPartidoPage() {
                 <span className="text-sm font-medium">{j.nombre}</span>
               </button>
             ))}
-            {convocadosFiltrados.length === 0 && (
+            {busqueda && convocadosFiltrados.length === 0 && (
               <p className="py-4 text-center text-sm text-[var(--color-text-muted)]">
                 Ningún jugador coincide con la búsqueda.
               </p>
             )}
           </div>
         </div>
+
+        <FichaTecnica
+          partido={partido}
+          jugadores={jugadores}
+          eventos={eventos}
+          nombreEquipo={equipo_nombre}
+          soloLectura
+        />
       </div>
 
       {jugadorPanel && (

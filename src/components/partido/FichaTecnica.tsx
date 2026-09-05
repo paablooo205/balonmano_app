@@ -59,7 +59,10 @@ export function FichaTecnica({
   }
 
   function urlCompartida(token: string): string {
-    return `${window.location.origin}/compartido/${token}`;
+    // Dominio fijo, no window.location.origin: el link se comparte con
+    // jugadores fuera de la app y no debe revelar el dominio/nombre real de
+    // la app, sea cual sea el dominio desde el que el entrenador la use.
+    return `https://ficha-compartida.vercel.app/compartido/${token}`;
   }
 
   async function copiarLink(token: string) {
@@ -246,7 +249,7 @@ export function FichaTecnica({
         </div>
       </div>
 
-      <BarrasJugador jugadores={jugadores} eventos={eventos} onSeleccionar={setJugadorPanel} />
+      {!soloLectura && <BarrasJugador jugadores={jugadores} eventos={eventos} onSeleccionar={setJugadorPanel} />}
 
       <div>
         <div className="mb-2 text-[9px] font-bold uppercase tracking-[0.16em] text-[var(--color-text-faint)]">Pérdidas y robos</div>
