@@ -1,5 +1,13 @@
 import { BloqueTiro } from "@/components/partido/BloqueTiro";
-import { distribucionPorZona, eficaciaConDetalle, esPortero, perdidas, porcentajeParadas, robos } from "@/lib/partidoStats";
+import {
+  BOTONES_TARJETA,
+  distribucionPorZona,
+  eficaciaConDetalle,
+  esPortero,
+  perdidas,
+  porcentajeParadas,
+  robos,
+} from "@/lib/partidoStats";
 import type { EventosRow, JugadoresRow } from "@/types/database";
 
 /**
@@ -33,6 +41,7 @@ export function DesgloseJugadorPartido({ jugador, eventos }: { jugador: Jugadore
     : eficaciaConDetalle(propios, { soloPenalti: true });
 
   const etiquetaAcierto = portero ? "paradas" : "goles";
+  const misTarjetas = propios.filter((e) => e.tipo === "tarjeta");
 
   return (
     <div>
@@ -44,6 +53,23 @@ export function DesgloseJugadorPartido({ jugador, eventos }: { jugador: Jugadore
           <span className="stat-number text-[var(--color-ink)]">{robos(propios)}</span> robos
         </span>
       </div>
+      {misTarjetas.length > 0 && (
+        <div className="mb-3 flex flex-wrap gap-1.5">
+          {misTarjetas.map((t) => {
+            const boton = BOTONES_TARJETA.find((b) => b.color === t.color_tarjeta);
+            return (
+              <span
+                key={t.id}
+                className="flex items-center gap-1 rounded-full bg-[var(--color-card-hover)] px-2 py-0.5 text-xs text-[var(--color-text)]"
+              >
+                <span className="h-1.5 w-1.5 rounded-full" style={{ background: boton?.hex ?? "var(--color-text-faint)" }} />
+                {boton?.label ?? "Tarjeta"}
+                {t.minuto !== null && ` · ${t.minuto}'`}
+              </span>
+            );
+          })}
+        </div>
+      )}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <BloqueTiro
           titulo="Juego abierto"

@@ -1,8 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { Search } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
-import { Input } from "@/components/ui/field";
 import { FichaTecnica } from "@/components/partido/FichaTecnica";
 import { PanelJugadorPartido } from "@/components/partido/PanelJugadorPartido";
 import { EscudoFondo } from "@/components/layout/EscudoFondo";
@@ -17,7 +15,6 @@ export function SharedPartidoPage() {
   const { token } = useParams<{ token: string }>();
   const [datos, setDatos] = useState<PartidoCompartidoPayload>(null);
   const [estado, setEstado] = useState<"cargando" | "ok" | "no-encontrado">("cargando");
-  const [busqueda, setBusqueda] = useState("");
   const [jugadorPanel, setJugadorPanel] = useState<JugadoresRow | null>(null);
 
   useEffect(() => {
@@ -57,7 +54,6 @@ export function SharedPartidoPage() {
   }
 
   const { partido, equipo_nombre, eventos, jugadores } = datos;
-  const convocadosFiltrados = jugadores.filter((j) => j.nombre.toLowerCase().includes(busqueda.toLowerCase()));
 
   return (
     <div className="relative min-h-screen px-4 py-8">
@@ -69,23 +65,7 @@ export function SharedPartidoPage() {
         </div>
 
         <div>
-          <div className="relative mb-3">
-            <Search
-              size={18}
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]"
-            />
-            <Input
-              pill
-              placeholder="Buscar jugador..."
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              className="pl-10"
-            />
-          </div>
           <div className="flex flex-col gap-2">
-            {/* Siempre visible, sin filtrar por la búsqueda — es la otra opción
-                del buscador ("por jugador o por equipo completo"), no un
-                resultado más de la lista de nombres. */}
             <button
               type="button"
               onClick={() => setJugadorPanel(null)}
@@ -93,7 +73,7 @@ export function SharedPartidoPage() {
             >
               <span className="text-sm font-semibold text-[var(--color-accent)]">Equipo completo</span>
             </button>
-            {convocadosFiltrados.map((j) => (
+            {jugadores.map((j) => (
               <button
                 key={j.id}
                 type="button"
@@ -104,11 +84,6 @@ export function SharedPartidoPage() {
                 <span className="text-sm font-medium">{j.nombre}</span>
               </button>
             ))}
-            {busqueda && convocadosFiltrados.length === 0 && (
-              <p className="py-4 text-center text-sm text-[var(--color-text-muted)]">
-                Ningún jugador coincide con la búsqueda.
-              </p>
-            )}
           </div>
         </div>
 

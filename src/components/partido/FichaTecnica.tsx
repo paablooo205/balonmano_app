@@ -249,7 +249,7 @@ export function FichaTecnica({
         </div>
       </div>
 
-      {!soloLectura && <BarrasJugador jugadores={jugadores} eventos={eventos} onSeleccionar={setJugadorPanel} />}
+      <BarrasJugador jugadores={jugadores} eventos={eventos} onSeleccionar={setJugadorPanel} />
 
       <div>
         <div className="mb-2 text-[9px] font-bold uppercase tracking-[0.16em] text-[var(--color-text-faint)]">Pérdidas y robos</div>

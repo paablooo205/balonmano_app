@@ -32,11 +32,11 @@ export function BloqueTiro({
     <div>
       <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-faint)]">{titulo}</div>
       {detalle ? (
-        <div className="mb-2 text-sm text-[var(--color-text-muted)]">
+        <div className="mb-2 min-h-10 text-sm text-[var(--color-text-muted)]">
           El <span className="stat-number text-lg text-[var(--color-ink)]">{detalle.pct}%</span> de los tiros han sido {etiquetaAcierto} ({detalle.aciertos} de {detalle.intentos})
         </div>
       ) : (
-        <div className="mb-2 text-sm text-[var(--color-text-faint)]">Sin tiros.</div>
+        <div className="mb-2 min-h-10 text-sm text-[var(--color-text-faint)]">Sin tiros.</div>
       )}
       <MapaCalorPorteria conteosPorZona={zonas} total={total} aciertosPorZona={aciertosPorZona} />
       <div className="mt-1.5 text-[8px] text-[var(--color-text-faint)]">Cada zona: {etiquetaAcierto} / tiros a esa zona</div>
