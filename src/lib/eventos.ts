@@ -42,6 +42,7 @@ export async function registrarEvento(datos: Omit<EventoInsert, "creado_en">): P
     origen: datos.origen ?? null,
     es_penalti: datos.es_penalti ?? false,
     color_tarjeta: datos.color_tarjeta ?? null,
+    minuto: datos.minuto ?? null,
     creado_en: new Date().toISOString(),
   };
   if (!navigator.onLine) {

@@ -291,6 +291,9 @@ export type EventosRow = {
   es_penalti: boolean;
   /** Solo tipo='tarjeta'. */
   color_tarjeta: ColorTarjeta | null;
+  /** Minuto de partido en el momento de registrar la acción (según el
+   * cronómetro en vivo). Null: histórico anterior a esta columna. */
+  minuto: number | null;
   creado_en: string;
 };
 
@@ -453,7 +456,17 @@ export type Database = {
       >;
       eventos: TableDef<
         EventosRow,
-        "id" | "partido_id" | "sesion_id" | "jugador_id" | "resultado" | "zona" | "origen" | "es_penalti" | "color_tarjeta" | "creado_en"
+        | "id"
+        | "partido_id"
+        | "sesion_id"
+        | "jugador_id"
+        | "resultado"
+        | "zona"
+        | "origen"
+        | "es_penalti"
+        | "color_tarjeta"
+        | "minuto"
+        | "creado_en"
       >;
     };
     Views: Record<string, never>;

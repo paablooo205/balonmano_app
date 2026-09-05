@@ -132,7 +132,7 @@ export function ContadoresEnVivo({
         color: colorTiro(e),
         jugadorId: e.jugador_id,
         esRival: e.equipo_origen === "rival",
-        minuto: null,
+        minuto: e.minuto,
         creadoEn: e.creado_en,
         afectaMarcador: e.resultado === "gol",
         detalle: [e.zona ? `Z${e.zona}` : null, e.origen ? ETIQUETAS_ORIGEN[e.origen] : null].filter(Boolean).join(" · "),
@@ -147,7 +147,7 @@ export function ContadoresEnVivo({
         color: b?.hex ?? "rgba(255,255,255,.35)",
         jugadorId: e.jugador_id,
         esRival: false,
-        minuto: null,
+        minuto: e.minuto,
         creadoEn: e.creado_en,
         afectaMarcador: false,
         detalle: "",
@@ -162,7 +162,7 @@ export function ContadoresEnVivo({
       color,
       jugadorId: e.jugador_id,
       esRival: e.equipo_origen === "rival",
-      minuto: null,
+      minuto: e.minuto,
       creadoEn: e.creado_en,
       afectaMarcador: false,
       detalle: "",
@@ -261,6 +261,7 @@ export function ContadoresEnVivo({
       origen: sietePendiente ? "7m" : origenSel,
       es_penalti: sietePendiente,
       color_tarjeta: null,
+      minuto: minutoActual(cronometro, duracionParteMin),
       creado_en: new Date().toISOString(),
     };
     onEventosActualizados([...eventos, nuevo]);
@@ -317,6 +318,7 @@ export function ContadoresEnVivo({
       origen: null,
       es_penalti: false,
       color_tarjeta: null,
+      minuto: minutoActual(cronometro, duracionParteMin),
       creado_en: new Date().toISOString(),
     };
     onEventosActualizados([...eventos, nuevo]);
@@ -339,6 +341,7 @@ export function ContadoresEnVivo({
       origen: null,
       es_penalti: false,
       color_tarjeta: null,
+      minuto: minutoActual(cronometro, duracionParteMin),
       creado_en: new Date().toISOString(),
     };
     onEventosActualizados([...eventos, nuevo]);
@@ -361,6 +364,7 @@ export function ContadoresEnVivo({
       origen: null,
       es_penalti: false,
       color_tarjeta: color,
+      minuto: minutoActual(cronometro, duracionParteMin),
       creado_en: new Date().toISOString(),
     };
     onEventosActualizados([...eventos, nuevo]);
