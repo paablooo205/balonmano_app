@@ -253,9 +253,22 @@ export type PartidosRow = {
   problemas_detectados: string | null;
   acciones_siguiente_semana: string | null;
   notas_adicionales: string | null;
+  token_publico: string | null;
   created_at: string;
   updated_at: string;
 };
+
+/** Forma exacta que devuelve la función RPC `obtener_partido_compartido` —
+ * ver 0031_partido_compartido.sql. `null` cuando el token no existe/es
+ * inválido. Los tipos de `partido`/`jugadores` son los mismos `PartidosRow`/
+ * `JugadoresRow` de siempre porque la función ya rellena a `null` los campos
+ * que no expone — no hace falta un tipo reducido aparte. */
+export type PartidoCompartidoPayload = {
+  partido: PartidosRow;
+  equipo_nombre: string;
+  eventos: EventosRow[];
+  jugadores: JugadoresRow[];
+} | null;
 
 export type RivalesRow = {
   id: UUID;
@@ -447,6 +460,7 @@ export type Database = {
         | "problemas_detectados"
         | "acciones_siguiente_semana"
         | "notas_adicionales"
+        | "token_publico"
         | "created_at"
         | "updated_at"
       >;
@@ -486,6 +500,12 @@ export type Database = {
       canjear_invitacion: {
         Args: { p_codigo: string };
         Returns: UUID;
+      };
+      // RPC de 0031_partido_compartido.sql — única función del esquema con
+      // grant a `anon`; ver esa migración para el detalle de qué expone.
+      obtener_partido_compartido: {
+        Args: { p_token: string };
+        Returns: unknown;
       };
     };
     Enums: Record<string, never>;

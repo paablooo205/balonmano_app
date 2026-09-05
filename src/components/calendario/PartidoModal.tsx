@@ -172,6 +172,7 @@ export function PartidoModal({
       problemas_detectados: jugado ? problemasDetectados || null : null,
       acciones_siguiente_semana: jugado ? accionesSiguienteSemana || null : null,
       notas_adicionales: jugado ? notas || null : null,
+      token_publico: partido?.token_publico ?? null,
       created_at: partido?.created_at ?? ahora,
       updated_at: ahora,
     };
