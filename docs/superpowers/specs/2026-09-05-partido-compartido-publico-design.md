@@ -39,11 +39,13 @@ público lo expondría sin que el entrenador lo decidiera).
 mismo estilo que `crear_equipo` (`0014_crear_equipo.sql`) y
 `private.equipo_del_entrenador` (`0008`/`0010`/`0011`): identidad resuelta
 dentro de la función, `set search_path = public`, `revoke all ... from
-public, authenticated` seguido de un `grant execute` — con una diferencia
-deliberada respecto a todo el resto del proyecto: **el `grant` es a
-`anon`, no a `authenticated`**. Es la única función de todo el esquema con
-acceso `anon`; se documenta como excepción explícita en el propio SQL de
-la migración.
+public` seguido de un `grant execute` — con una diferencia
+deliberada respecto a todo el resto del proyecto: **el `grant` incluye a
+`anon`** (además de `authenticated`, para que el propio entrenador pueda
+abrir/probar su enlace en el mismo navegador con sesión iniciada, sin
+necesidad de cerrarla). Es la única función de todo el esquema con acceso
+`anon`; se documenta como excepción explícita en el propio SQL de la
+migración.
 
 **Cero políticas RLS nuevas para `anon`** en `partidos`, `eventos`,
 `jugadores` o `asistencia`. Esto es la decisión central de seguridad: una
@@ -136,8 +138,13 @@ $$;
 
 -- Única función de todo el esquema con acceso `anon` — decisión
 -- deliberada de esta feature, ver spec 2026-09-05-partido-compartido-publico.
-revoke all on function obtener_partido_compartido(uuid) from public, authenticated;
-grant execute on function obtener_partido_compartido(uuid) to anon;
+-- El propio entrenador (autenticado) también debe poder abrir/probar su
+-- propio link compartido en el mismo navegador con sesión iniciada, así
+-- que el grant cubre ambos roles no-owner: anon (visitante sin cuenta) y
+-- authenticated (el entrenador probando el link, o cualquier otro
+-- entrenador del club). Ningún otro rol tiene permiso.
+revoke all on function obtener_partido_compartido(uuid) from public;
+grant execute on function obtener_partido_compartido(uuid) to anon, authenticated;
 ```
 
 **Generar y revocar el token no necesitan función nueva.** El entrenador
