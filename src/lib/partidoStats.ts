@@ -263,15 +263,17 @@ export function segundosActuales(c: CronometroPartido | undefined): number {
   return c.segundosAcumulados + Math.max(0, transcurrido);
 }
 
-/** Segundos de partido "para mostrar" (1ª parte tal cual, 2ª parte con el offset de los 30' de la primera). */
-export function segundosPartido(c: CronometroPartido | undefined): number {
+/** Segundos de partido "para mostrar" (1ª parte tal cual, 2ª parte con el
+ * offset de la duración de la primera — configurable por partido, 30' por
+ * convenio si no se indica). */
+export function segundosPartido(c: CronometroPartido | undefined, duracionParteMin = 30): number {
   if (!c) return 0;
-  return (c.parte - 1) * 1800 + segundosActuales(c);
+  return (c.parte - 1) * duracionParteMin * 60 + segundosActuales(c);
 }
 
-export function minutoActual(c: CronometroPartido | undefined): number | null {
+export function minutoActual(c: CronometroPartido | undefined, duracionParteMin = 30): number | null {
   if (!c || (c.segundosAcumulados === 0 && !c.corriendo && c.parte === 1)) return null;
-  return Math.floor(segundosPartido(c) / 60) + 1;
+  return Math.floor(segundosPartido(c, duracionParteMin) / 60) + 1;
 }
 
 export function formatoReloj(segundos: number): string {

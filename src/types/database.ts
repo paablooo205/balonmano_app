@@ -245,6 +245,7 @@ export type PartidosRow = {
   hora: string | null;
   casa_fuera: "casa" | "fuera" | null;
   competicion: string | null;
+  duracion_parte_min: number;
   resultado: string | null;
   sistema_propio: string | null;
   sistema_rival: string | null;

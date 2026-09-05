@@ -33,6 +33,7 @@ import {
   perdidas,
   requiereZona,
   robos,
+  segundosActuales,
   segundosPartido,
   type BotonTiro,
 } from "@/lib/partidoStats";
@@ -101,6 +102,7 @@ export function ContadoresEnVivo({
   const [origenSel, setOrigenSel] = useState<OrigenLanzamiento | null>(null);
   const cronometro = partido.estadisticas.cronometro;
   const eventosJsonb = partido.estadisticas.eventos ?? [];
+  const duracionParteMin = partido.duracion_parte_min;
 
   const jugadorActual = jugadores.find((j) => j.id === jugadorSel) ?? null;
   const esJugadorActualPortero = jugadorActual ? esPortero(jugadorActual.puesto) : false;
@@ -200,6 +202,18 @@ export function ContadoresEnVivo({
     return () => clearInterval(id);
   }, [cronometro?.corriendo]);
   void tick;
+
+  // Al llegar a la duración configurada de la parte: para el cronómetro
+  // automáticamente y, si era la 1ª parte, la deja lista (en pausa, a 0:00)
+  // para la 2ª — el entrenador sigue teniendo que darle a "reanudar" a mano.
+  // Si era la 2ª parte, solo para (fin de partido, sin parte 3).
+  useEffect(() => {
+    if (!cronometro?.corriendo) return;
+    if (segundosActuales(cronometro) < duracionParteMin * 60) return;
+    const nuevo = cronometro.parte === 1 ? cambiarParte(cronometro) : pausar(cronometro);
+    void persistirEstadisticas({ ...partido.estadisticas, cronometro: nuevo });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tick, cronometro?.corriendo]);
 
   async function persistirEstadisticas(estadisticas: PartidosRow["estadisticas"]) {
     const actualizado: PartidosRow = { ...partido, estadisticas, updated_at: new Date().toISOString() };
@@ -356,7 +370,7 @@ export function ContadoresEnVivo({
 
   function registrarJsonb(tipo: TipoEventoPartido) {
     if (!jugadorSel) return;
-    const evento = crearEventoJsonb(tipo, jugadorSel, minutoActual(cronometro));
+    const evento = crearEventoJsonb(tipo, jugadorSel, minutoActual(cronometro, duracionParteMin));
     void persistirEstadisticas({ ...partido.estadisticas, eventos: [...eventosJsonb, evento] });
     anular();
   }
@@ -366,7 +380,7 @@ export function ContadoresEnVivo({
       alert("Selecciona primero un jugador/a en la fila de arriba.");
       return;
     }
-    const evento = crearEventoJsonb(tipo, jugadorSel, minutoActual(cronometro));
+    const evento = crearEventoJsonb(tipo, jugadorSel, minutoActual(cronometro, duracionParteMin));
     void persistirEstadisticas({ ...partido.estadisticas, eventos: [...eventosJsonb, evento] });
   }
 
@@ -582,7 +596,7 @@ export function ContadoresEnVivo({
               style={{ borderLeft: `3px solid ${t.color}` }}
             >
               <span className="stat-number w-8 shrink-0 text-[15px] text-white">
-                {t.minuto ?? minutoActual(cronometro) ?? "—"}&apos;
+                {t.minuto ?? minutoActual(cronometro, duracionParteMin) ?? "—"}&apos;
               </span>
               <div className="min-w-0 flex-1">
                 <div className="text-[13px] font-medium text-white">{t.label}</div>
@@ -634,7 +648,7 @@ export function ContadoresEnVivo({
               <div className="stat-number text-2xl leading-none text-white">{golesFavor(eventos)}</div>
             </div>
             <div className="text-center">
-              <div className="stat-number text-lg leading-none text-white">{formatoReloj(segundosPartido(cronometro))}</div>
+              <div className="stat-number text-lg leading-none text-white">{formatoReloj(segundosPartido(cronometro, duracionParteMin))}</div>
               <div className="mt-0.5 text-[7px] font-semibold uppercase tracking-[0.1em] text-white/45">
                 {cronometro?.parte === 2 ? "2ª parte" : "1ª parte"}
               </div>
@@ -708,7 +722,7 @@ export function ContadoresEnVivo({
           </div>
           <div className="shrink-0 px-1 text-center">
             <div className="stat-number text-3xl tracking-[0.04em] text-white">
-              {formatoReloj(segundosPartido(cronometro))}
+              {formatoReloj(segundosPartido(cronometro, duracionParteMin))}
             </div>
             <div className="mt-1.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-white/45">
               {cronometro?.parte === 2 ? "2ª parte" : "1ª parte"}

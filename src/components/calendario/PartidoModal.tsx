@@ -16,6 +16,7 @@ function estadoInicial(partido: PartidosRow | null, fechaPorDefecto: string) {
     rivalId: partido?.rival_id ?? null,
     casaFuera: (partido?.casa_fuera ?? "") as "casa" | "fuera" | "",
     competicion: partido?.competicion ?? "",
+    duracionParteMin: partido?.duracion_parte_min ?? 30,
     resultado: partido?.resultado ?? "",
     sistemaPropio: partido?.sistema_propio ?? "",
     sistemaRival: partido?.sistema_rival ?? "",
@@ -68,6 +69,7 @@ export function PartidoModal({
     rivalId,
     casaFuera,
     competicion,
+    duracionParteMin,
     resultado,
     sistemaPropio,
     sistemaRival,
@@ -162,6 +164,7 @@ export function PartidoModal({
       hora: hora || null,
       casa_fuera: casaFuera || null,
       competicion: competicion || null,
+      duracion_parte_min: duracionParteMin,
       resultado: jugado ? resultado || null : null,
       sistema_propio: jugado ? sistemaPropio || null : null,
       sistema_rival: jugado ? sistemaRival || null : null,
@@ -286,6 +289,16 @@ export function PartidoModal({
             </Select>
           </Field>
         </div>
+
+        <Field label="Duración de cada parte">
+          <Select
+            value={duracionParteMin}
+            onChange={(e) => set("duracionParteMin", Number(e.target.value))}
+          >
+            <option value={25}>25 minutos (infantil)</option>
+            <option value={30}>30 minutos</option>
+          </Select>
+        </Field>
 
         <label className="flex items-center gap-2 text-sm">
           <input
