@@ -171,7 +171,13 @@ export function PartidoDetailPage() {
           onBack={() => setVista("info")}
           backLabel="Partido"
         />
-        <FichaTecnica partido={partido} jugadores={jugadores} eventos={eventos} />
+        <FichaTecnica
+          partido={partido}
+          jugadores={jugadores}
+          eventos={eventos}
+          nombreEquipo={equipo?.nombre ?? "Equipo"}
+          onActualizado={setPartido}
+        />
       </div>
     );
   }

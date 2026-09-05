@@ -23,7 +23,7 @@ import { agruparPorPartido, cargarEventosEquipo } from "@/lib/eventos";
 import type { EventosRow, JugadoresRow, PartidosRow, RivalesRow } from "@/types/database";
 
 export function RivalDetailPage() {
-  const { equipoId } = useEquipo();
+  const { equipo, equipoId } = useEquipo();
   const { rivalId } = useParams<{ rivalId: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -359,7 +359,15 @@ export function RivalDetailPage() {
         </div>
       ) : (
         partidoSeleccionado && (
-          <FichaTecnica partido={partidoSeleccionado} jugadores={jugadores} eventos={eventosPartidoSeleccionado} />
+          <FichaTecnica
+            partido={partidoSeleccionado}
+            jugadores={jugadores}
+            eventos={eventosPartidoSeleccionado}
+            nombreEquipo={equipo?.nombre ?? "Equipo"}
+            onActualizado={(actualizado) =>
+              setPartidos((prev) => prev.map((p) => (p.id === actualizado.id ? actualizado : p)))
+            }
+          />
         )
       )}
     </div>

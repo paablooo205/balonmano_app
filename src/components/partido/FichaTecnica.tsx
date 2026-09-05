@@ -8,7 +8,7 @@ import { MarcadorExclusiones } from "@/components/partido/MarcadorExclusiones";
 import { PanelJugadorPartido } from "@/components/partido/PanelJugadorPartido";
 import { InsightsCard } from "@/components/dashboard/InsightsCard";
 import { Button } from "@/components/ui/button";
-import { useEquipo } from "@/hooks/useEquipo";
+import { supabase } from "@/lib/supabaseClient";
 import { descargarPdf } from "@/lib/pdf/descargarPdf";
 import { FichaPartidoPdf } from "@/lib/pdf/FichaPartidoPdf";
 import { cargarEscudoPdf } from "@/lib/pdf/escudoPdf";
@@ -27,15 +27,21 @@ export function FichaTecnica({
   partido,
   jugadores,
   eventos,
+  nombreEquipo,
+  onActualizado,
+  soloLectura = false,
 }: {
   partido: PartidosRow;
   jugadores: JugadoresRow[];
   eventos: EventosRow[];
+  nombreEquipo: string;
+  onActualizado?: (partido: PartidosRow) => void;
+  soloLectura?: boolean;
 }) {
   const [jugadorPanel, setJugadorPanel] = useState<JugadoresRow | null>(null);
   const [descargandoPdf, setDescargandoPdf] = useState(false);
-
-  const { equipo } = useEquipo();
+  const [compartiendo, setCompartiendo] = useState(false);
+  const [copiado, setCopiado] = useState(false);
 
   async function descargarFichaPdf() {
     setDescargandoPdf(true);
@@ -43,12 +49,51 @@ export function FichaTecnica({
       const escudo = await cargarEscudoPdf().catch(() => null);
       await descargarPdf(
         `ficha-partido-vs-${partido.rival}-${partido.fecha}`,
-        <FichaPartidoPdf partido={partido} eventos={eventos} nombreEquipo={equipo?.nombre ?? "Equipo"} escudo={escudo} />,
+        <FichaPartidoPdf partido={partido} eventos={eventos} nombreEquipo={nombreEquipo} escudo={escudo} />,
       );
     } catch (err) {
       alert("No se pudo generar el PDF: " + (err as Error).message);
     } finally {
       setDescargandoPdf(false);
+    }
+  }
+
+  function urlCompartida(token: string): string {
+    return `${window.location.origin}/compartido/${token}`;
+  }
+
+  async function copiarLink(token: string) {
+    await navigator.clipboard.writeText(urlCompartida(token));
+    setCopiado(true);
+    setTimeout(() => setCopiado(false), 2000);
+  }
+
+  async function compartir() {
+    setCompartiendo(true);
+    try {
+      const token = crypto.randomUUID();
+      const { error } = await supabase.from("partidos").update({ token_publico: token }).eq("id", partido.id);
+      if (error) throw error;
+      onActualizado?.({ ...partido, token_publico: token });
+      await copiarLink(token);
+    } catch (err) {
+      alert("No se pudo compartir: " + (err as Error).message);
+    } finally {
+      setCompartiendo(false);
+    }
+  }
+
+  async function dejarDeCompartir() {
+    if (!confirm("¿Dejar de compartir esta ficha? El enlace actual dejará de funcionar.")) return;
+    setCompartiendo(true);
+    try {
+      const { error } = await supabase.from("partidos").update({ token_publico: null }).eq("id", partido.id);
+      if (error) throw error;
+      onActualizado?.({ ...partido, token_publico: null });
+    } catch (err) {
+      alert("No se pudo dejar de compartir: " + (err as Error).message);
+    } finally {
+      setCompartiendo(false);
     }
   }
 
@@ -90,9 +135,26 @@ export function FichaTecnica({
 
   return (
     <div className="flex flex-col gap-4">
-      <Button variant="secondary" size="sm" className="self-end" onClick={descargarFichaPdf} disabled={descargandoPdf}>
-        <Download size={16} /> {descargandoPdf ? "Generando..." : "Descargar PDF"}
-      </Button>
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {!soloLectura &&
+          (partido.token_publico ? (
+            <>
+              <Button variant="secondary" size="sm" onClick={() => copiarLink(partido.token_publico!)}>
+                {copiado ? "Copiado" : "Copiar link"}
+              </Button>
+              <Button variant="secondary" size="sm" onClick={dejarDeCompartir} disabled={compartiendo}>
+                Dejar de compartir
+              </Button>
+            </>
+          ) : (
+            <Button variant="secondary" size="sm" onClick={compartir} disabled={compartiendo}>
+              {compartiendo ? "Compartiendo..." : "Compartir ficha"}
+            </Button>
+          ))}
+        <Button variant="secondary" size="sm" onClick={descargarFichaPdf} disabled={descargandoPdf}>
+          <Download size={16} /> {descargandoPdf ? "Generando..." : "Descargar PDF"}
+        </Button>
+      </div>
       <InsightsCard insights={insights} />
       <LineaMarcador eventos={eventos} />
 
