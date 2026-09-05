@@ -9,11 +9,12 @@ type Categoria = { key: string; label: string; color: string; coincide: (e: Even
 
 // Mismos hex que BOTONES_TARJETA (partidoStats.ts) para las tarjetas —
 // "2 min" no es una tarjeta, usa el ámbar ya establecido para exclusiones.
+// Orden de menor a mayor gravedad: 2' < amarilla < roja < azul.
 const CATEGORIAS: Categoria[] = [
-  { key: "amarilla", label: "Amarilla", color: "#f0c419", coincide: (e) => e.tipo === "tarjeta" && e.color_tarjeta === "amarilla" },
-  { key: "azul", label: "Azul", color: "#3d8ad6", coincide: (e) => e.tipo === "tarjeta" && e.color_tarjeta === "azul" },
-  { key: "roja", label: "Roja", color: "var(--color-accent)", coincide: (e) => e.tipo === "tarjeta" && e.color_tarjeta === "roja" },
   { key: "dosmin", label: "2 min", color: "var(--color-warning)", coincide: (e) => e.tipo === "exclusion" },
+  { key: "amarilla", label: "Amarilla", color: "#f0c419", coincide: (e) => e.tipo === "tarjeta" && e.color_tarjeta === "amarilla" },
+  { key: "roja", label: "Roja", color: "var(--color-accent)", coincide: (e) => e.tipo === "tarjeta" && e.color_tarjeta === "roja" },
+  { key: "azul", label: "Azul", color: "#3d8ad6", coincide: (e) => e.tipo === "tarjeta" && e.color_tarjeta === "azul" },
 ];
 
 /**
