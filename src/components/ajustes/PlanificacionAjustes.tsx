@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { ChevronDown } from "lucide-react";
+import { Link } from "react-router-dom";
 import { supabase } from "@/lib/supabaseClient";
 import { useEquipo } from "@/hooks/useEquipo";
 import { Field, Textarea } from "@/components/ui/field";
-import { AsistenteConfiguracionTemporada } from "@/components/ajustes/AsistenteConfiguracionTemporada";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { MesociclosRow, MicrociclosRow, PeriodosRow } from "@/types/database";
 
@@ -74,7 +75,20 @@ export function PlanificacionAjustes() {
   if (cargando) return null;
 
   if (periodos.length === 0) {
-    return <AsistenteConfiguracionTemporada equipoId={equipoId} onCompletado={cargar} />;
+    return (
+      <div className="card-surface flex flex-col gap-3 p-4">
+        <h2 className="text-sm font-semibold text-[var(--color-text-muted)]">Planificación de temporada</h2>
+        <p className="text-sm text-[var(--color-text-muted)]">
+          Este equipo todavía no tiene fases configuradas desde Excel. Para dar de alta y editar bloques y semanas
+          directamente desde la app, usa la sección "Planifica la temporada" en el menú "Más".
+        </p>
+        <Link to={`/equipos/${equipoId}/planificacion`}>
+          <Button variant="secondary" size="sm">
+            Ir a Planifica la temporada
+          </Button>
+        </Link>
+      </div>
+    );
   }
 
   return (
