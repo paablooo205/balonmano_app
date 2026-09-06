@@ -3,7 +3,8 @@ import { Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { Field, Input, Textarea } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
-import { addDays, startOfWeek, toISODate } from "@/lib/calendar";
+import { semanasDeRango } from "@/lib/microciclos";
+import { addDays, toISODate } from "@/lib/calendar";
 import type { EquiposRow, MesociclosRow, MicrociclosRow } from "@/types/database";
 
 type FaseForm = {
@@ -27,18 +28,6 @@ function nuevaClave(): string {
 
 function faseVacia(): FaseForm {
   return { key: nuevaClave(), nombre: "", fecha_inicio: "", fecha_fin: "", objetivo_general: "", numMesociclos: 1 };
-}
-
-/** Semanas lunes-domingo que cubren [fechaInicio, fechaFin], alineadas con el resto del calendario. */
-function semanasDeRango(fechaInicio: string, fechaFin: string): { fecha_inicio: string; fecha_fin: string }[] {
-  const fin = new Date(fechaFin);
-  const semanas: { fecha_inicio: string; fecha_fin: string }[] = [];
-  let cursor = startOfWeek(new Date(fechaInicio));
-  while (cursor <= fin) {
-    semanas.push({ fecha_inicio: toISODate(cursor), fecha_fin: toISODate(addDays(cursor, 6)) });
-    cursor = addDays(cursor, 7);
-  }
-  return semanas;
 }
 
 /**
