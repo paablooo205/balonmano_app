@@ -61,7 +61,9 @@ function semanaTieneContenido(m: MicrociclosRow): boolean {
   const contenidosRellenos = Object.values(contenidos ?? {}).some((v) =>
     Array.isArray(v) ? v.length > 0 : Boolean(v),
   );
-  return Boolean(m.objetivo?.trim() || m.rival?.trim() || m.competicion?.trim() || contenidosRellenos);
+  return Boolean(
+    m.objetivo?.trim() || m.rival?.trim() || m.competicion?.trim() || m.notas_adicionales?.trim() || contenidosRellenos,
+  );
 }
 
 export type PlanConciliacion = {

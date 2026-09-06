@@ -24,10 +24,16 @@ export function PlanificacionPage() {
 
   async function cargar() {
     setCargando(true);
-    const [{ data: meso }, { data: micro }] = await Promise.all([
+    const [
+      { data: meso, error: errorMeso },
+      { data: micro, error: errorMicro },
+    ] = await Promise.all([
       supabase.from("mesociclos").select("*").eq("equipo_id", equipoId).is("periodo_id", null).order("orden"),
       supabase.from("microciclos").select("*").eq("equipo_id", equipoId).order("fecha_inicio"),
     ]);
+    if (errorMeso || errorMicro) {
+      alert("No se pudo cargar la planificación: " + (errorMeso?.message ?? errorMicro?.message));
+    }
     setBloques(meso ?? []);
     setMicrociclos(micro ?? []);
     setCargando(false);
@@ -70,6 +76,10 @@ export function PlanificacionPage() {
       alert("La fecha de inicio no puede ser posterior a la de fin.");
       return;
     }
+    if ((new Date(nuevaFin).getTime() - new Date(nuevaInicio).getTime()) / 86400000 > 730) {
+      alert("El bloque no puede durar más de 2 años. Revisa las fechas.");
+      return;
+    }
     const actuales = microciclos.filter((m) => m.mesociclo_id === bloque.id);
     const plan = conciliarSemanas(actuales, nuevaInicio, nuevaFin);
 
@@ -91,6 +101,7 @@ export function PlanificacionPage() {
       const { error } = await supabase.from("microciclos").delete().in("id", idsABorrar);
       if (error) {
         alert("No se pudo guardar: " + error.message);
+        await cargar();
         return;
       }
     }
@@ -107,6 +118,7 @@ export function PlanificacionPage() {
       );
       if (error) {
         alert("No se pudo guardar: " + error.message);
+        await cargar();
         return;
       }
     }
@@ -129,6 +141,7 @@ export function PlanificacionPage() {
       .eq("id", bloque.id);
     if (errorFechas) {
       alert("No se pudo guardar: " + errorFechas.message);
+      await cargar();
       return;
     }
     await cargar();
@@ -178,6 +191,10 @@ export function PlanificacionPage() {
       alert("La fecha de inicio no puede ser posterior a la de fin.");
       return;
     }
+    if ((new Date(nuevoFin).getTime() - new Date(nuevoInicio).getTime()) / 86400000 > 730) {
+      alert("El bloque no puede durar más de 2 años. Revisa las fechas.");
+      return;
+    }
     setGuardandoNuevo(true);
     const ordenMax = Math.max(0, ...bloques.map((b) => b.orden ?? 0));
     const { data: nuevo, error } = await supabase
@@ -199,7 +216,7 @@ export function PlanificacionPage() {
     }
     const semanas = numerarSemanas(semanasDeRango(nuevoInicio, nuevoFin));
     if (semanas.length > 0) {
-      await supabase.from("microciclos").insert(
+      const { error: errorSemanas } = await supabase.from("microciclos").insert(
         semanas.map((s) => ({
           equipo_id: equipoId,
           mesociclo_id: nuevo.id,
@@ -210,6 +227,9 @@ export function PlanificacionPage() {
           objetivo: null,
         })),
       );
+      if (errorSemanas) {
+        alert("El bloque se creó pero no se pudieron crear sus semanas: " + errorSemanas.message);
+      }
     }
     setNuevoNombre("");
     setNuevoInicio("");
