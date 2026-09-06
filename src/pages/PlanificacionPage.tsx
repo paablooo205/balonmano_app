@@ -88,10 +88,14 @@ export function PlanificacionPage() {
 
     const idsABorrar = [...plan.borrarSinAviso, ...plan.borrarConAviso].map((m) => m.id);
     if (idsABorrar.length > 0) {
-      await supabase.from("microciclos").delete().in("id", idsABorrar);
+      const { error } = await supabase.from("microciclos").delete().in("id", idsABorrar);
+      if (error) {
+        alert("No se pudo guardar: " + error.message);
+        return;
+      }
     }
     if (plan.crear.length > 0) {
-      await supabase.from("microciclos").insert(
+      const { error } = await supabase.from("microciclos").insert(
         plan.crear.map((s) => ({
           equipo_id: bloque.equipo_id,
           mesociclo_id: bloque.id,
@@ -101,6 +105,10 @@ export function PlanificacionPage() {
           objetivo: null,
         })),
       );
+      if (error) {
+        alert("No se pudo guardar: " + error.message);
+        return;
+      }
     }
 
     const { data: supervivientes } = await supabase
@@ -108,11 +116,21 @@ export function PlanificacionPage() {
       .select("*")
       .eq("mesociclo_id", bloque.id)
       .order("fecha_inicio");
-    await Promise.all(
+    const resultadosRenumeracion = await Promise.all(
       numerarSemanas(supervivientes ?? []).map((m) => supabase.from("microciclos").update({ semana: m.semana }).eq("id", m.id)),
     );
+    if (resultadosRenumeracion.some((r) => r.error)) {
+      alert("Las semanas se guardaron pero puede que su numeración haya quedado incompleta. Recarga para comprobarlo.");
+    }
 
-    await supabase.from("mesociclos").update({ fecha_inicio: nuevaInicio, fecha_fin: nuevaFin }).eq("id", bloque.id);
+    const { error: errorFechas } = await supabase
+      .from("mesociclos")
+      .update({ fecha_inicio: nuevaInicio, fecha_fin: nuevaFin })
+      .eq("id", bloque.id);
+    if (errorFechas) {
+      alert("No se pudo guardar: " + errorFechas.message);
+      return;
+    }
     await cargar();
   }
 
@@ -139,10 +157,15 @@ export function PlanificacionPage() {
     const b = ordenados[j];
     const ordenA = a.orden ?? i;
     const ordenB = b.orden ?? j;
-    await Promise.all([
+    const resultados = await Promise.all([
       supabase.from("mesociclos").update({ orden: ordenB }).eq("id", a.id),
       supabase.from("mesociclos").update({ orden: ordenA }).eq("id", b.id),
     ]);
+    const error = resultados.find((r) => r.error)?.error;
+    if (error) {
+      alert("No se pudo guardar: " + error.message);
+      return;
+    }
     setBloques((bs) => bs.map((x) => (x.id === a.id ? { ...x, orden: ordenB } : x.id === b.id ? { ...x, orden: ordenA } : x)));
   }
 
