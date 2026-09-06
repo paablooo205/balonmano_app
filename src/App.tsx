@@ -12,6 +12,7 @@ import { SesionDetailPage } from "@/pages/SesionDetailPage";
 import { EjerciciosPage } from "@/pages/EjerciciosPage";
 import { EjercicioDetailPage } from "@/pages/EjercicioDetailPage";
 import { ModeloJuegoPage } from "@/pages/ModeloJuegoPage";
+import { PlanificacionPage } from "@/pages/PlanificacionPage";
 import { EquipoPage } from "@/pages/EquipoPage";
 import { JugadorDetailPage } from "@/pages/JugadorDetailPage";
 import { PartidoPage } from "@/pages/PartidoPage";
@@ -43,6 +44,7 @@ function AppAutenticada() {
         <Route path="rivales" element={<RivalesPage />} />
         <Route path="rivales/:rivalId" element={<RivalDetailPage />} />
         <Route path="modelo-juego" element={<ModeloJuegoPage />} />
+        <Route path="planificacion" element={<PlanificacionPage />} />
         <Route path="ejercicios" element={<EjerciciosPage />} />
         <Route path="ejercicios/:ejercicioId" element={<EjercicioDetailPage />} />
         <Route path="progreso" element={<ProgresoPage />} />

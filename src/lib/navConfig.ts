@@ -1,6 +1,7 @@
 import {
   Home,
   CalendarDays,
+  CalendarRange,
   Users,
   Trophy,
   BrainCircuit,
@@ -27,6 +28,7 @@ export const NAV_ITEMS: NavItem[] = [
   { key: "partido", label: "Partido", path: "partido", icon: Trophy, enBarraInferior: true },
   { key: "rivales", label: "Rivales", path: "rivales", icon: Shield, enBarraInferior: false },
   { key: "modelo-juego", label: "Modelo de juego", path: "modelo-juego", icon: BrainCircuit, enBarraInferior: false },
+  { key: "planificacion", label: "Planifica la temporada", path: "planificacion", icon: CalendarRange, enBarraInferior: false },
   { key: "ejercicios", label: "Ejercicios", path: "ejercicios", icon: Dumbbell, enBarraInferior: false },
   { key: "progreso", label: "Progreso de temporada", path: "progreso", icon: LineChart, enBarraInferior: false },
   { key: "ajustes", label: "Ajustes", path: "ajustes", icon: Settings, enBarraInferior: false },
