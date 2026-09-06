@@ -77,6 +77,14 @@ export type MesociclosRow = {
   periodo_id: UUID | null;
   nombre: string;
   objetivo: string | null;
+  /** Rango propio de un "bloque" de Planifica la Temporada. En null para
+   * los mesociclos del flujo antiguo (con periodo_id), que toman sus
+   * fechas de `periodos` en su lugar. */
+  fecha_inicio: string | null;
+  fecha_fin: string | null;
+  /** Orden de presentación en Planifica la Temporada. En null para
+   * mesociclos del flujo antiguo, que no se reordenan ahí. */
+  orden: number | null;
   notas_adicionales: string | null;
   created_at: string;
   updated_at: string;
@@ -369,7 +377,15 @@ export type Database = {
       >;
       mesociclos: TableDef<
         MesociclosRow,
-        "id" | "periodo_id" | "objetivo" | "notas_adicionales" | "created_at" | "updated_at"
+        | "id"
+        | "periodo_id"
+        | "objetivo"
+        | "fecha_inicio"
+        | "fecha_fin"
+        | "orden"
+        | "notas_adicionales"
+        | "created_at"
+        | "updated_at"
       >;
       microciclos: TableDef<
         MicrociclosRow,
