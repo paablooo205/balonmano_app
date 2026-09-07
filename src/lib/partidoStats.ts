@@ -412,6 +412,63 @@ export function desgloseResultados(eventos: EventosRow[]): { gol: number; parado
   return conteo;
 }
 
+/** Código de 2 letras del puesto para tablas compactas (ficha técnica en
+ * PDF). Mismo criterio laxo que `origenPorPuesto`/`esPortero`: sin match
+ * reconocido, devuelve "—" en vez de bloquear o inventar. */
+export function abreviaturaPuesto(puesto: string | null): string {
+  if (!puesto) return "—";
+  const p = puesto.toLowerCase();
+  if (p.includes("portero")) return "PO";
+  if (p.includes("pivote")) return "PI";
+  if (p.includes("extremo") && p.includes("izquierd")) return "EI";
+  if (p.includes("extremo") && p.includes("derech")) return "ED";
+  if (p.includes("lateral") && p.includes("izquierd")) return "LI";
+  if (p.includes("lateral") && p.includes("derech")) return "LD";
+  if (p.includes("central")) return "CE";
+  return "—";
+}
+
+/** Eficacia de tiro propio acotada a un subconjunto de orígenes de
+ * lanzamiento (p.ej. zona de 6 metros: extremos + pivote; lanzamiento
+ * exterior: laterales + central + 9m) — mismo contrato que
+ * `eficaciaConDetalle` (`null` sin intentos). Los tiros sin `origen`
+ * registrado (histórico, o el entrenador no lo marcó) no cuentan en ningún
+ * grupo — no se reparten a ciegas entre categorías. */
+export function eficaciaPorOrigenes(eventos: EventosRow[], origenes: OrigenLanzamiento[]): EficaciaDetalle {
+  const propios = eventos.filter(
+    (e) => e.tipo === "tiro" && e.equipo_origen === "propio" && e.origen !== null && origenes.includes(e.origen),
+  );
+  const aciertos = propios.filter((e) => e.resultado === "gol").length;
+  const intentos = propios.length;
+  return intentos > 0 ? { pct: Math.round((aciertos / intentos) * 100), aciertos, intentos } : null;
+}
+
+export type TramoParcial = { rango: string; propio: number; rival: number };
+
+/** Goles marcados por cada equipo en tramos de 5 minutos, a lo largo de todo
+ * el partido (número de tramos según `duracionParteMin` — 30' por parte da
+ * 12 tramos de 5', igual que si se juegan partes de 25'). Tiros sin `minuto`
+ * registrado (histórico, anterior a esa columna) no se pueden situar en
+ * ningún tramo y se excluyen del gráfico — no se les asigna un tramo al
+ * azar. */
+export function parcialesPorTramos(eventos: EventosRow[], duracionParteMin = 30): TramoParcial[] {
+  const totalMin = duracionParteMin * 2;
+  const numTramos = Math.ceil(totalMin / 5);
+  const tramos: TramoParcial[] = Array.from({ length: numTramos }, (_, i) => ({
+    rango: `${i * 5}-${Math.min((i + 1) * 5, totalMin)}`,
+    propio: 0,
+    rival: 0,
+  }));
+  for (const e of eventos) {
+    if (e.tipo !== "tiro" || e.resultado !== "gol" || e.minuto === null) continue;
+    const indice = Math.min(Math.floor((e.minuto - 1) / 5), numTramos - 1);
+    if (indice < 0) continue;
+    if (e.equipo_origen === "propio") tramos[indice].propio++;
+    else tramos[indice].rival++;
+  }
+  return tramos;
+}
+
 /** Marcador acumulado en cada gol, en orden cronológico — base de la línea
  * de marcador. Sin goles, lista vacía (el llamante decide qué hacer con
  * menos de 2 puntos, igual que `TendenciaEficacia`). */

@@ -49,7 +49,7 @@ export function FichaTecnica({
       const escudo = await cargarEscudoPdf().catch(() => null);
       await descargarPdf(
         `ficha-partido-vs-${partido.rival}-${partido.fecha}`,
-        <FichaPartidoPdf partido={partido} eventos={eventos} nombreEquipo={nombreEquipo} escudo={escudo} />,
+        <FichaPartidoPdf partido={partido} eventos={eventos} jugadores={jugadores} nombreEquipo={nombreEquipo} escudo={escudo} />,
       );
     } catch (err) {
       alert("No se pudo generar el PDF: " + (err as Error).message);
