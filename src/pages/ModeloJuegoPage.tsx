@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { Link } from "react-router-dom";
+import { ChevronDown, Pencil } from "lucide-react";
 import { useEquipo } from "@/hooks/useEquipo";
 import {
   useCalendarData,
@@ -196,6 +197,17 @@ export function ModeloJuegoPage() {
 
               {abierto && (
                 <div className="px-[17px] pb-[18px]">
+                  {mesociclo.periodo_id === null && (
+                    <Link
+                      to={`/equipos/${equipoId}/planificacion`}
+                      className={cn(
+                        "mb-3 inline-flex items-center gap-1.5 text-xs font-medium",
+                        oscuro ? "text-white/70 hover:text-white" : "text-[var(--color-text-muted)] hover:text-[var(--color-accent)]",
+                      )}
+                    >
+                      <Pencil size={13} /> Editar en Planifica la temporada
+                    </Link>
+                  )}
                   {mesociclo.objetivo && (
                     <div>
                       <div
@@ -292,8 +304,11 @@ export function ModeloJuegoPage() {
         })}
 
         {mesociclosConRango.length === 0 && (
-          <div className="card-surface p-6 text-center text-sm text-[var(--color-text-muted)]">
-            Este equipo todavía no tiene una temporada configurada — hazlo desde Ajustes.
+          <div className="card-surface flex flex-col items-center gap-3 p-6 text-center text-sm text-[var(--color-text-muted)]">
+            <p>Este equipo todavía no tiene una temporada configurada.</p>
+            <Link to={`/equipos/${equipoId}/planificacion`} className="font-medium text-[var(--color-accent)] hover:underline">
+              Ir a Planifica la temporada
+            </Link>
           </div>
         )}
       </div>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Plus } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { BrainCircuit, Plus } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useEquipo } from "@/hooks/useEquipo";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -11,6 +12,7 @@ import type { MesociclosRow, MicrociclosRow } from "@/types/database";
 
 export function PlanificacionPage() {
   const { equipoId } = useEquipo();
+  const navigate = useNavigate();
   const [bloques, setBloques] = useState<MesociclosRow[]>([]);
   const [microciclos, setMicrociclos] = useState<MicrociclosRow[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -247,7 +249,14 @@ export function PlanificacionPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <PageHeader title="Planifica la temporada" />
+      <PageHeader
+        title="Planifica la temporada"
+        action={
+          <Button size="sm" variant="secondary" onClick={() => navigate(`/equipos/${equipoId}/modelo-juego`)}>
+            <BrainCircuit size={16} /> Ver progreso
+          </Button>
+        }
+      />
 
       {ordenados.length === 0 && !creando && (
         <div className="card-surface p-4 text-sm text-[var(--color-text-muted)]">
