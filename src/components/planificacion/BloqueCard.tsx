@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowDown, ArrowUp, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 import { Field, Input, Textarea } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import type { MesociclosRow, MicrociclosRow } from "@/types/database";
@@ -9,31 +9,31 @@ import type { MesociclosRow, MicrociclosRow } from "@/types/database";
  * editables, objetivo del bloque, y la lista de sus semanas (microciclos)
  * también editables. Toda la persistencia vive en el padre (PlanificacionPage)
  * — este componente solo renderiza y dispara callbacks.
+ *
+ * `bloque.periodo_id` no nulo significa que este mesociclo viene del Excel
+ * (una fase de `periodos`) — se muestra una etiqueta informativa, pero la
+ * edición es idéntica a la de un bloque nuevo: tras rellenar sus fechas una
+ * vez (migración 0033), queda totalmente independiente de su periodo de
+ * origen, decisión explícita del usuario.
  */
 export function BloqueCard({
   bloque,
   semanas,
   abierto,
-  esPrimero,
-  esUltimo,
   onToggle,
   onGuardarCampo,
   onGuardarFechas,
   onGuardarSemana,
   onBorrar,
-  onMover,
 }: {
   bloque: MesociclosRow;
   semanas: MicrociclosRow[];
   abierto: boolean;
-  esPrimero: boolean;
-  esUltimo: boolean;
   onToggle: () => void;
   onGuardarCampo: (campo: "nombre" | "objetivo", valor: string) => void;
   onGuardarFechas: (fechaInicio: string, fechaFin: string) => void;
   onGuardarSemana: (id: string, campo: "objetivo" | "rival" | "competicion", valor: string) => void;
   onBorrar: () => void;
-  onMover: (direccion: "subir" | "bajar") => void;
 }) {
   const [fechaInicioForm, setFechaInicioForm] = useState(bloque.fecha_inicio ?? "");
   const [fechaFinForm, setFechaFinForm] = useState(bloque.fecha_fin ?? "");
@@ -52,24 +52,6 @@ export function BloqueCard({
         <div className="flex shrink-0 items-center gap-1">
           <button
             type="button"
-            aria-label="Subir bloque"
-            onClick={() => onMover("subir")}
-            disabled={esPrimero}
-            className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] disabled:opacity-30"
-          >
-            <ArrowUp size={16} />
-          </button>
-          <button
-            type="button"
-            aria-label="Bajar bloque"
-            onClick={() => onMover("bajar")}
-            disabled={esUltimo}
-            className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] disabled:opacity-30"
-          >
-            <ArrowDown size={16} />
-          </button>
-          <button
-            type="button"
             aria-label="Borrar bloque"
             onClick={onBorrar}
             className="text-[var(--color-text-muted)] hover:text-[var(--color-accent)]"
@@ -82,9 +64,16 @@ export function BloqueCard({
         </div>
       </div>
 
-      <div className="text-xs text-[var(--color-text-muted)]">
-        {bloque.fecha_inicio && bloque.fecha_fin ? `${bloque.fecha_inicio} → ${bloque.fecha_fin}` : "Sin fechas"} ·{" "}
-        {semanas.length} semana{semanas.length === 1 ? "" : "s"}
+      <div className="flex items-center gap-2 text-xs text-[var(--color-text-muted)]">
+        <span>
+          {bloque.fecha_inicio && bloque.fecha_fin ? `${bloque.fecha_inicio} → ${bloque.fecha_fin}` : "Sin fechas"} ·{" "}
+          {semanas.length} semana{semanas.length === 1 ? "" : "s"}
+        </span>
+        {bloque.periodo_id !== null && (
+          <span className="rounded-full bg-[var(--color-card-hover)] px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.04em]">
+            Desde Excel
+          </span>
+        )}
       </div>
 
       {abierto && (

@@ -30,7 +30,7 @@ export function PlanificacionPage() {
       { data: meso, error: errorMeso },
       { data: micro, error: errorMicro },
     ] = await Promise.all([
-      supabase.from("mesociclos").select("*").eq("equipo_id", equipoId).is("periodo_id", null).order("orden"),
+      supabase.from("mesociclos").select("*").eq("equipo_id", equipoId).order("fecha_inicio"),
       supabase.from("microciclos").select("*").eq("equipo_id", equipoId).order("fecha_inicio"),
     ]);
     if (errorMeso || errorMicro) {
@@ -163,27 +163,6 @@ export function PlanificacionPage() {
     await cargar();
   }
 
-  async function moverBloque(id: string, direccion: "subir" | "bajar") {
-    const ordenados = [...bloques].sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0));
-    const i = ordenados.findIndex((b) => b.id === id);
-    const j = direccion === "subir" ? i - 1 : i + 1;
-    if (i < 0 || j < 0 || j >= ordenados.length) return;
-    const a = ordenados[i];
-    const b = ordenados[j];
-    const ordenA = a.orden ?? i;
-    const ordenB = b.orden ?? j;
-    const resultados = await Promise.all([
-      supabase.from("mesociclos").update({ orden: ordenB }).eq("id", a.id),
-      supabase.from("mesociclos").update({ orden: ordenA }).eq("id", b.id),
-    ]);
-    const error = resultados.find((r) => r.error)?.error;
-    if (error) {
-      alert("No se pudo guardar: " + error.message);
-      return;
-    }
-    setBloques((bs) => bs.map((x) => (x.id === a.id ? { ...x, orden: ordenB } : x.id === b.id ? { ...x, orden: ordenA } : x)));
-  }
-
   async function crearBloque() {
     if (!nuevoNombre.trim() || !nuevoInicio || !nuevoFin) {
       alert("Rellena nombre y fechas para crear el bloque.");
@@ -198,7 +177,6 @@ export function PlanificacionPage() {
       return;
     }
     setGuardandoNuevo(true);
-    const ordenMax = Math.max(0, ...bloques.map((b) => b.orden ?? 0));
     const { data: nuevo, error } = await supabase
       .from("mesociclos")
       .insert({
@@ -207,7 +185,6 @@ export function PlanificacionPage() {
         nombre: nuevoNombre.trim(),
         fecha_inicio: nuevoInicio,
         fecha_fin: nuevoFin,
-        orden: ordenMax + 1,
       })
       .select()
       .single();
@@ -245,7 +222,7 @@ export function PlanificacionPage() {
     return <div className="card-surface p-6 text-center text-[var(--color-text-muted)]">Cargando...</div>;
   }
 
-  const ordenados = [...bloques].sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0));
+  const ordenados = [...bloques].sort((a, b) => (a.fecha_inicio ?? "").localeCompare(b.fecha_inicio ?? ""));
 
   return (
     <div className="flex flex-col gap-4">
@@ -265,20 +242,17 @@ export function PlanificacionPage() {
         </div>
       )}
 
-      {ordenados.map((bloque, i) => (
+      {ordenados.map((bloque) => (
         <BloqueCard
           key={bloque.id}
           bloque={bloque}
           semanas={microciclos.filter((m) => m.mesociclo_id === bloque.id)}
           abierto={abiertoId === bloque.id}
-          esPrimero={i === 0}
-          esUltimo={i === ordenados.length - 1}
           onToggle={() => setAbiertoId((id) => (id === bloque.id ? null : bloque.id))}
           onGuardarCampo={(campo, valor) => guardarCampoBloque(bloque.id, campo, valor)}
           onGuardarFechas={(inicio, fin) => guardarFechasBloque(bloque, inicio, fin)}
           onGuardarSemana={guardarCampoSemana}
           onBorrar={() => borrarBloque(bloque)}
-          onMover={(dir) => moverBloque(bloque.id, dir)}
         />
       ))}
 
