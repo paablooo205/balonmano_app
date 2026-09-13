@@ -84,7 +84,7 @@ export function MultasSection({ equipoId, jugadorId }: { equipoId: string; jugad
                 >
                   {m.fecha} · {m.concepto}
                 </span>
-                <span className="font-medium">{m.importe.toFixed(2)} €</span>
+                <span className="font-medium">{FORMATO_EUR.format(m.importe)}</span>
               </li>
             ))}
           </ul>

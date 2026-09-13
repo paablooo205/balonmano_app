@@ -5,6 +5,8 @@ import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import type { MultasTiposRow } from "@/types/database";
 
+const FORMATO_EUR = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" });
+
 function hoyISO() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -75,7 +77,7 @@ export function MultaManualModal({
               <Select value={tipoId} onChange={(e) => setTipoId(e.target.value)}>
                 {tipos.map((t) => (
                   <option key={t.id} value={t.id}>
-                    {t.nombre} — {t.importe.toFixed(2)} €
+                    {t.nombre} — {FORMATO_EUR.format(t.importe)}
                   </option>
                 ))}
               </Select>
