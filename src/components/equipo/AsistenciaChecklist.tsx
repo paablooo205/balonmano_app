@@ -4,7 +4,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { Textarea } from "@/components/ui/field";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
-import type { AsistenciaRow, JugadoresRow, MotivoAusencia } from "@/types/database";
+import type { AsistenciaRow, DisparadorMulta, JugadoresRow, MotivoAusencia, MultasTiposRow } from "@/types/database";
 
 const MOTIVOS: { value: MotivoAusencia; label: string; color: string }[] = [
   { value: "justificado", label: "Justificado", color: "var(--color-warning)" },
@@ -45,6 +45,8 @@ export function AsistenciaChecklist({
   const [faltasPorJugador, setFaltasPorJugador] = useState<
     Record<string, { faltas: number; total: number }>
   >({});
+  const [multasActivo, setMultasActivo] = useState(false);
+  const [tiposMulta, setTiposMulta] = useState<MultasTiposRow[]>([]);
 
   useEffect(() => {
     if (!targetId) return;
@@ -84,6 +86,84 @@ export function AsistenciaChecklist({
       });
   }, [equipoId, asistencias]);
 
+  useEffect(() => {
+    if (!equipoId) return;
+    let vigente = true;
+    (async () => {
+      const [cfg, tipos] = await Promise.all([
+        supabase.from("multas_config").select("*").eq("equipo_id", equipoId).maybeSingle(),
+        supabase.from("multas_tipos").select("*").eq("equipo_id", equipoId).eq("activo", true),
+      ]);
+      if (!vigente) return;
+      setMultasActivo(cfg.data?.activo ?? false);
+      setTiposMulta(tipos.data ?? []);
+    })();
+    return () => {
+      vigente = false;
+    };
+  }, [equipoId]);
+
+  function tipoPorDisparador(disparador: DisparadorMulta): MultasTiposRow | null {
+    return tiposMulta.find((t) => t.disparador === disparador) ?? null;
+  }
+
+  /** Crea, actualiza o borra la multa ligada a una fila de asistencia según
+   * el disparador que le corresponda ahora mismo (o ninguno). No toca nada
+   * si el sistema de multas está desactivado, si no hay tipo configurado
+   * para ese disparador, o si la multa ya existente está saldada (no se
+   * deshace retroactivamente una cuenta ya cerrada por el entrenador). */
+  async function sincronizarMulta(
+    asistenciaId: string,
+    jugadorId: string,
+    disparadorActivo: DisparadorMulta | null,
+  ) {
+    if (!multasActivo) return;
+    const { data: existente } = await supabase
+      .from("multas")
+      .select("*")
+      .eq("asistencia_id", asistenciaId)
+      .maybeSingle();
+    if (existente?.pagada) return;
+
+    const tipo = disparadorActivo ? tipoPorDisparador(disparadorActivo) : null;
+    if (!tipo) {
+      if (existente) {
+        const { error } = await supabase.from("multas").delete().eq("id", existente.id);
+        if (error) {
+          alert("No se pudo guardar la multa: " + error.message);
+          return;
+        }
+      }
+      return;
+    }
+    if (existente) {
+      if (existente.tipo_id !== tipo.id) {
+        const { error } = await supabase
+          .from("multas")
+          .update({ tipo_id: tipo.id, concepto: tipo.nombre, importe: tipo.importe })
+          .eq("id", existente.id);
+        if (error) {
+          alert("No se pudo guardar la multa: " + error.message);
+          return;
+        }
+      }
+    } else {
+      const { error } = await supabase.from("multas").insert({
+        equipo_id: equipoId,
+        jugador_id: jugadorId,
+        tipo_id: tipo.id,
+        concepto: tipo.nombre,
+        importe: tipo.importe,
+        origen: "automatica",
+        asistencia_id: asistenciaId,
+      });
+      if (error) {
+        alert("No se pudo guardar la multa: " + error.message);
+        return;
+      }
+    }
+  }
+
   async function marcar(jugadorId: string, presente: boolean, motivo_ausencia: MotivoAusencia | null = null) {
     if (!targetId) return;
     const existente = asistencias.find((a) => a.jugador_id === jugadorId);
@@ -101,6 +181,7 @@ export function AsistenciaChecklist({
         return;
       }
       setAsistencias((as) => as.map((a) => (a.id === existente.id ? { ...a, presente, motivo_ausencia, llego_tarde } : a)));
+      await sincronizarMulta(existente.id, jugadorId, presente ? (llego_tarde ? "tardanza" : null) : motivo_ausencia === "injustificado" ? "falta_injustificada" : null);
     } else {
       const payload = {
         equipo_id: equipoId,
@@ -117,6 +198,7 @@ export function AsistenciaChecklist({
         return;
       }
       setAsistencias((as) => [...as, data]);
+      await sincronizarMulta(data.id, jugadorId, presente ? (llego_tarde ? "tardanza" : null) : motivo_ausencia === "injustificado" ? "falta_injustificada" : null);
     }
   }
 
@@ -132,6 +214,7 @@ export function AsistenciaChecklist({
       return;
     }
     setAsistencias((as) => as.map((a) => (a.id === existente.id ? { ...a, llego_tarde } : a)));
+    await sincronizarMulta(existente.id, jugadorId, llego_tarde ? "tardanza" : null);
   }
 
   async function guardarNota(jugadorId: string, nota: string) {

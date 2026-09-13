@@ -9,6 +9,7 @@ import { DesgloseJugadorPartido } from "@/components/partido/DesgloseJugadorPart
 import { LineaEvolucionEficacia } from "@/components/jugador/LineaEvolucionEficacia";
 import { JugadorFormModal } from "@/components/equipo/JugadorFormModal";
 import { InsightsCard } from "@/components/dashboard/InsightsCard";
+import { MultasSection } from "@/components/jugador/MultasSection";
 import { Select } from "@/components/ui/field";
 import { descargarPdf } from "@/lib/pdf/descargarPdf";
 import { FichaJugadorTemporadaPdf } from "@/lib/pdf/FichaJugadorTemporadaPdf";
@@ -333,6 +334,8 @@ export function JugadorDetailPage() {
           )}
         </div>
       </div>
+
+      <MultasSection equipoId={equipoId} jugadorId={jugador.id} />
 
       <div>
         <div className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-faint)]">

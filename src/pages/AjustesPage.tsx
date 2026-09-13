@@ -7,6 +7,7 @@ import { HorarioSetup } from "@/components/calendario/HorarioSetup";
 import { NotificacionesAjustes } from "@/components/ajustes/NotificacionesAjustes";
 import { PlanificacionAjustes } from "@/components/ajustes/PlanificacionAjustes";
 import { InvitacionAjustes } from "@/components/ajustes/InvitacionAjustes";
+import { MultasAjustes } from "@/components/ajustes/MultasAjustes";
 import { Field, Input } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { usePreferenciaMenu, type PreferenciaMenu } from "@/hooks/usePreferenciaMenu";
@@ -124,6 +125,8 @@ export function AjustesPage() {
       <InvitacionAjustes />
 
       <NotificacionesAjustes />
+
+      <MultasAjustes />
     </div>
   );
 }

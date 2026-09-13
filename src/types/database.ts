@@ -334,6 +334,42 @@ export type AsistenciaRow = {
   updated_at: string;
 };
 
+export type DisparadorMulta = "tardanza" | "falta_injustificada";
+export type OrigenMulta = "automatica" | "manual";
+
+export type MultasConfigRow = {
+  id: UUID;
+  equipo_id: UUID;
+  activo: boolean;
+  created_at: string;
+};
+
+export type MultasTiposRow = {
+  id: UUID;
+  equipo_id: UUID;
+  nombre: string;
+  importe: number;
+  disparador: DisparadorMulta | null;
+  activo: boolean;
+  created_at: string;
+};
+
+export type MultasRow = {
+  id: UUID;
+  equipo_id: UUID;
+  jugador_id: UUID;
+  tipo_id: UUID | null;
+  concepto: string;
+  importe: number;
+  origen: OrigenMulta;
+  asistencia_id: UUID | null;
+  pagada: boolean;
+  pagada_at: string | null;
+  fecha: string;
+  notas_adicionales: string | null;
+  created_at: string;
+};
+
 // `OptionalInsert` lista las columnas que en supabase/migrations/0001_init_schema.sql
 // (y 0004 para `asistencia`) son NULLABLE o tienen DEFAULT — por tanto pueden
 // omitirse en un `.insert()`. Cualquier columna NOT NULL sin DEFAULT queda fuera
@@ -497,6 +533,12 @@ export type Database = {
         | "color_tarjeta"
         | "minuto"
         | "creado_en"
+      >;
+      multas_config: TableDef<MultasConfigRow, "id" | "activo" | "created_at">;
+      multas_tipos: TableDef<MultasTiposRow, "id" | "activo" | "created_at">;
+      multas: TableDef<
+        MultasRow,
+        "id" | "tipo_id" | "asistencia_id" | "pagada" | "pagada_at" | "fecha" | "notas_adicionales" | "created_at"
       >;
     };
     Views: Record<string, never>;
