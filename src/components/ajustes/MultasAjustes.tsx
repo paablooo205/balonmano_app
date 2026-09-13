@@ -51,10 +51,13 @@ export function MultasAjustes() {
     // automáticos con importes por defecto, editables al momento — da
     // valor inmediato sin exigir configurar nada antes de usarlo.
     if (activo && tipos.length === 0) {
-      await supabase.from("multas_tipos").insert([
+      const { error: seedError } = await supabase.from("multas_tipos").insert([
         { equipo_id: equipoId, nombre: "Llegar tarde", importe: 1, disparador: "tardanza" },
         { equipo_id: equipoId, nombre: "Falta sin avisar", importe: 3, disparador: "falta_injustificada" },
       ]);
+      if (seedError) {
+        alert("No se pudo crear el catálogo inicial: " + seedError.message);
+      }
     }
     setGuardandoToggle(false);
     cargar();
@@ -72,6 +75,13 @@ export function MultasAjustes() {
   }
 
   async function borrarTipo(id: string, nombre: string) {
+    const t = tipos.find((t) => t.id === id);
+    if (t?.disparador) {
+      alert(
+        "No se puede borrar: está vinculado a la detección automática de multas. Puedes renombrarlo o cambiar su importe, pero no borrarlo.",
+      );
+      return;
+    }
     if (!confirm(`¿Borrar el tipo "${nombre}"? Las multas ya puestas con este tipo no se borran.`)) return;
     const { error } = await supabase.from("multas_tipos").delete().eq("id", id);
     if (error) {
@@ -115,6 +125,7 @@ export function MultasAjustes() {
             Multa automática al marcar "llegó tarde" o falta injustificada en el checklist de asistencia.
           </p>
         </div>
+        {/* Switch no soporta prop `disabled` (src/components/ui/switch.tsx) — solo se atenúa visualmente mientras guarda. */}
         <Switch checked={activo} onChange={toggleActivo} label="Sistema de multas activo" className={guardandoToggle ? "opacity-50" : ""} />
       </div>
 
@@ -143,13 +154,24 @@ export function MultasAjustes() {
                 className="w-20 text-sm"
               />
               <span className="text-xs text-[var(--color-text-muted)]">€</span>
-              <button
-                onClick={() => borrarTipo(t.id, t.nombre)}
-                aria-label={`Borrar tipo "${t.nombre}"`}
-                className="text-[var(--color-text-muted)] hover:text-[var(--color-accent)]"
-              >
-                <Trash2 size={16} />
-              </button>
+              {t.disparador ? (
+                <button
+                  disabled
+                  title="No se puede borrar: vinculado a la detección automática de multas"
+                  aria-label={`No se puede borrar "${t.nombre}": vinculado a la detección automática de multas`}
+                  className="cursor-not-allowed text-[var(--color-text-faint)]"
+                >
+                  <Trash2 size={16} />
+                </button>
+              ) : (
+                <button
+                  onClick={() => borrarTipo(t.id, t.nombre)}
+                  aria-label={`Borrar tipo "${t.nombre}"`}
+                  className="text-[var(--color-text-muted)] hover:text-[var(--color-accent)]"
+                >
+                  <Trash2 size={16} />
+                </button>
+              )}
             </div>
           ))}
 

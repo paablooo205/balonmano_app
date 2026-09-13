@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
 import { MultaManualModal } from "./MultaManualModal";
@@ -36,6 +37,7 @@ export function MultasSection({ equipoId, jugadorId }: { equipoId: string; jugad
   const deuda = multas.filter((m) => !m.pagada).reduce((s, m) => s + m.importe, 0);
 
   async function saldar() {
+    if (!confirm(`¿Marcar como saldados ${FORMATO_EUR.format(deuda)} de multas pendientes?`)) return;
     setSaldando(true);
     const { error } = await supabase
       .from("multas")
@@ -48,6 +50,16 @@ export function MultasSection({ equipoId, jugadorId }: { equipoId: string; jugad
       return;
     }
     cargar();
+  }
+
+  async function borrarMulta(m: MultasRow) {
+    if (!confirm(`¿Borrar la multa "${m.concepto}" (${FORMATO_EUR.format(m.importe)})?`)) return;
+    const { error } = await supabase.from("multas").delete().eq("id", m.id);
+    if (error) {
+      alert("No se pudo borrar: " + error.message);
+      return;
+    }
+    setMultas((ms) => ms.filter((x) => x.id !== m.id));
   }
 
   return (
@@ -74,17 +86,31 @@ export function MultasSection({ equipoId, jugadorId }: { equipoId: string; jugad
         {multas.length > 0 && (
           <ul className="mt-3 flex flex-col gap-1.5 border-t border-[var(--color-border)] pt-3">
             {multas.map((m) => (
-              <li key={m.id} className="flex items-center justify-between text-xs">
-                <span
-                  className={
-                    m.pagada
-                      ? "text-[var(--color-text-faint)] line-through"
-                      : "text-[var(--color-text-muted)]"
-                  }
-                >
-                  {m.fecha} · {m.concepto}
-                </span>
-                <span className="font-medium">{FORMATO_EUR.format(m.importe)}</span>
+              <li key={m.id} className="flex items-center justify-between gap-2 text-xs">
+                <div className="min-w-0">
+                  <span
+                    className={
+                      m.pagada
+                        ? "text-[var(--color-text-faint)] line-through"
+                        : "text-[var(--color-text-muted)]"
+                    }
+                  >
+                    {new Date(m.fecha + "T00:00:00").toLocaleDateString("es-ES", { day: "2-digit", month: "short" })} · {m.concepto}
+                  </span>
+                  {m.notas_adicionales && (
+                    <div className="text-[10px] text-[var(--color-text-faint)]">{m.notas_adicionales}</div>
+                  )}
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <span className="font-medium">{FORMATO_EUR.format(m.importe)}</span>
+                  <button
+                    onClick={() => borrarMulta(m)}
+                    aria-label={`Borrar multa "${m.concepto}"`}
+                    className="text-[var(--color-text-muted)] hover:text-[var(--color-accent)]"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
               </li>
             ))}
           </ul>

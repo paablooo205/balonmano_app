@@ -3,13 +3,10 @@ import { supabase } from "@/lib/supabaseClient";
 import { Modal } from "@/components/ui/modal";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
+import { toISODate } from "@/lib/calendar";
 import type { MultasTiposRow } from "@/types/database";
 
 const FORMATO_EUR = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" });
-
-function hoyISO() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 export function MultaManualModal({
   open,
@@ -27,14 +24,14 @@ export function MultaManualModal({
   onSaved: () => void;
 }) {
   const [tipoId, setTipoId] = useState("");
-  const [fecha, setFecha] = useState(hoyISO());
+  const [fecha, setFecha] = useState(toISODate(new Date()));
   const [nota, setNota] = useState("");
   const [guardando, setGuardando] = useState(false);
 
   useEffect(() => {
     if (open) {
       setTipoId(tipos[0]?.id ?? "");
-      setFecha(hoyISO());
+      setFecha(toISODate(new Date()));
       setNota("");
     }
   }, [open, tipos]);
