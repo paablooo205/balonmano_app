@@ -27,6 +27,7 @@ import {
 import { MIN_TIROS_RECIBIDOS } from "@/lib/valoracion";
 import { agruparPorPartido, cargarEventosEquipo } from "@/lib/eventos";
 import { generarInsights } from "@/lib/insights";
+import { calcularAsistenciaJugador, colorRegistroAsistencia } from "@/lib/asistencia";
 import type { AsistenciaRow, EventosRow, JugadoresRow, PartidosRow, SesionesRow } from "@/types/database";
 
 export function JugadorDetailPage() {
@@ -106,24 +107,12 @@ export function JugadorDetailPage() {
   const portero = esPortero(jugador.puesto);
 
   // Asistencia a entrenamientos (solo sesiones, no partidos), ordenada por fecha del evento.
-  const fechaDeSesion = new Map<string, string>();
-  for (const s of sesiones) fechaDeSesion.set(s.id, s.fecha);
-  const registrosEntreno = asistencia
-    .filter((a) => a.sesion_id)
-    .map((a) => ({ ...a, fecha: fechaDeSesion.get(a.sesion_id!) ?? "" }))
-    .filter((a) => a.fecha)
-    .sort((a, b) => b.fecha.localeCompare(a.fecha));
-  const presentes = registrosEntreno.filter((a) => a.presente).length;
-  const asistenciaPct = registrosEntreno.length > 0 ? Math.round((presentes / registrosEntreno.length) * 100) : null;
-  const llegadasTarde = registrosEntreno.filter((a) => a.presente && a.llego_tarde).length;
+  const { registros: registrosEntreno, presentes, pct: asistenciaPct, llegadasTarde } = calcularAsistenciaJugador(
+    asistencia,
+    sesiones,
+    jugador.id,
+  );
   const ultimas10 = registrosEntreno.slice(0, 10);
-
-  function colorRegistro(a: AsistenciaRow): string {
-    if (a.presente) return "var(--color-success)";
-    if (a.motivo_ausencia === "justificado") return "var(--color-warning)";
-    if (a.motivo_ausencia === "lesion") return "var(--color-text-faint)";
-    return "var(--color-accent)";
-  }
 
   const edad = jugador.año_nacimiento ? `${new Date().getFullYear() - jugador.año_nacimiento} años` : null;
   const altura = jugador.altura_cm ? `${jugador.altura_cm} cm` : null;
@@ -317,7 +306,7 @@ export function JugadorDetailPage() {
               </div>
               <div className="mt-4 flex gap-1">
                 {ultimas10.map((a) => (
-                  <div key={a.id} className="h-[30px] flex-1 rounded-md" style={{ backgroundColor: colorRegistro(a) }} />
+                  <div key={a.id} className="h-[30px] flex-1 rounded-md" style={{ backgroundColor: colorRegistroAsistencia(a) }} />
                 ))}
               </div>
               <div className="mt-2 text-[10px] uppercase tracking-[0.08em] text-[var(--color-text-faint)]">

@@ -13,6 +13,7 @@ import { DIAS_SEMANA, MESES, getWeekDates, toISODate } from "@/lib/calendar";
 import { Modal } from "@/components/ui/modal";
 import { Textarea } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
+import { BuscadorAsistencia } from "@/components/dashboard/BuscadorAsistencia";
 import type {
   AsistenciaRow,
   DiaSemana,
@@ -278,6 +279,8 @@ export function InicioPage() {
           <KpiCard valor={String(alertas.filter((a) => a.dot === "var(--color-accent)").length)} label="Bajas activas" color="var(--color-accent)" />
         </div>
       </div>
+
+      <BuscadorAsistencia jugadores={jugadores} asistencia={asistencia} sesiones={sesiones} />
 
       <div>
         <div className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-faint)]">
