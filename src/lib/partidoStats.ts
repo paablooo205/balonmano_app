@@ -400,6 +400,10 @@ export function eficaciaLanzamiento(eventos: EventosRow[], jugadorId?: string): 
  * (`duracionTotalMin` = 2 × duracion_parte_min). Si el primer toque del
  * jugador es una salida sin entrada previa, se asume titular (entró en el
  * minuto 0) — antes esa salida se ignoraba y el titular salía con 0'.
+ *
+ * Calcula en segundos cuando el toque los tiene (`segundo`, exacto) y cae a
+ * `minuto` × 60 en los anteriores a ese campo; el resultado se redondea a
+ * minutos enteros.
  */
 export function minutosJugados(
   eventosJsonb: EventoPartido[],
@@ -407,24 +411,66 @@ export function minutosJugados(
   duracionTotalMin = 60,
   hastaMin?: number,
 ): number {
-  const propios = eventosJsonb
-    .filter((e) => e.jugador_id === jugadorId && (e.tipo === "entra_pista" || e.tipo === "sale_pista"))
-    .slice()
-    .sort((a, b) => (a.minuto ?? 0) - (b.minuto ?? 0) || a.creado_en.localeCompare(b.creado_en));
+  const propios = toquesPista(eventosJsonb).filter((e) => e.jugador_id === jugadorId);
 
-  const fin = Math.min(hastaMin ?? duracionTotalMin, duracionTotalMin);
+  const fin = Math.min(hastaMin ?? duracionTotalMin, duracionTotalMin) * 60;
   let total = 0;
-  let entradaMin: number | null = propios[0]?.tipo === "sale_pista" ? 0 : null;
+  let entrada: number | null = propios[0]?.tipo === "sale_pista" ? 0 : null;
   for (const e of propios) {
+    const t = segundoDeToque(e);
     if (e.tipo === "entra_pista") {
-      entradaMin = e.minuto ?? entradaMin ?? 0;
-    } else if (entradaMin !== null) {
-      total += Math.max(0, (e.minuto ?? entradaMin) - entradaMin);
-      entradaMin = null;
+      entrada = t ?? entrada ?? 0;
+    } else if (entrada !== null) {
+      total += Math.max(0, (t ?? entrada) - entrada);
+      entrada = null;
     }
   }
-  if (entradaMin !== null) total += Math.max(0, fin - entradaMin);
-  return total;
+  if (entrada !== null) total += Math.max(0, fin - entrada);
+  return Math.round(total / 60);
+}
+
+/** Momento de un toque jsonb en segundos de partido: `segundo` si lo tiene,
+ * si no `minuto` × 60 (histórico); null si se registró con el reloj sin
+ * iniciar (titulares antes del pitido inicial → cuenta como 0). */
+function segundoDeToque(e: EventoPartido): number | null {
+  if (e.segundo != null) return e.segundo;
+  return e.minuto != null ? e.minuto * 60 : null;
+}
+
+/** Entradas/salidas de pista en orden cronológico (por momento de partido y,
+ * a igualdad, por orden de registro). */
+function toquesPista(eventosJsonb: EventoPartido[]): EventoPartido[] {
+  return eventosJsonb
+    .filter((e) => e.tipo === "entra_pista" || e.tipo === "sale_pista")
+    .slice()
+    .sort((a, b) => (segundoDeToque(a) ?? 0) - (segundoDeToque(b) ?? 0) || a.creado_en.localeCompare(b.creado_en));
+}
+
+/** Jugadores en pista ahora mismo: aquellos cuyo último toque de pista es una
+ * entrada. Vacío si en este partido no se han registrado cambios. */
+export function jugadoresEnPista(eventosJsonb: EventoPartido[]): Set<string> {
+  const enPista = new Set<string>();
+  for (const e of toquesPista(eventosJsonb)) {
+    if (!e.jugador_id) continue;
+    if (e.tipo === "entra_pista") enPista.add(e.jugador_id);
+    else enPista.delete(e.jugador_id);
+  }
+  return enPista;
+}
+
+/** ¿Se ha registrado alguna entrada/salida de pista en el partido? Si no, la
+ * pantalla en vivo propone elegir titulares. */
+export function hayRegistroDePista(eventosJsonb: EventoPartido[]): boolean {
+  return eventosJsonb.some((e) => e.tipo === "entra_pista" || e.tipo === "sale_pista");
+}
+
+/** Titulares de un partido ya jugado: quienes entraron a pista antes de que
+ * corriera el reloj (o en el segundo 0). Sirve para proponer los mismos en
+ * el siguiente partido. */
+export function titularesDe(eventosJsonb: EventoPartido[]): string[] {
+  return eventosJsonb
+    .filter((e) => e.tipo === "entra_pista" && e.jugador_id && (segundoDeToque(e) ?? 0) === 0)
+    .map((e) => e.jugador_id!);
 }
 
 /** `null` si no hay intentos — nunca un `0%`/`NaN%` engañoso. El recuento

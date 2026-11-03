@@ -228,6 +228,10 @@ export type EventoPartido = {
   minuto: number | null;
   /** Segundos de partido en el momento del toque (2ª parte con el offset de la 1ª). Ausente/null en toques anteriores a este campo. */
   segundo?: number | null;
+  /** Toques registrados juntos con un solo gesto (un cambio = sale + entra;
+   * los titulares = varias entradas): comparten este id, "deshacer" los quita
+   * a la vez y la cronología los pinta como una sola línea. */
+  grupo?: string;
   creado_en: string;
 };
 

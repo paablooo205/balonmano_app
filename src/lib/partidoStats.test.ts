@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   cambiarParte,
   exclusionesActivas,
+  hayRegistroDePista,
+  jugadoresEnPista,
+  titularesDe,
   marcadorNumerico,
   minutoActual,
   minutosJugados,
@@ -125,5 +128,40 @@ describe("exclusiones con segundo exacto", () => {
 
   it("una exclusión al final de la 1ª parte sigue corriendo en la 2ª", () => {
     expect(exclusionesActivas([exclusion("j1", 1750)], 1800 + 30)[0].restante).toBe(40);
+  });
+});
+
+describe("pista y banquillo", () => {
+  const toque = (tipo: "entra_pista" | "sale_pista", jugador_id: string, segundo: number | null, grupo?: string): EventoPartido => ({
+    id: crypto.randomUUID(),
+    tipo,
+    jugador_id,
+    minuto: segundo === null ? null : Math.floor(segundo / 60) + 1,
+    segundo,
+    grupo,
+    creado_en: "2026-01-01T00:00:00.000Z",
+  });
+
+  const partidoConCambio = [
+    toque("entra_pista", "a", null, "t"),
+    toque("entra_pista", "b", null, "t"),
+    toque("sale_pista", "a", 600, "c"),
+    toque("entra_pista", "c", 600, "c"),
+  ];
+
+  it("en pista = último toque de cada uno es una entrada", () => {
+    expect([...jugadoresEnPista(partidoConCambio)].sort()).toEqual(["b", "c"]);
+    expect(hayRegistroDePista(partidoConCambio)).toBe(true);
+    expect(hayRegistroDePista([])).toBe(false);
+  });
+
+  it("titulares = quienes entraron antes de que corriera el reloj", () => {
+    expect(titularesDe(partidoConCambio).sort()).toEqual(["a", "b"]);
+  });
+
+  it("minutos jugados con segundo exacto (titular que sale a las 10:00 → 10')", () => {
+    expect(minutosJugados(partidoConCambio, "a", 60)).toBe(10);
+    expect(minutosJugados(partidoConCambio, "c", 60)).toBe(50);
+    expect(minutosJugados(partidoConCambio, "c", 60, 25)).toBe(15);
   });
 });

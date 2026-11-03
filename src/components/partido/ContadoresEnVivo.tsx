@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronLeft, LogIn, LogOut, Pause, Play, Undo2 } from "lucide-react";
+import { ArrowLeftRight, ChevronLeft, Pause, Play, Undo2 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { encolarOperacion, esErrorDeRed } from "@/lib/offline/queue";
 import { borrarEvento, registrarEvento } from "@/lib/eventos";
@@ -36,6 +36,9 @@ import {
   segundosActuales,
   segundosPartido,
   segundoActual,
+  jugadoresEnPista,
+  hayRegistroDePista,
+  titularesDe,
   exclusionesActivas,
   type ExclusionActiva,
   type BotonTiro,
@@ -103,10 +106,52 @@ export function ContadoresEnVivo({
   const [accionPendiente, setAccionPendiente] = useState<BotonTiro | null>(null);
   const [zonaPendiente, setZonaPendiente] = useState<number | null>(null);
   const [origenSel, setOrigenSel] = useState<OrigenLanzamiento | null>(null);
+  // Pista/banquillo: los cambios se registran con un gesto (botón "Cambio",
+  // luego quien entra y quien sale, en cualquier orden) en vez de con
+  // "Entra"/"Sale" sueltos, que nadie llegaba a usar en un partido real.
+  const [modoCambio, setModoCambio] = useState(false);
+  const [cambioPrimero, setCambioPrimero] = useState<string | null>(null);
+  const [titularesSel, setTitularesSel] = useState<Set<string>>(new Set());
+  const [omitirTitulares, setOmitirTitulares] = useState(false);
   const cronometro = partido.estadisticas.cronometro;
   const eventosJsonb = partido.estadisticas.eventos ?? [];
   const duracionParteMin = partido.duracion_parte_min;
   const finalizado = partidoFinalizado(cronometro, duracionParteMin);
+  const enPista = jugadoresEnPista(eventosJsonb);
+  const conRegistroPista = hayRegistroDePista(eventosJsonb);
+  /** Sin ningún cambio registrado aún: la columna de jugadores propone
+   * marcar los titulares (o saltárselo). */
+  const eligiendoTitulares = !conRegistroPista && !omitirTitulares && !finalizado;
+
+  // Propone como titulares los del último partido del equipo que los tenga
+  // registrados (filtrados a los convocados de hoy). Sin red, simplemente no
+  // propone nada.
+  useEffect(() => {
+    if (hayRegistroDePista(partido.estadisticas.eventos ?? [])) return;
+    let cancelado = false;
+    void supabase
+      .from("partidos")
+      .select("estadisticas")
+      .eq("equipo_id", partido.equipo_id)
+      .lt("fecha", partido.fecha)
+      .order("fecha", { ascending: false })
+      .limit(10)
+      .then(({ data }) => {
+        if (cancelado || !data) return;
+        const convocados = new Set(jugadores.map((j) => j.id));
+        for (const p of data) {
+          const titulares = titularesDe(p.estadisticas?.eventos ?? []).filter((id) => convocados.has(id));
+          if (titulares.length > 0) {
+            setTitularesSel(new Set(titulares));
+            return;
+          }
+        }
+      });
+    return () => {
+      cancelado = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [partido.id]);
 
   const jugadorActual = jugadores.find((j) => j.id === jugadorSel) ?? null;
   const esJugadorActualPortero = jugadorActual ? esPortero(jugadorActual.puesto) : false;
@@ -127,6 +172,9 @@ export function ContadoresEnVivo({
     creadoEn: string;
     afectaMarcador: boolean;
     detalle: string;
+    /** Texto de la segunda línea ya resuelto (cambios/titulares); si no, se
+     * deriva de `jugadorId`. */
+    quien?: string;
   };
   const toquesTabla: ToqueUnificado[] = eventos.map((e) => {
     if (e.tipo === "tiro") {
@@ -176,7 +224,39 @@ export function ContadoresEnVivo({
       detalle: "",
     };
   });
-  const toquesJsonb: ToqueUnificado[] = eventosJsonb.map((e) => ({
+  const etiquetaJugador = (id: string | null) => {
+    const j = id ? jugadores.find((x) => x.id === id) : null;
+    return j ? `#${j.dorsal ?? "—"} ${j.nombre.split(" ")[0]}` : "?";
+  };
+  // Toques registrados con un solo gesto (cambio = sale + entra; titulares =
+  // varias entradas) se pintan como una sola línea y se deshacen juntos.
+  const toquesAgrupados: ToqueUnificado[] = [];
+  const gruposVistos = new Set<string>();
+  for (const e of eventosJsonb) {
+    if (!e.grupo || gruposVistos.has(e.grupo)) continue;
+    gruposVistos.add(e.grupo);
+    const delGrupo = eventosJsonb.filter((x) => x.grupo === e.grupo);
+    const entran = delGrupo.filter((x) => x.tipo === "entra_pista");
+    const salen = delGrupo.filter((x) => x.tipo === "sale_pista");
+    const esTitulares = salen.length === 0;
+    toquesAgrupados.push({
+      id: e.grupo,
+      origen: "jsonb",
+      label: esTitulares ? "Titulares" : "Cambio",
+      color: "rgba(255,255,255,.35)",
+      jugadorId: null,
+      esRival: false,
+      minuto: e.minuto,
+      segundo: e.segundo ?? null,
+      creadoEn: delGrupo.map((x) => x.creado_en).sort().at(-1)!,
+      afectaMarcador: false,
+      detalle: "",
+      quien: esTitulares
+        ? `${entran.length} en pista`
+        : [...entran.map((x) => `↑ ${etiquetaJugador(x.jugador_id)}`), ...salen.map((x) => `↓ ${etiquetaJugador(x.jugador_id)}`)].join(" · "),
+    });
+  }
+  const toquesJsonb: ToqueUnificado[] = eventosJsonb.filter((e) => !e.grupo).map((e) => ({
     id: e.id,
     origen: "jsonb",
     label: ETIQUETAS_EVENTO_JSONB[e.tipo],
@@ -194,7 +274,7 @@ export function ContadoresEnVivo({
     afectaMarcador: false,
     detalle: "",
   }));
-  const toquesDesc = [...toquesTabla, ...toquesJsonb].sort((a, b) => b.creadoEn.localeCompare(a.creadoEn));
+  const toquesDesc = [...toquesTabla, ...toquesJsonb, ...toquesAgrupados].sort((a, b) => b.creadoEn.localeCompare(a.creadoEn));
   const golesEventosTabla = eventos.filter((e) => e.tipo === "tiro" && e.resultado === "gol");
   const golesDesc = [...golesEventosTabla].sort((a, b) => b.creado_en.localeCompare(a.creado_en));
 
@@ -339,6 +419,8 @@ export function ContadoresEnVivo({
   function anular() {
     setAccionPendiente(null);
     setZonaPendiente(null);
+    setModoCambio(false);
+    setCambioPrimero(null);
   }
 
   function registrarPerdidaRobo(equipoOrigen: EquipoOrigenEvento) {
@@ -420,13 +502,75 @@ export function ContadoresEnVivo({
     anular();
   }
 
-  function registrarSustitucion(tipo: "entra_pista" | "sale_pista") {
-    if (finalizado) return;
-    // Sin jugador: retorno silencioso — la barra de estado ya muestra
-    // "Selecciona un jugador" (statusMain).
-    if (!jugadorSel) return;
-    const evento = crearEventoJsonb(tipo, jugadorSel, minutoActual(cronometro, duracionParteMin), segundoActual(cronometro, duracionParteMin));
-    void persistirEstadisticas({ ...partido.estadisticas, eventos: [...eventosJsonb, evento] });
+  /** Registra uno o varios movimientos de pista en el mismo instante; si son
+   * varios (cambio, titulares), comparten `grupo`. */
+  function registrarPista(movimientos: { tipo: "entra_pista" | "sale_pista"; jugadorId: string }[]) {
+    if (finalizado || movimientos.length === 0) return;
+    const grupo = movimientos.length > 1 ? crypto.randomUUID() : undefined;
+    const minuto = minutoActual(cronometro, duracionParteMin);
+    const segundo = segundoActual(cronometro, duracionParteMin);
+    const nuevos = movimientos.map((m) => ({ ...crearEventoJsonb(m.tipo, m.jugadorId, minuto, segundo), ...(grupo ? { grupo } : {}) }));
+    void persistirEstadisticas({ ...partido.estadisticas, eventos: [...eventosJsonb, ...nuevos] });
+  }
+
+  function alternarTitular(id: string) {
+    setTitularesSel((prev) => {
+      const nuevo = new Set(prev);
+      if (nuevo.has(id)) nuevo.delete(id);
+      else nuevo.add(id);
+      return nuevo;
+    });
+  }
+
+  function confirmarTitulares() {
+    registrarPista([...titularesSel].map((id) => ({ tipo: "entra_pista" as const, jugadorId: id })));
+  }
+
+  function alternarModoCambio() {
+    setModoCambio((v) => !v);
+    setCambioPrimero(null);
+  }
+
+  /** En modo cambio: el primer toque marca a uno; el segundo, si es del otro
+   * lado (pista ↔ banquillo), registra el cambio completo. Tocar a otro del
+   * mismo lado solo cambia la selección; tocar al mismo la quita. */
+  function tocarJugadorEnCambio(id: string) {
+    if (!cambioPrimero) {
+      setCambioPrimero(id);
+      return;
+    }
+    if (cambioPrimero === id) {
+      setCambioPrimero(null);
+      return;
+    }
+    const primeroEnPista = enPista.has(cambioPrimero);
+    if (primeroEnPista === enPista.has(id)) {
+      setCambioPrimero(id);
+      return;
+    }
+    const sale = primeroEnPista ? cambioPrimero : id;
+    const entra = primeroEnPista ? id : cambioPrimero;
+    registrarPista([
+      { tipo: "sale_pista", jugadorId: sale },
+      { tipo: "entra_pista", jugadorId: entra },
+    ]);
+    setCambioPrimero(null);
+    setModoCambio(false);
+  }
+
+  /** Movimiento suelto, sin pareja (p.ej. entra el 7º jugador de campo
+   * cuando sale el portero, o se juega en inferioridad). */
+  function movimientoSuelto() {
+    if (!cambioPrimero) return;
+    registrarPista([{ tipo: enPista.has(cambioPrimero) ? "sale_pista" : "entra_pista", jugadorId: cambioPrimero }]);
+    setCambioPrimero(null);
+    setModoCambio(false);
+  }
+
+  function tocarJugador(j: JugadoresRow) {
+    if (eligiendoTitulares) alternarTitular(j.id);
+    else if (modoCambio) tocarJugadorEnCambio(j.id);
+    else seleccionarJugador(j);
   }
 
   /** Funciona también con el partido finalizado: si la última acción se
@@ -438,7 +582,11 @@ export function ContadoresEnVivo({
       onEventosActualizados(eventos.filter((e) => e.id !== ultimo.id));
       void borrarEvento(ultimo.id);
     } else {
-      void persistirEstadisticas({ ...partido.estadisticas, eventos: eventosJsonb.filter((e) => e.id !== ultimo.id) });
+      // `ultimo.id` es el id del toque, o el `grupo` si fue un cambio/titulares.
+      void persistirEstadisticas({
+        ...partido.estadisticas,
+        eventos: eventosJsonb.filter((e) => e.id !== ultimo.id && e.grupo !== ultimo.id),
+      });
     }
   }
 
@@ -493,62 +641,118 @@ export function ContadoresEnVivo({
       statusHint = "Elige el resultado del tiro";
     }
   }
+  if (eligiendoTitulares) {
+    statusMain = "Elige los titulares";
+    statusHint = `${titularesSel.size} marcados · toca para marcar o quitar`;
+  } else if (modoCambio) {
+    statusMain = "Cambio";
+    statusHint = !cambioPrimero
+      ? "Toca quién entra y quién sale"
+      : enPista.has(cambioPrimero)
+        ? `Sale ${etiquetaJugador(cambioPrimero)} — toca quién entra`
+        : `Entra ${etiquetaJugador(cambioPrimero)} — toca quién sale`;
+  }
 
-  const botonesSustitucion = (
+  const claseBotonColumna = cn(
+    "flex h-11 min-w-11 flex-1 items-center justify-center gap-1.5 rounded-[6px] font-semibold disabled:pointer-events-none disabled:opacity-35",
+    compacto ? "px-1 text-[11px]" : "px-2.5 text-xs",
+  );
+
+  /** Controles de la columna de jugadores según el modo: elegir titulares,
+   * hacer un cambio, o (si se omitieron los titulares) volver a elegirlos. */
+  const controlesPista = eligiendoTitulares ? (
     <div className="flex gap-1.5">
       <button
-        onClick={() => registrarSustitucion("entra_pista")}
-        disabled={finalizado}
-        className={cn(
-          "flex h-11 min-w-11 flex-1 items-center justify-center gap-1 rounded-[6px] bg-white/[.08] font-semibold text-[#4ddc8a] disabled:pointer-events-none disabled:opacity-35",
-          compacto ? "px-1 text-[11px]" : "px-2.5 text-xs",
-        )}
+        onClick={confirmarTitulares}
+        disabled={titularesSel.size === 0}
+        className={cn(claseBotonColumna, "bg-[var(--color-accent)] text-white")}
       >
-        {!compacto && <LogIn size={13} />} Entra
+        Confirmar ({titularesSel.size})
       </button>
-      <button
-        onClick={() => registrarSustitucion("sale_pista")}
-        disabled={finalizado}
-        className={cn(
-          "flex h-11 min-w-11 flex-1 items-center justify-center gap-1 rounded-[6px] bg-white/[.08] font-semibold text-white/70 disabled:pointer-events-none disabled:opacity-35",
-          compacto ? "px-1 text-[11px]" : "px-2.5 text-xs",
-        )}
-      >
-        {!compacto && <LogOut size={13} />} Sale
+      <button onClick={() => setOmitirTitulares(true)} className={cn(claseBotonColumna, "flex-none bg-white/[.08] px-3 text-white/70")}>
+        Omitir
       </button>
     </div>
+  ) : conRegistroPista ? (
+    <div className="flex gap-1.5">
+      <button
+        onClick={alternarModoCambio}
+        disabled={finalizado}
+        aria-pressed={modoCambio}
+        className={cn(claseBotonColumna, modoCambio ? "bg-[var(--color-accent)] text-white" : "bg-white/[.08] text-white")}
+      >
+        <ArrowLeftRight size={14} /> {modoCambio ? "Cancelar" : "Cambio"}
+      </button>
+      {modoCambio && cambioPrimero && (
+        <button onClick={movimientoSuelto} className={cn(claseBotonColumna, "bg-white/[.08] text-white/80")}>
+          {enPista.has(cambioPrimero) ? "Solo sale" : "Solo entra"}
+        </button>
+      )}
+    </div>
+  ) : (
+    <button onClick={() => setOmitirTitulares(false)} disabled={finalizado} className={cn(claseBotonColumna, "w-full bg-white/[.08] text-white/80")}>
+      Marcar titulares
+    </button>
   );
+
+  function chip(j: JugadoresRow, banquillo: boolean) {
+    const activo = eligiendoTitulares ? titularesSel.has(j.id) : modoCambio ? cambioPrimero === j.id : jugadorSel === j.id;
+    return (
+      <ChipJugador
+        key={j.id}
+        nombre={j.nombre.split(" ")[0]}
+        numero={j.dorsal != null ? String(j.dorsal) : "—"}
+        activo={activo}
+        portero={esPortero(j.puesto)}
+        goles={golesFavor(eventos.filter((e) => e.jugador_id === j.id))}
+        exclusionRestante={exclusionDe(j.id)?.restante ?? null}
+        banquillo={banquillo}
+        compacto={compacto}
+        onClick={() => tocarJugador(j)}
+      />
+    );
+  }
 
   /** `vertical`: lista en columna con scroll propio (pantalla fija, solo se
    * desplaza la lista, nunca el resto del panel). Si no, fila horizontal
-   * (móvil en vertical, el único layout que sí hace scroll de página). */
+   * (móvil en vertical, el único layout que sí hace scroll de página).
+   *
+   * Con cambios registrados, la lista se parte en "En pista" y "Banquillo"
+   * — siempre se ve quién está jugando. Los excluidos siguen en pista (su
+   * cuenta atrás aparece en la tarjeta) y vuelven solos al acabar. */
   function bloqueJugadores(vertical: boolean) {
+    const separar = conRegistroPista && !eligiendoTitulares;
+    const enPistaLista = jugadores.filter((j) => enPista.has(j.id));
+    const banquillo = jugadores.filter((j) => !enPista.has(j.id));
+    const rotulo = (texto: string, n: number) => (
+      <div className={cn("shrink-0 text-[11px] font-bold uppercase tracking-[0.1em] text-white/60", vertical ? "pt-1" : "self-center px-1")}>
+        {texto} <span className="stat-number text-white/80">{n}</span>
+      </div>
+    );
     return (
       <div className={cn("flex min-h-0 flex-col gap-2", vertical && "h-full")}>
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/60">Jugadores</span>
-          {!vertical && botonesSustitucion}
+        <div className={cn("flex gap-2", vertical ? "flex-col" : "items-center justify-between")}>
+          <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/60">
+            {eligiendoTitulares ? "Titulares" : "Jugadores"}
+          </span>
+          {controlesPista}
         </div>
-        {vertical && botonesSustitucion}
         <div
           className={cn(
             "flex gap-1.5",
             vertical ? "min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain pr-0.5" : "overflow-x-auto pb-0.5",
           )}
         >
-          {jugadores.map((j) => (
-            <ChipJugador
-              key={j.id}
-              nombre={j.nombre.split(" ")[0]}
-              numero={j.dorsal != null ? String(j.dorsal) : "—"}
-              activo={jugadorSel === j.id}
-              portero={esPortero(j.puesto)}
-              goles={golesFavor(eventos.filter((e) => e.jugador_id === j.id))}
-              exclusionRestante={exclusionDe(j.id)?.restante ?? null}
-              compacto={compacto}
-              onClick={() => seleccionarJugador(j)}
-            />
-          ))}
+          {separar ? (
+            <>
+              {rotulo("En pista", enPistaLista.length)}
+              {enPistaLista.map((j) => chip(j, false))}
+              {rotulo("Banquillo", banquillo.length)}
+              {banquillo.map((j) => chip(j, true))}
+            </>
+          ) : (
+            jugadores.map((j) => chip(j, false))
+          )}
         </div>
       </div>
     );
@@ -741,7 +945,7 @@ export function ContadoresEnVivo({
   const botonAnular = (
     <button
       onClick={anular}
-      disabled={!accionPendiente && zonaPendiente === null}
+      disabled={!accionPendiente && zonaPendiente === null && !modoCambio}
       className="flex h-11 min-w-11 shrink-0 items-center justify-center rounded-[6px] bg-white/[.1] px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-white/80 disabled:opacity-35"
     >
       Anular
@@ -796,7 +1000,7 @@ export function ContadoresEnVivo({
           <ol className={cn("relative", conScrollPropio && "min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1")}>
             {visibles.map((t, i) => {
               const jugador = t.jugadorId ? jugadores.find((j) => j.id === t.jugadorId) : null;
-              const quien = jugador ? `#${jugador.dorsal ?? "—"} ${jugador.nombre.split(" ")[0]}` : t.esRival ? partido.rival : "Sin asignar";
+              const quien = t.quien ?? (jugador ? `#${jugador.dorsal ?? "—"} ${jugador.nombre.split(" ")[0]}` : t.esRival ? partido.rival : "Sin asignar");
               const indiceGol = golesDesc.findIndex((g) => g.id === t.id);
               const esGol = t.afectaMarcador && indiceGol >= 0;
               const ultimo = i === visibles.length - 1;
@@ -1101,6 +1305,7 @@ function ChipJugador({
   portero,
   goles,
   exclusionRestante,
+  banquillo = false,
   compacto,
   onClick,
 }: {
@@ -1112,6 +1317,9 @@ function ChipJugador({
   /** Segundos que le quedan de exclusión (null si no está excluido): manda
    * sobre el resto de la segunda línea, también en móvil apaisado. */
   exclusionRestante: number | null;
+  /** En el banquillo (hay cambios registrados y no está en pista): tarjeta
+   * atenuada para que de un vistazo se vea quién juega. */
+  banquillo?: boolean;
   /** Móvil apaisado: fila de 44px, solo dorsal + nombre (salvo exclusión). */
   compacto?: boolean;
   onClick: () => void;
@@ -1125,7 +1333,7 @@ function ChipJugador({
       className={cn(
         "flex shrink-0 items-center overflow-hidden whitespace-nowrap rounded-[6px] border text-left transition-colors active:scale-[0.97] lg:w-full",
         compacto ? "h-11 w-full gap-1.5 py-1 pl-1 pr-2" : "h-14 gap-2.5 py-1.5 pl-1.5 pr-3.5 lg:h-12",
-        activo ? "border-white bg-white" : "border-white/[.1] bg-white/[.05]",
+        activo ? "border-white bg-white" : banquillo ? "border-dashed border-white/[.14] bg-transparent opacity-70" : "border-white/[.1] bg-white/[.05]",
       )}
     >
       <span
