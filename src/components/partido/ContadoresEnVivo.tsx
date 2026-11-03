@@ -106,11 +106,10 @@ export function ContadoresEnVivo({
   const [accionPendiente, setAccionPendiente] = useState<BotonTiro | null>(null);
   const [zonaPendiente, setZonaPendiente] = useState<number | null>(null);
   const [origenSel, setOrigenSel] = useState<OrigenLanzamiento | null>(null);
-  // Pista/banquillo: los cambios se registran con un gesto (botón "Cambio",
-  // luego quien entra y quien sale, en cualquier orden) en vez de con
-  // "Entra"/"Sale" sueltos, que nadie llegaba a usar en un partido real.
-  const [modoCambio, setModoCambio] = useState(false);
-  const [cambioPrimero, setCambioPrimero] = useState<string | null>(null);
+  // Pista/banquillo: un cambio = seleccionar jugador → "Cambiar" (su tarjeta
+  // tiembla) → tocar a uno de la otra sección. Sustituye a los "Entra"/"Sale"
+  // sueltos, que nadie llegaba a usar en un partido real.
+  const [cambioArmado, setCambioArmado] = useState<string | null>(null);
   const [titularesSel, setTitularesSel] = useState<Set<string>>(new Set());
   const [omitirTitulares, setOmitirTitulares] = useState(false);
   const cronometro = partido.estadisticas.cronometro;
@@ -419,8 +418,7 @@ export function ContadoresEnVivo({
   function anular() {
     setAccionPendiente(null);
     setZonaPendiente(null);
-    setModoCambio(false);
-    setCambioPrimero(null);
+    setCambioArmado(null);
   }
 
   function registrarPerdidaRobo(equipoOrigen: EquipoOrigenEvento) {
@@ -526,51 +524,38 @@ export function ContadoresEnVivo({
     registrarPista([...titularesSel].map((id) => ({ tipo: "entra_pista" as const, jugadorId: id })));
   }
 
-  function alternarModoCambio() {
-    setModoCambio((v) => !v);
-    setCambioPrimero(null);
-  }
-
-  /** En modo cambio: el primer toque marca a uno; el segundo, si es del otro
-   * lado (pista ↔ banquillo), registra el cambio completo. Tocar a otro del
-   * mismo lado solo cambia la selección; tocar al mismo la quita. */
-  function tocarJugadorEnCambio(id: string) {
-    if (!cambioPrimero) {
-      setCambioPrimero(id);
-      return;
-    }
-    if (cambioPrimero === id) {
-      setCambioPrimero(null);
-      return;
-    }
-    const primeroEnPista = enPista.has(cambioPrimero);
-    if (primeroEnPista === enPista.has(id)) {
-      setCambioPrimero(id);
-      return;
-    }
-    const sale = primeroEnPista ? cambioPrimero : id;
-    const entra = primeroEnPista ? id : cambioPrimero;
-    registrarPista([
-      { tipo: "sale_pista", jugadorId: sale },
-      { tipo: "entra_pista", jugadorId: entra },
-    ]);
-    setCambioPrimero(null);
-    setModoCambio(false);
-  }
-
-  /** Movimiento suelto, sin pareja (p.ej. entra el 7º jugador de campo
-   * cuando sale el portero, o se juega en inferioridad). */
-  function movimientoSuelto() {
-    if (!cambioPrimero) return;
-    registrarPista([{ tipo: enPista.has(cambioPrimero) ? "sale_pista" : "entra_pista", jugadorId: cambioPrimero }]);
-    setCambioPrimero(null);
-    setModoCambio(false);
+  /** Botón "Cambiar": arma (o desarma) el cambio del jugador seleccionado —
+   * su tarjeta tiembla hasta que se toca a alguien de la otra sección. */
+  function alternarCambio() {
+    if (!jugadorSel) return;
+    setCambioArmado((actual) => (actual === jugadorSel ? null : jugadorSel));
   }
 
   function tocarJugador(j: JugadoresRow) {
-    if (eligiendoTitulares) alternarTitular(j.id);
-    else if (modoCambio) tocarJugadorEnCambio(j.id);
-    else seleccionarJugador(j);
+    if (eligiendoTitulares) {
+      alternarTitular(j.id);
+      return;
+    }
+    if (cambioArmado) {
+      // Tocar la tarjeta que tiembla: deshace el armado.
+      if (j.id === cambioArmado) {
+        setCambioArmado(null);
+        return;
+      }
+      // De la otra sección (pista ↔ banquillo): cambio hecho directamente.
+      const armadoEnPista = enPista.has(cambioArmado);
+      if (armadoEnPista !== enPista.has(j.id)) {
+        registrarPista([
+          { tipo: "sale_pista", jugadorId: armadoEnPista ? cambioArmado : j.id },
+          { tipo: "entra_pista", jugadorId: armadoEnPista ? j.id : cambioArmado },
+        ]);
+        setCambioArmado(null);
+        return;
+      }
+      // De la misma sección: se desarma y se selecciona a ese, como siempre.
+      setCambioArmado(null);
+    }
+    seleccionarJugador(j);
   }
 
   /** Funciona también con el partido finalizado: si la última acción se
@@ -644,13 +629,9 @@ export function ContadoresEnVivo({
   if (eligiendoTitulares) {
     statusMain = "Elige los titulares";
     statusHint = `${titularesSel.size} marcados · toca para marcar o quitar`;
-  } else if (modoCambio) {
-    statusMain = "Cambio";
-    statusHint = !cambioPrimero
-      ? "Toca quién entra y quién sale"
-      : enPista.has(cambioPrimero)
-        ? `Sale ${etiquetaJugador(cambioPrimero)} — toca quién entra`
-        : `Entra ${etiquetaJugador(cambioPrimero)} — toca quién sale`;
+  } else if (cambioArmado) {
+    statusMain = enPista.has(cambioArmado) ? `Sale ${etiquetaJugador(cambioArmado)}` : `Entra ${etiquetaJugador(cambioArmado)}`;
+    statusHint = enPista.has(cambioArmado) ? "Toca quién entra (banquillo)" : "Toca quién sale (en pista)";
   }
 
   const claseBotonColumna = cn(
@@ -674,21 +655,21 @@ export function ContadoresEnVivo({
       </button>
     </div>
   ) : conRegistroPista ? (
-    <div className="flex gap-1.5">
-      <button
-        onClick={alternarModoCambio}
-        disabled={finalizado}
-        aria-pressed={modoCambio}
-        className={cn(claseBotonColumna, modoCambio ? "bg-[var(--color-accent)] text-white" : "bg-white/[.08] text-white")}
-      >
-        <ArrowLeftRight size={14} /> {modoCambio ? "Cancelar" : "Cambio"}
-      </button>
-      {modoCambio && cambioPrimero && (
-        <button onClick={movimientoSuelto} className={cn(claseBotonColumna, "bg-white/[.08] text-white/80")}>
-          {enPista.has(cambioPrimero) ? "Solo sale" : "Solo entra"}
-        </button>
+    // Aparece al seleccionar a alguien (sin jugador ocupa su hueco invisible,
+    // para que la lista no salte al tocar). Armado: rojo, y la tarjeta tiembla.
+    <button
+      onClick={alternarCambio}
+      disabled={finalizado || !jugadorSel}
+      aria-pressed={cambioArmado !== null}
+      className={cn(
+        claseBotonColumna,
+        "w-full flex-none",
+        !jugadorSel && "invisible",
+        cambioArmado ? "bg-[var(--color-accent)] text-white" : "bg-white/[.1] text-white",
       )}
-    </div>
+    >
+      <ArrowLeftRight size={14} /> Cambiar
+    </button>
   ) : (
     <button onClick={() => setOmitirTitulares(false)} disabled={finalizado} className={cn(claseBotonColumna, "w-full bg-white/[.08] text-white/80")}>
       Marcar titulares
@@ -696,7 +677,7 @@ export function ContadoresEnVivo({
   );
 
   function chip(j: JugadoresRow, banquillo: boolean) {
-    const activo = eligiendoTitulares ? titularesSel.has(j.id) : modoCambio ? cambioPrimero === j.id : jugadorSel === j.id;
+    const activo = eligiendoTitulares ? titularesSel.has(j.id) : jugadorSel === j.id;
     return (
       <ChipJugador
         key={j.id}
@@ -707,6 +688,7 @@ export function ContadoresEnVivo({
         goles={golesFavor(eventos.filter((e) => e.jugador_id === j.id))}
         exclusionRestante={exclusionDe(j.id)?.restante ?? null}
         banquillo={banquillo}
+        temblando={cambioArmado === j.id}
         compacto={compacto}
         onClick={() => tocarJugador(j)}
       />
@@ -945,7 +927,7 @@ export function ContadoresEnVivo({
   const botonAnular = (
     <button
       onClick={anular}
-      disabled={!accionPendiente && zonaPendiente === null && !modoCambio}
+      disabled={!accionPendiente && zonaPendiente === null && !cambioArmado}
       className="flex h-11 min-w-11 shrink-0 items-center justify-center rounded-[6px] bg-white/[.1] px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-white/80 disabled:opacity-35"
     >
       Anular
@@ -1306,6 +1288,7 @@ function ChipJugador({
   goles,
   exclusionRestante,
   banquillo = false,
+  temblando = false,
   compacto,
   onClick,
 }: {
@@ -1320,6 +1303,9 @@ function ChipJugador({
   /** En el banquillo (hay cambios registrados y no está en pista): tarjeta
    * atenuada para que de un vistazo se vea quién juega. */
   banquillo?: boolean;
+  /** Cambio armado para este jugador: la tarjeta tiembla hasta que se toca a
+   * alguien de la otra sección (o se vuelve a tocar para desarmar). */
+  temblando?: boolean;
   /** Móvil apaisado: fila de 44px, solo dorsal + nombre (salvo exclusión). */
   compacto?: boolean;
   onClick: () => void;
@@ -1334,6 +1320,7 @@ function ChipJugador({
         "flex shrink-0 items-center overflow-hidden whitespace-nowrap rounded-[6px] border text-left transition-colors active:scale-[0.97] lg:w-full",
         compacto ? "h-11 w-full gap-1.5 py-1 pl-1 pr-2" : "h-14 gap-2.5 py-1.5 pl-1.5 pr-3.5 lg:h-12",
         activo ? "border-white bg-white" : banquillo ? "border-dashed border-white/[.14] bg-transparent opacity-70" : "border-white/[.1] bg-white/[.05]",
+        temblando && "animate-temblor ring-2 ring-[var(--color-accent)] ring-offset-2 ring-offset-[#0d0d0f] motion-reduce:animate-none",
       )}
     >
       <span
