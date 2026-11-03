@@ -628,6 +628,17 @@ export function ContadoresEnVivo({
   /** Segunda línea de tiempo de cada tarjeta (solo si se llevan cambios):
    * en pista, mm:ss desde su última entrada (avanza con el reloj); en el
    * banquillo, el total jugado en mm:ss (sin punto verde; "Sin jugar" si aún no ha salido). */
+  /** Amonestaciones del jugador en este partido (para las tarjetitas de su tarjeta). */
+  const sancionesDe = (jugadorId: string) => {
+    const propias = eventos.filter((e) => e.jugador_id === jugadorId);
+    return {
+      amarillas: propias.filter((e) => e.tipo === "tarjeta" && e.color_tarjeta === "amarilla").length,
+      azules: propias.filter((e) => e.tipo === "tarjeta" && e.color_tarjeta === "azul").length,
+      rojas: propias.filter((e) => e.tipo === "tarjeta" && e.color_tarjeta === "roja").length,
+      exclusiones: propias.filter((e) => e.tipo === "exclusion").length,
+    };
+  };
+
   const tiempoTarjeta = (jugadorId: string): { texto: string; enPista: boolean } | null => {
     if (!conRegistroPista || eligiendoTitulares) return null;
     const { totalSeg, tramoSeg } = tiempoDePista(eventosJsonb, jugadorId, segundoActual(cronometro, duracionParteMin));
@@ -734,6 +745,7 @@ export function ContadoresEnVivo({
         goles={golesFavor(eventos.filter((e) => e.jugador_id === j.id))}
         exclusionRestante={exclusionDe(j.id)?.restante ?? null}
         tiempo={tiempoTarjeta(j.id)}
+        sanciones={sancionesDe(j.id)}
         banquillo={banquillo}
         temblando={cambioArmado === j.id}
         compacto={compacto}
@@ -1337,6 +1349,7 @@ function ChipJugador({
   banquillo = false,
   temblando = false,
   tiempo = null,
+  sanciones = { amarillas: 0, azules: 0, rojas: 0, exclusiones: 0 },
   compacto,
   onClick,
 }: {
@@ -1357,6 +1370,8 @@ function ChipJugador({
   /** Tiempo de pista (solo con cambios registrados): en pista, lo que lleva
    * desde que entró (mm:ss, en vivo); en el banquillo, lo jugado en total. */
   tiempo?: { texto: string; enPista: boolean } | null;
+  /** Amonestaciones del partido: tarjetitas en la esquina superior derecha. */
+  sanciones?: { amarillas: number; azules: number; rojas: number; exclusiones: number };
   /** Móvil apaisado: fila de 44px, solo dorsal + nombre (salvo exclusión). */
   compacto?: boolean;
   onClick: () => void;
@@ -1376,12 +1391,30 @@ function ChipJugador({
       : portero
         ? "Portero"
         : (textoGoles ?? "");
+
+  // Tarjetitas de amonestación, en orden: amarilla, azul, roja y una "2" por
+  // cada exclusión (en balonmano la 3ª exclusión ya es descalificación).
+  const iconosSancion: { fondo: string; borde?: string; texto?: string }[] = [
+    ...Array.from({ length: Math.min(sanciones.amarillas, 1) }, () => ({ fondo: "#f0c419" })),
+    ...Array.from({ length: Math.min(sanciones.azules, 1) }, () => ({ fondo: "#3d8ad6" })),
+    ...Array.from({ length: Math.min(sanciones.rojas, 1) }, () => ({ fondo: "var(--color-accent)" })),
+    ...Array.from({ length: Math.min(sanciones.exclusiones, 3) }, () => ({ fondo: "#0d0d0f", borde: "rgba(255,255,255,.85)", texto: "2" })),
+  ];
+  const resumenSanciones = [
+    sanciones.amarillas > 0 && "tarjeta amarilla",
+    sanciones.azules > 0 && "tarjeta azul",
+    sanciones.rojas > 0 && "tarjeta roja",
+    sanciones.exclusiones > 0 && `${sanciones.exclusiones} exclusión${sanciones.exclusiones === 1 ? "" : "es"} de 2'`,
+  ]
+    .filter(Boolean)
+    .join(", ");
+
   return (
     <button
       onClick={onClick}
       aria-pressed={activo}
       className={cn(
-        "flex shrink-0 items-center overflow-hidden whitespace-nowrap rounded-[6px] border text-left transition-colors active:scale-[0.97] lg:w-full",
+        "relative flex shrink-0 items-center overflow-hidden whitespace-nowrap rounded-[6px] border text-left transition-colors active:scale-[0.97] lg:w-full",
         compacto ? "h-11 w-full gap-1.5 py-1 pl-1 pr-2" : "h-14 gap-2.5 py-1.5 pl-1.5 pr-3.5 lg:h-12",
         activo ? "border-white bg-white" : banquillo ? "border-dashed border-white/[.14] bg-transparent opacity-70" : "border-white/[.1] bg-white/[.05]",
         temblando && "animate-temblor ring-2 ring-[var(--color-accent)] ring-offset-2 ring-offset-[#0d0d0f] motion-reduce:animate-none",
@@ -1400,8 +1433,22 @@ function ChipJugador({
       >
         {numero}
       </span>
+      {iconosSancion.length > 0 && (
+        <span
+          className="pointer-events-none absolute right-2 top-1.5 flex items-start gap-[3px]"
+          aria-label={resumenSanciones}
+          title={resumenSanciones}
+        >
+          {iconosSancion.map((s, i) => (
+            <TarjetitaSancion key={i} {...s} />
+          ))}
+        </span>
+      )}
       <span className="flex min-w-0 flex-col leading-tight">
-        <span className={cn("truncate text-[13px] font-semibold", activo ? "text-[var(--color-ink)]" : "text-white/90")}>{nombre}</span>
+        {/* Solo el nombre deja hueco a las tarjetitas de la esquina; la segunda línea (tiempo, exclusión) usa el ancho completo. */}
+        <span className={cn("truncate text-[13px] font-semibold", activo ? "text-[var(--color-ink)]" : "text-white/90")} style={{ paddingRight: iconosSancion.length * 12 }}>
+          {nombre}
+        </span>
         {(!compacto || excluido || tiempo) && (
           <span className="flex min-w-0 items-center gap-1.5">
             {/* Tiempo de pista: punto verde + mm:ss en pista; minutos jugados en el banquillo. */}
@@ -1437,5 +1484,21 @@ function ChipJugador({
         )}
       </span>
     </button>
+  );
+}
+
+/**
+ * Tarjetita de amonestación para la esquina de la tarjeta de jugador: forma
+ * de tarjeta de árbitro (vertical, esquinas apenas redondeadas), ligeramente
+ * inclinada y con sombra suave, como "apoyada" — discreta, no un badge.
+ */
+function TarjetitaSancion({ fondo, borde, texto }: { fondo: string; borde?: string; texto?: string }) {
+  return (
+    <span
+      className="stat-number flex h-[14px] w-[10px] rotate-[8deg] items-center justify-center rounded-[2px] text-[9px] leading-none text-white shadow-[0_1px_2px_rgba(0,0,0,.45)]"
+      style={{ backgroundColor: fondo, border: borde ? `1px solid ${borde}` : undefined }}
+    >
+      {texto}
+    </span>
   );
 }
