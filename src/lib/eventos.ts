@@ -1,6 +1,15 @@
 import { supabase } from "@/lib/supabaseClient";
 import { traerTodo } from "@/lib/paginar";
-import { aplicarPendientes, encolarOperacion, esErrorDeRed, guardarCache, leerCache, obtenerCola } from "@/lib/offline/queue";
+import {
+  aplicarPendientes,
+  encolarOperacion,
+  esErrorColumnaSegundo,
+  esErrorDeRed,
+  guardarCache,
+  leerCache,
+  obtenerCola,
+  sinColumnaSegundo,
+} from "@/lib/offline/queue";
 import type { Database, EventosRow } from "@/types/database";
 
 type EventoInsert = Database["public"]["Tables"]["eventos"]["Insert"];
@@ -58,6 +67,7 @@ export async function registrarEvento(datos: EventoInsert): Promise<EventosRow> 
     es_penalti: datos.es_penalti ?? false,
     color_tarjeta: datos.color_tarjeta ?? null,
     minuto: datos.minuto ?? null,
+    segundo: datos.segundo ?? null,
     // Respeta el `creado_en` del estado local si viene (ContadoresEnVivo lo
     // pone al crear la fila): si no, la fila guardada difería unos ms de la
     // pintada y el orden de la cronología podía cambiar al recargar.
@@ -67,7 +77,10 @@ export async function registrarEvento(datos: EventoInsert): Promise<EventosRow> 
     await encolarOperacion({ tabla: "eventos", tipo: "insert", rowId: fila.id, payload: fila });
     return fila;
   }
-  const { error, status } = await supabase.from("eventos").insert(fila);
+  let { error, status } = await supabase.from("eventos").insert(fila);
+  if (error && esErrorColumnaSegundo(error)) {
+    ({ error, status } = await supabase.from("eventos").insert(sinColumnaSegundo(fila)));
+  }
   if (error && esErrorDeRed(status)) {
     await encolarOperacion({ tabla: "eventos", tipo: "insert", rowId: fila.id, payload: fila });
   } else if (error) {

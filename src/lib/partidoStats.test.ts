@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { cambiarParte, marcadorNumerico, minutoActual, minutosJugados, pausar, resultadoPartido } from "./partidoStats";
+import {
+  cambiarParte,
+  exclusionesActivas,
+  marcadorNumerico,
+  minutoActual,
+  minutosJugados,
+  pausar,
+  resultadoPartido,
+  segundoActual,
+} from "./partidoStats";
 import { normalizarEventos } from "./eventos";
 import type { CronometroPartido, EventoPartido, EventosRow, PartidosRow } from "@/types/database";
 
@@ -18,6 +27,7 @@ function evento(overrides: Partial<EventosRow>): EventosRow {
     es_penalti: false,
     color_tarjeta: null,
     minuto: null,
+    segundo: null,
     creado_en: "2026-01-01T00:00:00.000Z",
     ...overrides,
   };
@@ -91,5 +101,29 @@ describe("normalizarEventos", () => {
     const [siete, normal] = normalizarEventos([evento({ origen: "7m" }), evento({ origen: "central" })]);
     expect(siete.es_penalti).toBe(true);
     expect(normal.es_penalti).toBe(false);
+  });
+});
+
+describe("exclusiones con segundo exacto", () => {
+  const exclusion = (jugador_id: string, segundo: number | null) =>
+    evento({ tipo: "exclusion", resultado: null, jugador_id, segundo });
+
+  it("segundoActual cuenta en reloj de partido y se acota al final de la parte", () => {
+    expect(segundoActual({ parte: 2, segundosAcumulados: 65, corriendo: false, ultimaMarca: null }, 30)).toBe(1865);
+    expect(segundoActual({ parte: 1, segundosAcumulados: 0, corriendo: false, ultimaMarca: null }, 30)).toBeNull();
+  });
+
+  it("cuenta atrás de 2' desde el segundo de la exclusión; las antiguas sin segundo no cuentan", () => {
+    const eventos = [exclusion("j1", 1000), exclusion("j2", 1080), exclusion("j3", null)];
+    const activas = exclusionesActivas(eventos, 1100);
+    expect(activas.map((x) => [x.jugadorId, x.restante, x.finSegundo])).toEqual([
+      ["j1", 20, 1120],
+      ["j2", 100, 1200],
+    ]);
+    expect(exclusionesActivas(eventos, 1120).map((x) => x.jugadorId)).toEqual(["j2"]);
+  });
+
+  it("una exclusión al final de la 1ª parte sigue corriendo en la 2ª", () => {
+    expect(exclusionesActivas([exclusion("j1", 1750)], 1800 + 30)[0].restante).toBe(40);
   });
 });

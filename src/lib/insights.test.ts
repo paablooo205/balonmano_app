@@ -15,6 +15,7 @@ function tiro(overrides: Partial<EventosRow> & Pick<EventosRow, "resultado" | "z
     es_penalti: false,
     color_tarjeta: null,
     minuto: null,
+    segundo: null,
     creado_en: "2026-01-01T00:00:00.000Z",
     ...overrides,
   };

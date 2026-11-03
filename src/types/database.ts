@@ -226,6 +226,8 @@ export type EventoPartido = {
   jugador_id: UUID | null;
   /** Minutos transcurridos de cronómetro en el momento del toque; null si el cronómetro no se había iniciado. */
   minuto: number | null;
+  /** Segundos de partido en el momento del toque (2ª parte con el offset de la 1ª). Ausente/null en toques anteriores a este campo. */
+  segundo?: number | null;
   creado_en: string;
 };
 
@@ -315,6 +317,10 @@ export type EventosRow = {
   /** Minuto de partido en el momento de registrar la acción (según el
    * cronómetro en vivo). Null: histórico anterior a esta columna. */
   minuto: number | null;
+  /** Segundos de partido transcurridos en el momento de registrar la acción
+   * (2ª parte con el offset de la 1ª: 1145 = 19:05). Null: histórico
+   * anterior a esta columna (0035_eventos_segundo.sql) o reloj sin iniciar. */
+  segundo: number | null;
   creado_en: string;
 };
 
@@ -532,6 +538,7 @@ export type Database = {
         | "es_penalti"
         | "color_tarjeta"
         | "minuto"
+        | "segundo"
         | "creado_en"
       >;
       multas_config: TableDef<MultasConfigRow, "id" | "activo" | "created_at">;

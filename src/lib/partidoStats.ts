@@ -94,8 +94,13 @@ export const ETIQUETAS_EVENTO_JSONB: Record<TipoEventoPartido, string> = Object.
   [...ACCIONES_JSONB.map((a) => [a.tipo, a.label]), ...SUSTITUCIONES.map((s) => [s.tipo, s.label])],
 ) as Record<TipoEventoPartido, string>;
 
-export function crearEventoJsonb(tipo: TipoEventoPartido, jugadorId: string | null, minuto: number | null): EventoPartido {
-  return { id: crypto.randomUUID(), tipo, jugador_id: jugadorId, minuto, creado_en: new Date().toISOString() };
+export function crearEventoJsonb(
+  tipo: TipoEventoPartido,
+  jugadorId: string | null,
+  minuto: number | null,
+  segundo: number | null = null,
+): EventoPartido {
+  return { id: crypto.randomUUID(), tipo, jugador_id: jugadorId, minuto, segundo, creado_en: new Date().toISOString() };
 }
 
 export const ETIQUETAS_ORIGEN: Record<OrigenLanzamiento, string> = {
@@ -316,6 +321,39 @@ export function iniciarOReanudar(c: CronometroPartido | undefined): CronometroPa
   const base = c ?? CRONOMETRO_INICIAL;
   if (base.corriendo) return base;
   return { ...base, corriendo: true, ultimaMarca: new Date().toISOString() };
+}
+
+/** Segundo de partido en curso (reloj de partido: la 2ª parte con el offset
+ * de la 1ª), acotado al final de la parte igual que `minutoActual`. `null`
+ * con el reloj sin iniciar — mismo criterio que `minutoActual`. */
+export function segundoActual(c: CronometroPartido | undefined, duracionParteMin = 30): number | null {
+  if (!c || (c.segundosAcumulados === 0 && !c.corriendo && c.parte === 1)) return null;
+  const enParte = Math.min(Math.floor(segundosActuales(c)), duracionParteMin * 60);
+  return (c.parte - 1) * duracionParteMin * 60 + enParte;
+}
+
+/** Duración de una exclusión, en segundos de reloj de partido. */
+export const DURACION_EXCLUSION_SEG = 120;
+
+export type ExclusionActiva = { eventoId: string; jugadorId: string | null; finSegundo: number; restante: number };
+
+/** Exclusiones de 2' que siguen cumpliéndose en `segundoAhora` (reloj de
+ * partido: la cuenta corre con el reloj y se para con él, como el tiempo de
+ * la exclusión en pista). Solo las que tienen `segundo` registrado — las
+ * anteriores a ese campo no se pueden situar. Ordenadas por la que antes
+ * termina. */
+export function exclusionesActivas(eventos: EventosRow[], segundoAhora: number | null): ExclusionActiva[] {
+  if (segundoAhora === null) return [];
+  return eventos
+    .filter((e) => e.tipo === "exclusion" && e.segundo != null)
+    .map((e) => ({
+      eventoId: e.id,
+      jugadorId: e.jugador_id,
+      finSegundo: e.segundo! + DURACION_EXCLUSION_SEG,
+      restante: e.segundo! + DURACION_EXCLUSION_SEG - segundoAhora,
+    }))
+    .filter((x) => x.restante > 0 && x.restante <= DURACION_EXCLUSION_SEG)
+    .sort((a, b) => a.restante - b.restante);
 }
 
 /** Con `duracionParteMin`, acota lo acumulado a la duración de la parte —

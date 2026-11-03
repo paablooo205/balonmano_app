@@ -4,7 +4,6 @@ import { supabase } from "@/lib/supabaseClient";
 import { encolarOperacion, esErrorDeRed } from "@/lib/offline/queue";
 import { borrarEvento, registrarEvento } from "@/lib/eventos";
 import { CuadriculaPorteria } from "@/components/partido/CuadriculaPorteria";
-import { OrigenChips } from "@/components/partido/OrigenChips";
 import { PanelStats } from "@/components/partido/PanelStats";
 import { useFullscreenHorizontal } from "@/hooks/useFullscreenHorizontal";
 import { useMovilHorizontal } from "@/hooks/useMovilHorizontal";
@@ -36,6 +35,9 @@ import {
   robos,
   segundosActuales,
   segundosPartido,
+  segundoActual,
+  exclusionesActivas,
+  type ExclusionActiva,
   type BotonTiro,
 } from "@/lib/partidoStats";
 import { cn } from "@/lib/utils";
@@ -121,6 +123,7 @@ export function ContadoresEnVivo({
     jugadorId: string | null;
     esRival: boolean;
     minuto: number | null;
+    segundo: number | null;
     creadoEn: string;
     afectaMarcador: boolean;
     detalle: string;
@@ -135,6 +138,7 @@ export function ContadoresEnVivo({
         jugadorId: e.jugador_id,
         esRival: e.equipo_origen === "rival",
         minuto: e.minuto,
+        segundo: e.segundo ?? null,
         creadoEn: e.creado_en,
         afectaMarcador: e.resultado === "gol",
         detalle: [e.zona ? `Z${e.zona}` : null, e.origen ? ETIQUETAS_ORIGEN[e.origen] : null].filter(Boolean).join(" · "),
@@ -150,6 +154,7 @@ export function ContadoresEnVivo({
         jugadorId: e.jugador_id,
         esRival: false,
         minuto: e.minuto,
+        segundo: e.segundo ?? null,
         creadoEn: e.creado_en,
         afectaMarcador: false,
         detalle: "",
@@ -165,6 +170,7 @@ export function ContadoresEnVivo({
       jugadorId: e.jugador_id,
       esRival: e.equipo_origen === "rival",
       minuto: e.minuto,
+      segundo: e.segundo ?? null,
       creadoEn: e.creado_en,
       afectaMarcador: false,
       detalle: "",
@@ -183,6 +189,7 @@ export function ContadoresEnVivo({
     jugadorId: e.jugador_id,
     esRival: false,
     minuto: e.minuto,
+    segundo: e.segundo ?? null,
     creadoEn: e.creado_en,
     afectaMarcador: false,
     detalle: "",
@@ -292,6 +299,7 @@ export function ContadoresEnVivo({
       es_penalti: esPenalti,
       color_tarjeta: null,
       minuto: minutoActual(cronometro, duracionParteMin),
+      segundo: segundoActual(cronometro, duracionParteMin),
       creado_en: new Date().toISOString(),
     };
     onEventosActualizados([...eventos, nuevo]);
@@ -349,6 +357,7 @@ export function ContadoresEnVivo({
       es_penalti: false,
       color_tarjeta: null,
       minuto: minutoActual(cronometro, duracionParteMin),
+      segundo: segundoActual(cronometro, duracionParteMin),
       creado_en: new Date().toISOString(),
     };
     onEventosActualizados([...eventos, nuevo]);
@@ -372,6 +381,7 @@ export function ContadoresEnVivo({
       es_penalti: false,
       color_tarjeta: null,
       minuto: minutoActual(cronometro, duracionParteMin),
+      segundo: segundoActual(cronometro, duracionParteMin),
       creado_en: new Date().toISOString(),
     };
     onEventosActualizados([...eventos, nuevo]);
@@ -395,6 +405,7 @@ export function ContadoresEnVivo({
       es_penalti: false,
       color_tarjeta: color,
       minuto: minutoActual(cronometro, duracionParteMin),
+      segundo: segundoActual(cronometro, duracionParteMin),
       creado_en: new Date().toISOString(),
     };
     onEventosActualizados([...eventos, nuevo]);
@@ -404,7 +415,7 @@ export function ContadoresEnVivo({
 
   function registrarJsonb(tipo: TipoEventoPartido) {
     if (finalizado || !jugadorSel) return;
-    const evento = crearEventoJsonb(tipo, jugadorSel, minutoActual(cronometro, duracionParteMin));
+    const evento = crearEventoJsonb(tipo, jugadorSel, minutoActual(cronometro, duracionParteMin), segundoActual(cronometro, duracionParteMin));
     void persistirEstadisticas({ ...partido.estadisticas, eventos: [...eventosJsonb, evento] });
     anular();
   }
@@ -414,7 +425,7 @@ export function ContadoresEnVivo({
     // Sin jugador: retorno silencioso — la barra de estado ya muestra
     // "Selecciona un jugador" (statusMain).
     if (!jugadorSel) return;
-    const evento = crearEventoJsonb(tipo, jugadorSel, minutoActual(cronometro, duracionParteMin));
+    const evento = crearEventoJsonb(tipo, jugadorSel, minutoActual(cronometro, duracionParteMin), segundoActual(cronometro, duracionParteMin));
     void persistirEstadisticas({ ...partido.estadisticas, eventos: [...eventosJsonb, evento] });
   }
 
@@ -452,6 +463,14 @@ export function ContadoresEnVivo({
   // registrado cayó en el minuto 31 (o sin minuto si no se inició). No se
   // arranca solo — las pausas (tiempo muerto) son legítimas —, solo se avisa.
   const minutoAhora = minutoActual(cronometro, duracionParteMin);
+
+  // Exclusiones de 2' en curso, con la cuenta atrás en reloj de partido (se
+  // para con el reloj, como el tiempo de la exclusión en pista). Se pinta en
+  // el marcador, en la tarjeta del jugador y en su panel de estadísticas.
+  const excluidos = exclusionesActivas(eventos, segundoActual(cronometro, duracionParteMin));
+  const exclusionDe = (jugadorId: string | null): ExclusionActiva | null =>
+    jugadorId ? (excluidos.find((x) => x.jugadorId === jugadorId) ?? null) : null;
+
   const avisoReloj =
     finalizado || corriendo
       ? null
@@ -475,81 +494,86 @@ export function ContadoresEnVivo({
     }
   }
 
-  const jugadorBlock = (
-    <div>
-      <div className="mb-2.5 flex items-center justify-between">
-        <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/60">Jugador</span>
-        <div className="flex gap-1.5">
-          <button
-            onClick={() => registrarSustitucion("entra_pista")}
-            disabled={finalizado}
-            className="flex h-11 min-w-11 items-center gap-1 rounded-[3px] bg-white/[.08] px-3 text-xs font-medium text-[#4ddc8a] disabled:pointer-events-none disabled:opacity-35"
-          >
-            <LogIn size={12} /> Entra
-          </button>
-          <button
-            onClick={() => registrarSustitucion("sale_pista")}
-            disabled={finalizado}
-            className="flex h-11 min-w-11 items-center gap-1 rounded-[3px] bg-white/[.08] px-3 text-xs font-medium text-white/60 disabled:pointer-events-none disabled:opacity-35"
-          >
-            <LogOut size={12} /> Sale
-          </button>
+  const botonesSustitucion = (
+    <div className="flex gap-1.5">
+      <button
+        onClick={() => registrarSustitucion("entra_pista")}
+        disabled={finalizado}
+        className={cn(
+          "flex h-11 min-w-11 flex-1 items-center justify-center gap-1 rounded-[6px] bg-white/[.08] font-semibold text-[#4ddc8a] disabled:pointer-events-none disabled:opacity-35",
+          compacto ? "px-1 text-[11px]" : "px-2.5 text-xs",
+        )}
+      >
+        {!compacto && <LogIn size={13} />} Entra
+      </button>
+      <button
+        onClick={() => registrarSustitucion("sale_pista")}
+        disabled={finalizado}
+        className={cn(
+          "flex h-11 min-w-11 flex-1 items-center justify-center gap-1 rounded-[6px] bg-white/[.08] font-semibold text-white/70 disabled:pointer-events-none disabled:opacity-35",
+          compacto ? "px-1 text-[11px]" : "px-2.5 text-xs",
+        )}
+      >
+        {!compacto && <LogOut size={13} />} Sale
+      </button>
+    </div>
+  );
+
+  /** `vertical`: lista en columna con scroll propio (pantalla fija, solo se
+   * desplaza la lista, nunca el resto del panel). Si no, fila horizontal
+   * (móvil en vertical, el único layout que sí hace scroll de página). */
+  function bloqueJugadores(vertical: boolean) {
+    return (
+      <div className={cn("flex min-h-0 flex-col gap-2", vertical && "h-full")}>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/60">Jugadores</span>
+          {!vertical && botonesSustitucion}
+        </div>
+        {vertical && botonesSustitucion}
+        <div
+          className={cn(
+            "flex gap-1.5",
+            vertical ? "min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain pr-0.5" : "overflow-x-auto pb-0.5",
+          )}
+        >
+          {jugadores.map((j) => (
+            <ChipJugador
+              key={j.id}
+              nombre={j.nombre.split(" ")[0]}
+              numero={j.dorsal != null ? String(j.dorsal) : "—"}
+              activo={jugadorSel === j.id}
+              portero={esPortero(j.puesto)}
+              goles={golesFavor(eventos.filter((e) => e.jugador_id === j.id))}
+              exclusionRestante={exclusionDe(j.id)?.restante ?? null}
+              compacto={compacto}
+              onClick={() => seleccionarJugador(j)}
+            />
+          ))}
         </div>
       </div>
-      {/* Fila horizontal con scroll en móvil/apaisado; en el layout tablet
-          (`lg:`) se convierte en lista vertical dentro de la columna de
-          180px — mismo markup, solo cambia flex-direction (ver ChipJugador).
-          Sin padding horizontal propio: el inset lo da siempre el
-          contenedor que lo envuelve en cada layout (mismo criterio que
-          zonaBlock/accionesBlock, para que ambos queden alineados al mismo
-          margen — ver usos más abajo).
-
-          Bajo `lg:`, `max-h` + `overflow-y-auto` propios: sin esto, una
-          plantilla larga hacía crecer la columna hasta empujar el scroll a
-          toda la pantalla (zona/acciones desaparecían de la vista al bajar
-          por la lista) — ahora solo se desplaza la lista, el resto del
-          panel se queda fijo. */}
-      <div className="flex gap-1.5 overflow-x-auto lg:max-h-[50vh] lg:flex-col lg:gap-1 lg:overflow-y-auto lg:pr-1">
-        {jugadores.map((j) => (
-          <ChipJugador
-            key={j.id}
-            nombre={j.nombre.split(" ")[0]}
-            numero={j.dorsal != null ? String(j.dorsal) : "—"}
-            activo={jugadorSel === j.id}
-            onClick={() => seleccionarJugador(j)}
-          />
-        ))}
-      </div>
-    </div>
-  );
-
-  // "Penalti (7m)" y el chip de origen "7m" son el mismo estado
-  // (`sietePendiente`): antes eran dos controles independientes que podían
-  // contradecirse. Elegir otro origen desarma el penalti.
-  function cambiarOrigen(o: OrigenLanzamiento) {
-    if (o === "7m") {
-      setSietePendiente((v) => !v);
-      return;
-    }
-    setSietePendiente(false);
-    setOrigenSel(o);
+    );
   }
 
-  const zonaBlock = (
-    <div className="flex flex-col gap-3">
-      <CuadriculaPorteria
-        tocable={!!jugadorSel && !finalizado}
-        resaltado={!!accionPendiente || zonaPendiente !== null}
-        compacto={compacto}
-        onZona={tocarZona}
-        conteosPorZona={conteosPorZona}
-      />
-      <div>
-        <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-white/60">Lanzamiento desde</div>
-        <OrigenChips valor={sietePendiente ? "7m" : origenSel} onCambiar={cambiarOrigen} />
+  /** `ajustarAlto`: la portería ocupa todo el alto disponible de su
+   * columna (pantalla fija). Sin selector de origen del lanzamiento: se
+   * guarda solo el que corresponde al puesto del jugador (`origenSel`, puesto
+   * al seleccionarlo) o "7m" con el interruptor de penalti — decisión del
+   * usuario: no compensaba un toque más por tiro. */
+  function bloqueZona(ajustarAlto: boolean) {
+    return (
+      <div className={cn(ajustarAlto && "h-full")}>
+        <CuadriculaPorteria
+          tocable={!!jugadorSel && !finalizado}
+          resaltado={!!accionPendiente || zonaPendiente !== null}
+          compacto={compacto}
+          ajustarAlto={ajustarAlto}
+          onZona={tocarZona}
+          conteosPorZona={conteosPorZona}
+          zonaArmada={zonaPendiente}
+        />
       </div>
-    </div>
-  );
+    );
+  }
 
   // Solo se muestra el grupo de tiro que corresponde al jugador elegido: un
   // portero apunta los tiros del rival (Parada / Gol en contra), cualquier
@@ -586,28 +610,102 @@ export function ContadoresEnVivo({
     </GrupoBotones>
   );
 
-  const accionesBlock = (
-    <div className="flex flex-col gap-3">
+  const botonPenalti = (
+    <button
+      onClick={() => setSietePendiente((v) => !v)}
+      disabled={finalizado}
+      aria-pressed={sietePendiente}
+      className={cn(
+        "flex h-11 items-center justify-center rounded-[6px] border text-[12px] font-semibold transition-colors disabled:pointer-events-none disabled:opacity-35",
+        sietePendiente
+          ? "border-[var(--color-accent)] bg-[var(--color-accent)] text-white"
+          : "border-white/[.1] bg-white/[.05] text-white/70",
+      )}
+    >
+      Penalti (7m)
+    </button>
+  );
+
+  const botonesTiro = esJugadorActualPortero
+    ? BOTONES_TIRO_RIVAL.map((b) => (
+        <BotonAccion
+          key={`${b.equipoOrigen}-${b.resultado}`}
+          label={b.label}
+          color={b.color}
+          count={contarBotonTiro(eventos, b)}
+          armado={esBotonArmado(b)}
+          disabled={finalizado}
+          className="col-span-2"
+          onClick={() => tocarBotonTiro(b)}
+        />
+      ))
+    : BOTONES_TIRO_PROPIO.map((b) => (
+        <BotonAccion
+          key={`${b.equipoOrigen}-${b.resultado}`}
+          label={b.label}
+          color={b.color}
+          count={contarBotonTiro(eventos, b)}
+          armado={esBotonArmado(b)}
+          disabled={!jugadorSel || finalizado}
+          onClick={() => tocarBotonTiro(b)}
+        />
+      ));
+
+  // Móvil apaisado: no caben los títulos de grupo sin hacer scroll, así que
+  // los mismos botones van en una rejilla de 4×4 con el mismo orden de
+  // lectura (tiro → penalti/robo/pérdida/2' → tarjetas → otros).
+  const accionesCompacto = (
+    <div className="grid grid-cols-4 gap-1.5">
+      {botonesTiro}
       <button
         onClick={() => setSietePendiente((v) => !v)}
         disabled={finalizado}
+        aria-pressed={sietePendiente}
         className={cn(
-          "flex h-11 items-center justify-center rounded text-[12px] font-semibold transition-colors disabled:pointer-events-none disabled:opacity-35",
-          sietePendiente ? "bg-[var(--color-accent)] text-white" : "bg-white/[.08] text-white/60",
+          "flex h-11 items-center justify-center rounded-[6px] border px-1 text-center text-[11px] font-semibold leading-tight transition-colors disabled:pointer-events-none disabled:opacity-35",
+          sietePendiente ? "border-[var(--color-accent)] bg-[var(--color-accent)] text-white" : "border-white/[.1] bg-white/[.05] text-white/80",
         )}
       >
-        Penalti (7m)
+        Penalti 7m
       </button>
+      <BotonAccion label="Robo" color="var(--color-success)" count={robos(eventos)} disabled={!jugadorSel || finalizado} onClick={() => registrarPerdidaRobo("rival")} />
+      <BotonAccion label="Pérdida" color="var(--color-warning)" count={perdidas(eventos)} disabled={!jugadorSel || finalizado} onClick={() => registrarPerdidaRobo("propio")} />
+      <BotonAccion label="2'" color="var(--color-warning)" count={exclusiones(eventos)} disabled={!jugadorSel || finalizado} onClick={registrarExclusion} />
+      {BOTONES_TARJETA.map((b) => (
+        <BotonAccion
+          key={b.color}
+          label={b.label}
+          color={b.hex}
+          count={eventos.filter((e) => e.tipo === "tarjeta" && e.color_tarjeta === b.color).length}
+          disabled={!jugadorSel || finalizado}
+          onClick={() => registrarTarjeta(b.color)}
+        />
+      ))}
+      <span aria-hidden="true" />
+      {ACCIONES_JSONB.map((a) => (
+        <BotonAccion
+          key={a.tipo}
+          label={a.label}
+          color={a.color}
+          count={eventosJsonb.filter((e) => e.tipo === a.tipo).length}
+          disabled={!jugadorSel || finalizado}
+          className="col-span-2"
+          onClick={() => registrarJsonb(a.tipo)}
+        />
+      ))}
+    </div>
+  );
 
+  const accionesBlock = (
+    <div className={cn("flex flex-col", compacto ? "gap-2" : "gap-2.5")}>
+      {botonPenalti}
       {grupoTiro}
-
-      <GrupoBotones titulo="Pérdida / Robo" cols={2} conBorde>
+      <GrupoBotones titulo="Pérdida / Robo" cols={2}>
         <BotonAccion label="Robo" color="var(--color-success)" count={robos(eventos)} disabled={!jugadorSel || finalizado} onClick={() => registrarPerdidaRobo("rival")} />
         <BotonAccion label="Pérdida" color="var(--color-warning)" count={perdidas(eventos)} disabled={!jugadorSel || finalizado} onClick={() => registrarPerdidaRobo("propio")} />
       </GrupoBotones>
-
-      <GrupoBotones titulo="Sanción" cols={4} conBorde>
-        <BotonAccion label="Exclusión 2'" color="var(--color-warning)" count={exclusiones(eventos)} disabled={!jugadorSel || finalizado} onClick={registrarExclusion} />
+      <GrupoBotones titulo="Sanción" cols={4}>
+        <BotonAccion label="2'" color="var(--color-warning)" count={exclusiones(eventos)} disabled={!jugadorSel || finalizado} onClick={registrarExclusion} />
         {BOTONES_TARJETA.map((b) => (
           <BotonAccion
             key={b.color}
@@ -619,8 +717,7 @@ export function ContadoresEnVivo({
           />
         ))}
       </GrupoBotones>
-
-      <GrupoBotones titulo="Otros" cols={2} conBorde>
+      <GrupoBotones titulo="Otros" cols={2}>
         {ACCIONES_JSONB.map((a) => (
           <BotonAccion
             key={a.tipo}
@@ -632,172 +729,261 @@ export function ContadoresEnVivo({
           />
         ))}
       </GrupoBotones>
-
     </div>
   );
 
-  // Barra fija bajo el marcador (no se va con el scroll): qué hay
-  // seleccionado, el paso siguiente y "Anular" — antes vivía al final de la
-  // columna de botones y en móvil quedaba fuera de la vista. El aviso de
-  // reloj parado va aquí, a ancho completo y en rojo, con el botón para
-  // reanudar a mano (no arranca solo: un tiempo muerto es una pausa legítima).
-  const barraEstado = (
+  // Barra fija bajo el marcador: qué hay seleccionado, el paso siguiente y
+  // "Anular". El aviso de reloj parado va aquí, a ancho completo y en rojo —
+  // solo aviso: el botón para reanudar es el del marcador (en rojo mientras
+  // está parado), no se duplica. No arranca solo: un tiempo muerto es una
+  // pausa legítima. En móvil apaisado, aviso y estado comparten una sola
+  // fila para no robar alto.
+  const botonAnular = (
+    <button
+      onClick={anular}
+      disabled={!accionPendiente && zonaPendiente === null}
+      className="flex h-11 min-w-11 shrink-0 items-center justify-center rounded-[6px] bg-white/[.1] px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-white/80 disabled:opacity-35"
+    >
+      Anular
+    </button>
+  );
+  const barraEstado = compacto ? (
+    <div className={cn("flex items-center gap-2 px-3 py-1", avisoReloj ? "bg-[var(--color-accent)]" : "border-b border-white/[.09] bg-[#0d0d0f]")}>
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-[13px] font-semibold text-white">{statusMain}</div>
+        <div className={cn("truncate text-[11px] font-semibold uppercase tracking-[0.04em]", avisoReloj ? "text-white" : "text-white/60")}>
+          {avisoReloj ?? statusHint}
+        </div>
+      </div>
+      {botonAnular}
+    </div>
+  ) : (
     <div className="border-b border-white/[.09] bg-[#0d0d0f]">
       {avisoReloj && (
-        <div role="status" className="flex items-center gap-3 bg-[var(--color-accent)] px-3 py-1.5">
-          <span className="min-w-0 flex-1 text-[13px] font-semibold leading-snug text-white">{avisoReloj}</span>
-          <button
-            onClick={alternarCronometro}
-            className="flex h-11 shrink-0 items-center gap-1.5 rounded bg-white px-3.5 text-xs font-bold uppercase tracking-[0.06em] text-[var(--color-accent)]"
-          >
-            <Play size={14} /> {minutoAhora === null ? "Iniciar" : "Reanudar"}
-          </button>
+        <div role="status" className="bg-[var(--color-accent)] px-4 py-2.5 text-center text-[14px] font-bold uppercase tracking-[0.04em] text-white">
+          {avisoReloj}
         </div>
       )}
-      <div className="flex items-center gap-2 px-3 py-1.5">
+      {/* En `lg:` el estado vive en la franja del marcador (ver `cabecera`)
+          para no gastar alto de la pantalla fija. */}
+      <div className="flex items-center gap-2 px-4 py-1.5 lg:hidden">
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[13px] font-semibold text-white">{statusMain}</div>
+          <div className="truncate text-[14px] font-semibold text-white">{statusMain}</div>
           <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-white/60">{statusHint}</div>
         </div>
-        <button
-          onClick={anular}
-          disabled={!accionPendiente && zonaPendiente === null}
-          className="flex h-11 min-w-11 shrink-0 items-center justify-center rounded bg-white/[.08] px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-white/70 disabled:opacity-35"
-        >
-          Anular
-        </button>
+        {botonAnular}
       </div>
     </div>
   );
 
-  const toquesVisibles = verTodasAcciones ? toquesDesc : toquesDesc.slice(0, 5);
-
-  const cronologiaBlock = (
-    <div className="min-h-0">
-      <div className="mb-2.5 flex items-baseline justify-between">
-        <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/60">Cronología</span>
-        <span className="text-[11px] text-white/60">{toquesDesc.length} acciones</span>
-      </div>
-      <div className="flex flex-col gap-1.5">
-        {toquesDesc.length === 0 && (
-          <div className="rounded-[3px] border border-dashed border-white/[.14] px-3.5 py-5 text-center text-xs text-white/60">
-            Sin acciones registradas. Selecciona un jugador y pulsa una acción.
+  // Cronología como línea de tiempo: minuto a la izquierda, punto de color
+  // sobre una línea vertical, y los goles destacados con el marcador de ese
+  // momento. `limite`: en pantalla fija se pintan todas y la lista hace
+  // scroll propio; en el layout con scroll de página, las 5 últimas + "Ver más".
+  function bloqueCronologia(conScrollPropio: boolean) {
+    const visibles = conScrollPropio || verTodasAcciones ? toquesDesc : toquesDesc.slice(0, 5);
+    return (
+      <div className={cn("flex min-h-0 flex-col", conScrollPropio && "h-full")}>
+        <div className="mb-2 flex shrink-0 items-baseline justify-between">
+          <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/60">Cronología</span>
+          <span className="stat-number text-[13px] text-white/60">{toquesDesc.length}</span>
+        </div>
+        {toquesDesc.length === 0 ? (
+          <div className="rounded-[6px] border border-dashed border-white/[.14] px-3 py-4 text-center text-xs text-white/60">
+            Sin acciones todavía.
           </div>
+        ) : (
+          <ol className={cn("relative", conScrollPropio && "min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1")}>
+            {visibles.map((t, i) => {
+              const jugador = t.jugadorId ? jugadores.find((j) => j.id === t.jugadorId) : null;
+              const quien = jugador ? `#${jugador.dorsal ?? "—"} ${jugador.nombre.split(" ")[0]}` : t.esRival ? partido.rival : "Sin asignar";
+              const indiceGol = golesDesc.findIndex((g) => g.id === t.id);
+              const esGol = t.afectaMarcador && indiceGol >= 0;
+              const ultimo = i === visibles.length - 1;
+              return (
+                <li key={t.id} className="relative flex gap-2.5 pb-2.5">
+                  {/* mm:ss cuando la acción tiene segundo exacto; las
+                      anteriores a ese campo siguen mostrando el minuto. */}
+                  <span className="stat-number w-10 shrink-0 pt-px text-right text-[14px] leading-tight text-white/70">
+                    {t.segundo !== null ? formatoReloj(t.segundo) : t.minuto !== null ? `${t.minuto}'` : "—"}
+                  </span>
+                  <span className="relative flex w-3 shrink-0 justify-center">
+                    {!ultimo && <span className="absolute top-3 -bottom-2.5 w-px bg-white/[.12]" />}
+                    <span
+                      className={cn("relative mt-1 rounded-full", esGol ? "h-3 w-3" : "h-2 w-2 mt-1.5")}
+                      style={{ backgroundColor: t.color }}
+                    />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className={cn("truncate text-white", esGol ? "text-[14px] font-bold" : "text-[13px] font-medium")}>{t.label}</span>
+                      {esGol && !compacto && (
+                        <span className="stat-number shrink-0 rounded-[4px] bg-white/[.1] px-1.5 text-[13px] leading-snug text-white">
+                          {marcadorHastaTabla(golesDesc, indiceGol)}
+                        </span>
+                      )}
+                    </div>
+                    {/* Columna estrecha (móvil apaisado): el marcador del gol
+                        pasa a esta línea y se omite el detalle de zona. */}
+                    <div className="truncate text-[11px] text-white/60">
+                      {compacto && esGol && <span className="stat-number text-white">{marcadorHastaTabla(golesDesc, indiceGol)} · </span>}
+                      {quien}
+                      {!compacto && t.detalle && <span className="text-white/45"> · {t.detalle}</span>}
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
         )}
-        {toquesVisibles.map((t) => {
-          const jugador = t.jugadorId ? jugadores.find((j) => j.id === t.jugadorId) : null;
-          const quien = jugador ? `#${jugador.dorsal ?? "—"} ${jugador.nombre}` : t.esRival ? partido.rival : "Sin asignar";
-          const indiceGol = golesDesc.findIndex((g) => g.id === t.id);
-          return (
-            <div
-              key={t.id}
-              className="flex items-center gap-3 rounded-[3px] bg-white/[.05] px-3.5 py-2.5"
-              style={{ borderLeft: `3px solid ${t.color}` }}
-            >
-              <span className="stat-number w-8 shrink-0 text-[15px] text-white">
-                {t.minuto !== null ? `${t.minuto}'` : "—"}
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="text-[13px] font-medium text-white">{t.label}</div>
-                <div className="mt-0.5 truncate text-[11px] text-white/60">{quien}</div>
-              </div>
-              {t.detalle && <span className="stat-number shrink-0 text-[11px] tracking-[0.04em] text-white/60">{t.detalle}</span>}
-              {t.afectaMarcador && indiceGol >= 0 && (
-                <span className="stat-number shrink-0 text-xs tracking-[0.04em] text-white/60">
-                  {marcadorHastaTabla(golesDesc, indiceGol)}
-                </span>
-              )}
-            </div>
-          );
-        })}
-        {toquesDesc.length > 5 && (
+        {!conScrollPropio && toquesDesc.length > 5 && (
           <button
             onClick={() => setVerTodasAcciones((v) => !v)}
-            className="mt-1 flex h-11 items-center justify-center rounded bg-white/[.05] text-[11px] font-semibold uppercase tracking-[0.08em] text-white/70"
+            className="mt-1 flex h-11 items-center justify-center rounded-[6px] bg-white/[.05] text-[11px] font-semibold uppercase tracking-[0.08em] text-white/70"
           >
             {verTodasAcciones ? "Ver menos" : `Ver ${toquesDesc.length - 5} más`}
           </button>
         )}
       </div>
+    );
+  }
+
+  const panelStatsTitulo = jugadorActual ? `#${jugadorActual.dorsal ?? "—"} ${jugadorActual.nombre}` : "Totales del equipo";
+  const panelStats = (
+    <PanelStats
+      eventos={eventos}
+      eventosJsonb={eventosJsonb}
+      jugadorId={jugadorSel}
+      duracionTotalMin={duracionParteMin * 2}
+      minutoActual={minutoAhora}
+      titulo={panelStatsTitulo}
+      esPortero={esJugadorActualPortero}
+      exclusion={exclusionDe(jugadorSel)}
+    />
+  );
+
+  const textoBotonReloj = finalizado
+    ? "Partido finalizado"
+    : corriendo
+      ? "Pausar"
+      : toquesDesc.length > 0
+        ? "Reanudar"
+        : "Iniciar partido";
+
+  /** Marcador + reloj + controles en una sola franja (pantalla fija: cada
+   * píxel de alto cuenta). Mismos controles que antes, en el mismo orden. */
+  const cabecera = (
+    <div className={cn("flex shrink-0 items-center border-b border-white/[.09] bg-[var(--color-ink)]", compacto ? "gap-2 px-3 py-1.5" : "gap-3 px-4 py-2")}>
+      <button onClick={onBack} aria-label="Volver a Partido" className="flex h-11 w-9 shrink-0 items-center justify-center text-white/60 hover:text-white/80">
+        <ChevronLeft size={20} className="text-[var(--color-accent)]" />
+      </button>
+
+      {!compacto && (
+        <div className="hidden w-[300px] min-w-0 shrink items-center gap-3 lg:flex">
+          <div className="min-w-0 flex-1 border-l-[3px] border-[var(--color-accent)] pl-3">
+            <div className="truncate text-[15px] font-semibold text-white">{statusMain}</div>
+            <div className="truncate text-[11px] font-semibold uppercase tracking-[0.06em] text-white/60">{statusHint}</div>
+          </div>
+          {botonAnular}
+        </div>
+      )}
+
+      <div className="flex min-w-0 flex-1 items-center justify-center gap-3 md:gap-5">
+        <div className="min-w-0 text-right">
+          <div className="truncate text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--color-accent)]">{equipoNombre ?? "Nosotros"}</div>
+          <div className={cn("stat-number leading-none text-white", compacto ? "text-[28px]" : "text-[40px]")}>{golesFavor(eventos)}</div>
+          {/* Cuenta atrás de las exclusiones en curso, justo bajo nuestros goles. */}
+          {excluidos.length > 0 && (
+            <div className="mt-1 flex flex-wrap justify-end gap-1">
+              {excluidos.map((x) => {
+                const j = jugadores.find((jj) => jj.id === x.jugadorId);
+                return (
+                  <span
+                    key={x.eventoId}
+                    className="stat-number whitespace-nowrap rounded-[4px] bg-[var(--color-accent)] px-1.5 text-[13px] leading-snug text-white"
+                    title={`Vuelve a las ${formatoReloj(x.finSegundo)}`}
+                  >
+                    #{j?.dorsal ?? "—"} · {formatoReloj(x.restante)}
+                  </span>
+                );
+              })}
+            </div>
+          )}
+        </div>
+        <div className="shrink-0 text-center">
+          <div
+            className={cn(
+              "stat-number leading-none tracking-[0.04em]",
+              compacto ? "text-xl" : "text-[28px]",
+              relojParado ? "text-[var(--color-accent)]" : "text-white",
+            )}
+          >
+            {formatoReloj(segundosPartido(cronometro, duracionParteMin))}
+          </div>
+          <div className="mt-1 flex items-center justify-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-white/60">
+            <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: corriendo ? "#4ddc8a" : "#8a8a92" }} />
+            {cronometro?.parte === 2 ? "2ª parte" : "1ª parte"}
+            {!compacto && <span className="text-white/45">· {estado}</span>}
+          </div>
+        </div>
+        <div className="min-w-0 text-left">
+          <div className="truncate text-[11px] font-semibold uppercase tracking-[0.08em] text-white/60">{partido.rival}</div>
+          <div className={cn("stat-number leading-none text-white/60", compacto ? "text-[28px]" : "text-[40px]")}>{golesContra(eventos)}</div>
+        </div>
+      </div>
+
+      <div className="flex shrink-0 items-center gap-1.5">
+        <button
+          onClick={alternarCronometro}
+          disabled={finalizado}
+          aria-label={corriendo ? "Pausar cronómetro" : "Iniciar cronómetro"}
+          className={cn(
+            "flex h-11 items-center justify-center gap-1.5 rounded-[6px] text-xs font-semibold text-white disabled:pointer-events-none disabled:opacity-50",
+            compacto ? "w-11" : "min-w-[120px] px-4",
+          )}
+          style={{ backgroundColor: corriendo || finalizado ? "rgba(255,255,255,.12)" : "var(--color-accent)" }}
+        >
+          {corriendo ? <Pause size={15} /> : <Play size={15} />}
+          {!compacto && textoBotonReloj}
+        </button>
+        {cronometro?.parte !== 2 && (
+          <button
+            onClick={siguienteParte}
+            disabled={finalizado}
+            aria-label="Pasar a la 2ª parte"
+            className="flex h-11 min-w-11 items-center justify-center rounded-[6px] bg-white/[.08] px-3 text-xs font-semibold text-white/80 disabled:pointer-events-none disabled:opacity-35"
+          >
+            {compacto ? "2ª" : "2ª parte"}
+          </button>
+        )}
+        <button
+          onClick={deshacer}
+          disabled={toquesDesc.length === 0}
+          aria-label="Deshacer último toque"
+          className="flex h-11 w-11 items-center justify-center rounded-[6px] bg-white/[.08] text-white/70 disabled:pointer-events-none disabled:opacity-35"
+        >
+          <Undo2 size={17} />
+        </button>
+      </div>
     </div>
   );
 
-  const panelStatsTitulo = jugadorActual ? `#${jugadorActual.dorsal ?? "—"} ${jugadorActual.nombre}` : "Totales del equipo";
-
+  // ── Móvil apaisado: pantalla fija a 4 columnas, sin scroll de página. Solo
+  // la lista de jugadores y la cronología se desplazan dentro de su columna.
+  // Sin panel de estadísticas (no cabe; está en la ficha técnica).
   if (compacto) {
     return (
       <div
         className="fixed inset-0 z-50 flex flex-col bg-[#0d0d0f]"
         style={{ paddingLeft: "env(safe-area-inset-left)", paddingRight: "env(safe-area-inset-right)" }}
       >
-        <div className="flex shrink-0 items-center gap-2 border-b border-white/[.09] bg-[var(--color-ink)] px-3 py-2">
-          <button onClick={onBack} aria-label="Volver a Partido" className="shrink-0 text-white/55 hover:text-white/80">
-            <ChevronLeft size={18} className="text-[var(--color-accent)]" />
-          </button>
-          <span
-            className="h-1.5 w-1.5 shrink-0 rounded-full"
-            style={{ backgroundColor: corriendo ? "#4ddc8a" : "#8a8a92" }}
-          />
-
-          <div className="flex flex-1 items-center justify-center gap-4">
-            <div className="min-w-0 text-center">
-              <div className="truncate text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--color-accent)]">
-                {equipoNombre ?? "Nosotros"}
-              </div>
-              <div className="stat-number text-2xl leading-none text-white">{golesFavor(eventos)}</div>
-            </div>
-            <div className="text-center">
-              <div className={cn("stat-number text-lg leading-none", relojParado ? "text-[var(--color-accent)]" : "text-white")}>
-                {formatoReloj(segundosPartido(cronometro, duracionParteMin))}
-              </div>
-              <div className="mt-0.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-white/60">
-                {cronometro?.parte === 2 ? "2ª parte" : "1ª parte"}
-              </div>
-            </div>
-            <div className="min-w-0 text-center">
-              <div className="truncate text-[11px] font-semibold uppercase tracking-[0.06em] text-white/60">{partido.rival}</div>
-              <div className="stat-number text-2xl leading-none text-white/55">{golesContra(eventos)}</div>
-            </div>
-          </div>
-
-          <button
-            onClick={alternarCronometro}
-            disabled={finalizado}
-            aria-label={corriendo ? "Pausar cronómetro" : "Iniciar cronómetro"}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded disabled:pointer-events-none disabled:opacity-35"
-            style={{ backgroundColor: corriendo ? "rgba(255,255,255,.12)" : "var(--color-accent)" }}
-          >
-            {corriendo ? <Pause size={15} className="text-white" /> : <Play size={15} className="text-white" />}
-          </button>
-          {cronometro?.parte !== 2 && (
-            <button
-              onClick={siguienteParte}
-              disabled={finalizado}
-              aria-label="Pasar a la 2ª parte"
-              className="flex h-11 min-w-11 shrink-0 items-center justify-center rounded bg-white/[.08] px-3 text-xs font-semibold text-white/75 disabled:pointer-events-none disabled:opacity-35"
-            >
-              2ª
-            </button>
-          )}
-          <button
-            onClick={deshacer}
-            disabled={toquesDesc.length === 0}
-            aria-label="Deshacer último toque"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded bg-white/[.08] text-white/60 disabled:pointer-events-none disabled:opacity-35"
-          >
-            <Undo2 size={15} />
-          </button>
-        </div>
-
+        {cabecera}
         <div className="shrink-0">{barraEstado}</div>
-
-        <div className="flex min-h-0 flex-1">
-          <div className="flex w-[54%] shrink-0 flex-col gap-2.5 overflow-y-auto border-r border-white/[.07] py-2.5">
-            <div className="px-3">{jugadorBlock}</div>
-            <div className="px-3">{zonaBlock}</div>
-            <div className="px-3">{accionesBlock}</div>
-          </div>
-          <div className="flex-1 overflow-y-auto px-3 py-2.5">{cronologiaBlock}</div>
+        <div className="grid min-h-0 flex-1 grid-cols-[112px_minmax(0,1fr)_minmax(0,250px)_132px] grid-rows-[minmax(0,1fr)] gap-2.5 p-2">
+          <div className="min-h-0">{bloqueJugadores(true)}</div>
+          <div className="min-h-0">{bloqueZona(true)}</div>
+          <div className="min-h-0">{accionesCompacto}</div>
+          <div className="min-h-0 border-l border-white/[.07] pl-2.5">{bloqueCronologia(true)}</div>
         </div>
       </div>
     );
@@ -805,112 +991,40 @@ export function ContadoresEnVivo({
 
   return (
     <div
-      className="fixed inset-0 z-50 overflow-y-auto bg-[#0d0d0f]"
+      className="fixed inset-0 z-50 flex flex-col overflow-y-auto bg-[#0d0d0f] lg:overflow-hidden"
       style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}
     >
-      <div className="border-b border-white/[.09] bg-[var(--color-ink)] px-4 pb-3 pt-3">
-        <div className="flex items-center justify-between gap-3">
-          <button onClick={onBack} className="flex items-center gap-1.5 text-xs text-white/55 hover:text-white/80">
-            <ChevronLeft size={16} className="text-[var(--color-accent)]" /> Partido
-          </button>
-          <div className="flex items-center gap-1.5">
-            <span
-              className="h-1.5 w-1.5 rounded-full"
-              style={{ backgroundColor: corriendo ? "#4ddc8a" : "#8a8a92" }}
-            />
-            <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/60">{estado}</span>
+      {cabecera}
+      {/* Sticky: en el layout con scroll (móvil en vertical) la barra de
+          estado/aviso se queda arriba; en pantalla fija ya no se mueve nada. */}
+      <div className="sticky top-0 z-10 shrink-0">{barraEstado}</div>
+
+      {/* Tablet/ordenador (`lg:`): pantalla fija a 3 columnas — jugadores |
+          portería + origen + estadísticas | botones + cronología. Nada
+          obliga a hacer scroll para registrar: solo la lista de jugadores y
+          la cronología se desplazan dentro de su columna si son largas.
+          Por debajo de `lg` (móvil en vertical) no cabe todo: se apila y la
+          página hace scroll, como antes. */}
+      <div className="flex flex-col gap-4 p-3 lg:grid lg:min-h-0 lg:flex-1 lg:grid-cols-[210px_minmax(0,1fr)_minmax(300px,330px)] lg:grid-rows-[minmax(0,1fr)] lg:gap-4 lg:p-4">
+        <div className="lg:hidden">{bloqueJugadores(false)}</div>
+        <div className="hidden min-h-0 lg:block">{bloqueJugadores(true)}</div>
+
+        {/* Columna central: portería (se ajusta al alto que quede) y, debajo,
+            las estadísticas del jugador seleccionado en una franja. */}
+        <div className="flex min-h-0 flex-col gap-3">
+          <div className="lg:min-h-0 lg:flex-1">
+            <div className="lg:hidden">{bloqueZona(false)}</div>
+            <div className="hidden h-full lg:block">{bloqueZona(true)}</div>
           </div>
+          <div className="shrink-0">{panelStats}</div>
         </div>
 
-        <div className="mt-2.5 flex items-center gap-2.5">
-          <div className="min-w-0 flex-1">
-            <div className="mb-1.5 truncate text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-accent)]">
-              {equipoNombre ?? "Nosotros"}
-            </div>
-            <div className="stat-number text-[52px] leading-[0.86] text-white">{golesFavor(eventos)}</div>
+        <div className="flex min-h-0 flex-col gap-4">
+          <div className="shrink-0">{accionesBlock}</div>
+          <div className="border-t border-white/[.07] pt-3 lg:min-h-0 lg:flex-1">
+            <div className="lg:hidden">{bloqueCronologia(false)}</div>
+            <div className="hidden h-full lg:block">{bloqueCronologia(true)}</div>
           </div>
-          <div className="shrink-0 px-1 text-center">
-            <div className={cn("stat-number text-3xl tracking-[0.04em]", relojParado ? "text-[var(--color-accent)]" : "text-white")}>
-              {formatoReloj(segundosPartido(cronometro, duracionParteMin))}
-            </div>
-            <div className="mt-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/60">
-              {cronometro?.parte === 2 ? "2ª parte" : "1ª parte"}
-            </div>
-          </div>
-          <div className="min-w-0 flex-1 text-right">
-            <div className="mb-1.5 truncate text-[11px] font-semibold uppercase tracking-[0.14em] text-white/60">
-              {partido.rival}
-            </div>
-            <div className="stat-number text-[52px] leading-[0.86] text-white/55">{golesContra(eventos)}</div>
-          </div>
-        </div>
-
-        <div className="mt-3 flex gap-2">
-          <button
-            onClick={alternarCronometro}
-            disabled={finalizado}
-            className="flex h-[42px] flex-1 items-center justify-center rounded text-xs font-semibold text-white active:scale-[0.985] disabled:pointer-events-none disabled:opacity-50"
-            style={{ backgroundColor: finalizado ? "rgba(255,255,255,.12)" : corriendo ? "rgba(255,255,255,.12)" : "var(--color-accent)" }}
-          >
-            {finalizado
-              ? "Partido finalizado"
-              : corriendo
-                ? "Pausar cronómetro"
-                : toquesDesc.length > 0
-                  ? "Reanudar"
-                  : "Iniciar partido"}
-          </button>
-          {cronometro?.parte !== 2 && (
-            <button
-              onClick={siguienteParte}
-              disabled={finalizado}
-              className="flex h-[42px] shrink-0 items-center justify-center rounded bg-white/[.08] px-4 text-xs font-semibold text-white/75 disabled:pointer-events-none disabled:opacity-35"
-            >
-              2ª parte
-            </button>
-          )}
-          <button
-            onClick={deshacer}
-            disabled={toquesDesc.length === 0}
-            aria-label="Deshacer último toque"
-            className="flex h-[42px] w-[52px] shrink-0 items-center justify-center rounded bg-white/[.08] text-white/60 disabled:pointer-events-none disabled:opacity-35"
-          >
-            <Undo2 size={17} />
-          </button>
-        </div>
-      </div>
-
-      {/* Sticky dentro del overlay (que es el contenedor con scroll): el
-          marcador sube con el scroll, la barra de estado/aviso se queda. */}
-      <div className="sticky top-0 z-10">{barraEstado}</div>
-
-      <div className="flex flex-col gap-3 p-3">
-        {/* Bajo `lg:`, jugadorBlock ocupa la primera columna (se convierte en
-            lista vertical, ver arriba) — por eso no lleva envoltorio propio
-            con borde inferior aquí, ese borde solo tiene sentido en móvil
-            donde va apilado encima de Zona/Acción. Sin padding horizontal
-            propio: el `p-3` del contenedor de más abajo ya le da el mismo
-            margen que a zonaBlock/accionesBlock (antes tenía un `px-4`
-            propio que lo desalineaba respecto a ellos). */}
-        <div className="border-b border-white/[.07] pb-3 lg:hidden">{jugadorBlock}</div>
-
-        <div className="flex flex-col gap-3 lg:grid lg:grid-cols-[180px_minmax(0,1fr)_280px] lg:items-start">
-          <div className="hidden lg:block">{jugadorBlock}</div>
-          {zonaBlock}
-          {accionesBlock}
-        </div>
-
-        <div className="flex flex-col gap-3 lg:grid lg:grid-cols-[minmax(0,1fr)_280px] lg:items-start">
-          <PanelStats
-            eventos={eventos}
-            eventosJsonb={eventosJsonb}
-            jugadorId={jugadorSel}
-            duracionTotalMin={duracionParteMin * 2}
-            minutoActual={minutoAhora}
-            titulo={panelStatsTitulo}
-            esPortero={esJugadorActualPortero}
-          />
-          {cronologiaBlock}
         </div>
       </div>
     </div>
@@ -920,21 +1034,16 @@ export function ContadoresEnVivo({
 function GrupoBotones({
   titulo,
   cols,
-  conBorde,
   children,
 }: {
   titulo: string;
   cols: 2 | 4;
-  /** Separador sutil arriba del grupo — ayuda a que varios grupos seguidos se
-   * lean como categorías distintas y no como una sola masa de botones. Se
-   * omite en el primero (ya lo separa el interruptor "Penalti" de encima). */
-  conBorde?: boolean;
   children: React.ReactNode;
 }) {
   const colsClass = cols === 2 ? "grid-cols-2" : "grid-cols-4";
   return (
-    <div className={cn(conBorde && "border-t border-white/[.06] pt-3")}>
-      <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-white/60">{titulo}</div>
+    <div>
+      <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.12em] text-white/60">{titulo}</div>
       <div className={cn("grid gap-1.5", colsClass)}>{children}</div>
     </div>
   );
@@ -946,6 +1055,7 @@ function BotonAccion({
   count,
   armado,
   disabled,
+  className,
   onClick,
 }: {
   label: string;
@@ -953,6 +1063,7 @@ function BotonAccion({
   count: number;
   armado?: boolean;
   disabled?: boolean;
+  className?: string;
   onClick: () => void;
 }) {
   return (
@@ -960,48 +1071,92 @@ function BotonAccion({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "flex h-11 flex-col items-center justify-center gap-1 rounded border px-1.5 text-center transition-colors active:scale-[0.96] disabled:opacity-35 disabled:pointer-events-none",
-        armado ? "border-[var(--color-accent)] bg-[var(--color-accent)]/15" : "border-white/[.09] bg-white/[.05]",
+        className,
+        "flex h-11 flex-col items-center justify-center gap-0.5 rounded-[6px] border px-1 text-center transition-colors active:scale-[0.96] disabled:opacity-35 disabled:pointer-events-none",
+        armado ? "border-[var(--color-accent)] bg-[var(--color-accent)]/20" : "border-white/[.1] bg-white/[.05]",
       )}
     >
-      <span className="text-[11px] leading-[1.1] text-white/85">{label}</span>
-      <span className="stat-number text-sm" style={{ color }}>
+      <span className="text-[11px] font-medium leading-[1.1] text-white/90">{label}</span>
+      <span className="stat-number text-[15px] leading-none" style={{ color }}>
         {count}
       </span>
     </button>
   );
 }
 
+/**
+ * Tarjeta de jugador tipo "dorsal de camiseta": el número manda (es lo que
+ * se busca con la vista en pleno partido), el nombre debajo y una segunda
+ * línea con su dato vivo — goles en el partido, o "Portero" para que el
+ * portero se encuentre al instante (sus botones son otros). Seleccionado:
+ * tarjeta blanca con el dorsal en rojo, imposible de confundir.
+ *
+ * overflow-hidden + truncate: bajo `lg:` la columna es fija (180px) y la
+ * tarjeta pasa a w-full — un nombre largo se trunca en vez de salirse.
+ */
 function ChipJugador({
   nombre,
   numero,
   activo,
+  portero,
+  goles,
+  exclusionRestante,
+  compacto,
   onClick,
 }: {
   nombre: string;
   numero: string;
   activo: boolean;
+  portero: boolean;
+  goles: number;
+  /** Segundos que le quedan de exclusión (null si no está excluido): manda
+   * sobre el resto de la segunda línea, también en móvil apaisado. */
+  exclusionRestante: number | null;
+  /** Móvil apaisado: fila de 44px, solo dorsal + nombre (salvo exclusión). */
+  compacto?: boolean;
   onClick: () => void;
 }) {
+  const excluido = exclusionRestante !== null;
+  const detalle = excluido ? `2' · ${formatoReloj(exclusionRestante)}` : portero ? "Portero" : goles > 0 ? `${goles} gol${goles === 1 ? "" : "es"}` : " ";
   return (
     <button
       onClick={onClick}
+      aria-pressed={activo}
       className={cn(
-        // h-11 (44px): es el control que más veces se toca en toda la
-        // pantalla (jugador obligatorio antes de cualquier registro) —
-        // mismo objetivo táctil mínimo que los botones de acción.
-        // overflow-hidden: bajo `lg:` la columna es fija (180px) y el botón
-        // pasa a w-full — sin esto un nombre largo con whitespace-nowrap se
-        // saldría visualmente del botón/columna en vez de truncarse.
-        "flex h-11 shrink-0 items-center gap-1.5 overflow-hidden whitespace-nowrap rounded-[3px] px-3.5 lg:w-full lg:justify-start",
-        activo ? "bg-[var(--color-accent)]" : "bg-white/[.08]",
+        "flex shrink-0 items-center overflow-hidden whitespace-nowrap rounded-[6px] border text-left transition-colors active:scale-[0.97] lg:w-full",
+        compacto ? "h-11 w-full gap-1.5 py-1 pl-1 pr-2" : "h-14 gap-2.5 py-1.5 pl-1.5 pr-3.5 lg:h-12",
+        activo ? "border-white bg-white" : "border-white/[.1] bg-white/[.05]",
       )}
     >
-      <span className="stat-number shrink-0 text-sm" style={{ color: activo ? "#fff" : "rgba(255,255,255,.6)" }}>
+      <span
+        className={cn(
+          "stat-number flex h-full shrink-0 items-center justify-center rounded-[4px] px-1 leading-none",
+          compacto ? "min-w-8 text-lg" : "min-w-10 text-[22px] lg:min-w-9 lg:text-xl",
+          activo
+            ? "bg-[var(--color-accent)] text-white"
+            : portero
+              ? "border border-dashed border-white/40 text-white"
+              : "bg-white/[.1] text-white",
+        )}
+      >
         {numero}
       </span>
-      <span className="truncate text-xs font-medium" style={{ color: activo ? "#fff" : "rgba(255,255,255,.6)" }}>
-        {nombre}
+      <span className="flex min-w-0 flex-col leading-tight">
+        <span className={cn("truncate text-[13px] font-semibold", activo ? "text-[var(--color-ink)]" : "text-white/90")}>{nombre}</span>
+        {(!compacto || excluido) && <span
+          className={cn(
+            "text-[11px] font-semibold uppercase tracking-[0.06em]",
+            excluido
+              ? "stat-number w-fit rounded-[3px] bg-[var(--color-accent)] px-1 text-[12px] tracking-normal text-white"
+              : activo
+                ? "text-[var(--color-ink)]/60"
+                : portero
+                  ? "text-white/60"
+                  : "text-[var(--color-accent)]",
+          )}
+        >
+          {detalle}
+        </span>}
       </span>
     </button>
   );
