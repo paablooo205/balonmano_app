@@ -79,12 +79,18 @@ export function JugadorDetailPage() {
   // el partido ya tiene resultado resuelto — no "tiene algún evento", que
   // contaba de más (un partido con eventos pero sin convocatoria hecha) y
   // de menos (un suplente convocado que no llegó a tocar el balón) a la vez.
-  const partidosConvocado = new Set(
-    asistencia.filter((a) => a.jugador_id === jugador.id && a.partido_id && a.presente).map((a) => a.partido_id!),
-  );
+  //
+  // Además cuenta cualquier partido donde el jugador tenga eventos propios
+  // apuntados aunque no figure como convocado (convocatoria sin hacer o
+  // editada después): si tiene goles en el marcador y en el PDF del partido,
+  // tienen que salir también en su ficha.
+  const partidosConParticipacion = new Set([
+    ...asistencia.filter((a) => a.jugador_id === jugador.id && a.partido_id && a.presente).map((a) => a.partido_id!),
+    ...eventos.filter((e) => e.jugador_id === jugador.id && e.partido_id).map((e) => e.partido_id!),
+  ]);
   const eventosPorPartido = agruparPorPartido(eventos);
   const partidosJugadosOrdenados = partidos
-    .filter((p) => partidosConvocado.has(p.id) && resultadoPartido(p, eventosPorPartido.get(p.id) ?? []) !== null)
+    .filter((p) => partidosConParticipacion.has(p.id) && resultadoPartido(p, eventosPorPartido.get(p.id) ?? []) !== null)
     .sort((a, b) => a.fecha.localeCompare(b.fecha));
   const partidosJugados = partidosJugadosOrdenados.length;
 
@@ -278,7 +284,7 @@ export function JugadorDetailPage() {
         {stats.map((s) => (
           <div key={s.k} className="card-surface p-4">
             <div className="stat-number text-[28px]">{s.v}</div>
-            <div className="mt-1.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--color-text-faint)]">
+            <div className="mt-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--color-text-faint)]">
               {s.k}
             </div>
           </div>
@@ -309,7 +315,7 @@ export function JugadorDetailPage() {
                   <div key={a.id} className="h-[30px] flex-1 rounded-md" style={{ backgroundColor: colorRegistroAsistencia(a) }} />
                 ))}
               </div>
-              <div className="mt-2 text-[10px] uppercase tracking-[0.08em] text-[var(--color-text-faint)]">
+              <div className="mt-2 text-[11px] uppercase tracking-[0.08em] text-[var(--color-text-faint)]">
                 Últimas {ultimas10.length} sesiones
               </div>
               {llegadasTarde > 0 && (
@@ -365,7 +371,7 @@ export function JugadorDetailPage() {
             {portero ? (
               <>
                 <div>
-                  <div className="mb-2 text-[9px] font-bold uppercase tracking-[0.16em] text-[var(--color-text-faint)]">
+                  <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--color-text-faint)]">
                     Eficacia de paradas
                   </div>
                   <div className="flex items-center justify-center gap-6 card-surface p-4">
@@ -379,11 +385,11 @@ export function JugadorDetailPage() {
                       ]}
                       centro={
                         detalleParadasJuego === null ? (
-                          <span className="px-1 text-center text-[8px] uppercase leading-tight tracking-[0.06em] text-[var(--color-text-faint)]">Juego abierto</span>
+                          <div className="flex flex-col items-center leading-tight"><span className="text-[11px] font-semibold text-[var(--color-text-muted)]">Sin tiros</span><span className="px-1 text-center text-[11px] uppercase leading-tight tracking-[0.02em] text-[var(--color-text-faint)]">Juego abierto</span></div>
                         ) : (
                           <div className="flex flex-col items-center leading-none">
                             <span className="stat-number text-lg text-[var(--color-ink)]">{detalleParadasJuego.pct}%</span>
-                            <span className="mt-0.5 px-1 text-center text-[7px] uppercase leading-tight tracking-[0.06em] text-[var(--color-text-faint)]">Juego abierto</span>
+                            <span className="mt-0.5 px-1 text-center text-[11px] uppercase leading-tight tracking-[0.02em] text-[var(--color-text-faint)]">Juego abierto</span>
                           </div>
                         )
                       }
@@ -398,11 +404,11 @@ export function JugadorDetailPage() {
                       ]}
                       centro={
                         detalleParadasPenalti === null ? (
-                          <span className="px-1 text-center text-[8px] uppercase leading-tight tracking-[0.06em] text-[var(--color-text-faint)]">7 metros</span>
+                          <div className="flex flex-col items-center leading-tight"><span className="text-[11px] font-semibold text-[var(--color-text-muted)]">Sin tiros</span><span className="px-1 text-center text-[11px] uppercase leading-tight tracking-[0.02em] text-[var(--color-text-faint)]">7 metros</span></div>
                         ) : (
                           <div className="flex flex-col items-center leading-none">
                             <span className="stat-number text-lg text-[var(--color-ink)]">{detalleParadasPenalti.pct}%</span>
-                            <span className="mt-0.5 px-1 text-center text-[7px] uppercase leading-tight tracking-[0.06em] text-[var(--color-text-faint)]">7 metros</span>
+                            <span className="mt-0.5 px-1 text-center text-[11px] uppercase leading-tight tracking-[0.02em] text-[var(--color-text-faint)]">7 metros</span>
                           </div>
                         )
                       }
@@ -411,12 +417,12 @@ export function JugadorDetailPage() {
                   {(muestraPequenaJuego || muestraPequenaPenalti) && (
                     <div className="mt-2 flex flex-col gap-0.5">
                       {muestraPequenaJuego && (
-                        <p className="text-[10px] text-[var(--color-text-faint)]">
+                        <p className="text-[11px] text-[var(--color-text-faint)]">
                           Juego abierto: menos de {MIN_TIROS_RECIBIDOS} tiros recibidos en la temporada — interpreta el % con cautela.
                         </p>
                       )}
                       {muestraPequenaPenalti && (
-                        <p className="text-[10px] text-[var(--color-text-faint)]">
+                        <p className="text-[11px] text-[var(--color-text-faint)]">
                           7 metros: menos de {MIN_TIROS_RECIBIDOS} tiros recibidos en la temporada — interpreta el % con cautela.
                         </p>
                       )}
@@ -425,7 +431,7 @@ export function JugadorDetailPage() {
                 </div>
 
                 <div className="card-surface p-4">
-                  <div className="mb-2 text-[9px] font-bold uppercase tracking-[0.16em] text-[var(--color-text-faint)]">
+                  <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--color-text-faint)]">
                     Tiros recibidos
                   </div>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -451,7 +457,7 @@ export function JugadorDetailPage() {
             ) : (
               <>
                 <div>
-                  <div className="mb-2 text-[9px] font-bold uppercase tracking-[0.16em] text-[var(--color-text-faint)]">
+                  <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--color-text-faint)]">
                     Eficacia de tiro
                   </div>
                   <div className="flex items-center justify-center gap-6 card-surface p-4">
@@ -465,11 +471,11 @@ export function JugadorDetailPage() {
                       ]}
                       centro={
                         pctJuego === null ? (
-                          <span className="px-1 text-center text-[8px] uppercase leading-tight tracking-[0.06em] text-[var(--color-text-faint)]">Juego abierto</span>
+                          <div className="flex flex-col items-center leading-tight"><span className="text-[11px] font-semibold text-[var(--color-text-muted)]">Sin tiros</span><span className="px-1 text-center text-[11px] uppercase leading-tight tracking-[0.02em] text-[var(--color-text-faint)]">Juego abierto</span></div>
                         ) : (
                           <div className="flex flex-col items-center leading-none">
                             <span className="stat-number text-lg text-[var(--color-ink)]">{pctJuego}%</span>
-                            <span className="mt-0.5 px-1 text-center text-[7px] uppercase leading-tight tracking-[0.06em] text-[var(--color-text-faint)]">Juego abierto</span>
+                            <span className="mt-0.5 px-1 text-center text-[11px] uppercase leading-tight tracking-[0.02em] text-[var(--color-text-faint)]">Juego abierto</span>
                           </div>
                         )
                       }
@@ -484,11 +490,11 @@ export function JugadorDetailPage() {
                       ]}
                       centro={
                         pctPenalti === null ? (
-                          <span className="px-1 text-center text-[8px] uppercase leading-tight tracking-[0.06em] text-[var(--color-text-faint)]">7 metros</span>
+                          <div className="flex flex-col items-center leading-tight"><span className="text-[11px] font-semibold text-[var(--color-text-muted)]">Sin tiros</span><span className="px-1 text-center text-[11px] uppercase leading-tight tracking-[0.02em] text-[var(--color-text-faint)]">7 metros</span></div>
                         ) : (
                           <div className="flex flex-col items-center leading-none">
                             <span className="stat-number text-lg text-[var(--color-ink)]">{pctPenalti}%</span>
-                            <span className="mt-0.5 px-1 text-center text-[7px] uppercase leading-tight tracking-[0.06em] text-[var(--color-text-faint)]">7 metros</span>
+                            <span className="mt-0.5 px-1 text-center text-[11px] uppercase leading-tight tracking-[0.02em] text-[var(--color-text-faint)]">7 metros</span>
                           </div>
                         )
                       }
@@ -497,7 +503,7 @@ export function JugadorDetailPage() {
                 </div>
 
                 <div className="card-surface p-4">
-                  <div className="mb-2 text-[9px] font-bold uppercase tracking-[0.16em] text-[var(--color-text-faint)]">
+                  <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--color-text-faint)]">
                     Tiro propio
                   </div>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

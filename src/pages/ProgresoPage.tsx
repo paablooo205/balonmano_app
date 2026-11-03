@@ -3,6 +3,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { useEquipo } from "@/hooks/useEquipo";
 import { resultadoPartido, marcadorNumerico, resumenResultados, RESULTADO_BADGE } from "@/lib/partidoStats";
 import { agruparPorPartido, cargarEventosEquipo } from "@/lib/eventos";
+import { traerTodo } from "@/lib/paginar";
 import { toISODate } from "@/lib/calendar";
 import { cn } from "@/lib/utils";
 import type { AsistenciaRow, EventosRow, JugadoresRow, PartidosRow, SesionesRow } from "@/types/database";
@@ -50,7 +51,9 @@ export function ProgresoPage() {
       setCargando(true);
       const [{ data: p }, { data: a }, { data: s }, { data: j }, ev] = await Promise.all([
         supabase.from("partidos").select("*").eq("equipo_id", equipoId).order("fecha", { ascending: true }),
-        supabase.from("asistencia").select("*").eq("equipo_id", equipoId),
+        traerTodo<AsistenciaRow>((desde, hasta) =>
+          supabase.from("asistencia").select("*").eq("equipo_id", equipoId).order("id").range(desde, hasta),
+        ),
         supabase.from("sesiones").select("*").eq("equipo_id", equipoId),
         supabase.from("jugadores").select("*").eq("equipo_id", equipoId),
         cargarEventosEquipo(equipoId),

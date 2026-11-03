@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { supabase } from "@/lib/supabaseClient";
 import { FichaTecnica } from "@/components/partido/FichaTecnica";
 import { EscudoFondo } from "@/components/layout/EscudoFondo";
+import { normalizarEventos } from "@/lib/eventos";
 import type { PartidoCompartidoPayload } from "@/types/database";
 
 /**
@@ -54,7 +55,8 @@ export function SharedPartidoPage() {
     );
   }
 
-  const { partido, equipo_nombre, eventos, jugadores } = datos;
+  const { partido, equipo_nombre, jugadores } = datos;
+  const eventos = normalizarEventos(datos.eventos);
 
   return (
     <div className="relative min-h-screen px-4 py-8">

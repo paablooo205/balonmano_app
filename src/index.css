@@ -26,6 +26,21 @@
   --font-display:
     "Barlow Condensed", "Archivo", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --animate-entrada: entrada 0.5s ease-out both;
+  --animate-temblor: temblor 0.32s ease-in-out infinite;
+}
+
+/* Temblor (estilo "editar iconos" del móvil) de la tarjeta de un jugador con
+   el cambio armado en el registro en vivo: estado funcional que espera un
+   toque, no decoración — se detiene en cuanto se hace o se deshace el cambio
+   y se desactiva con prefers-reduced-motion (motion-reduce:animate-none). */
+@keyframes temblor {
+  0%,
+  100% {
+    transform: rotate(-1.2deg);
+  }
+  50% {
+    transform: rotate(1.2deg);
+  }
 }
 
 /* Entrada única (no en bucle) para tarjetas/formularios de las pantallas de

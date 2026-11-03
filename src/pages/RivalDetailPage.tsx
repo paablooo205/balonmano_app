@@ -185,25 +185,25 @@ export function RivalDetailPage() {
               <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
                 <div className="card-surface p-4">
                   <div className="stat-number text-[28px]">{partidosConResultado}</div>
-                  <div className="mt-1.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--color-text-faint)]">
+                  <div className="mt-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--color-text-faint)]">
                     Partidos
                   </div>
                 </div>
                 <div className="card-surface p-4">
                   <div className="stat-number text-[28px] text-[var(--color-success)]">{victorias}</div>
-                  <div className="mt-1.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--color-text-faint)]">
+                  <div className="mt-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--color-text-faint)]">
                     Victorias
                   </div>
                 </div>
                 <div className="card-surface p-4">
                   <div className="stat-number text-[28px] text-[var(--color-warning)]">{empates}</div>
-                  <div className="mt-1.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--color-text-faint)]">
+                  <div className="mt-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--color-text-faint)]">
                     Empates
                   </div>
                 </div>
                 <div className="card-surface p-4">
                   <div className="stat-number text-[28px] text-[var(--color-accent)]">{derrotas}</div>
-                  <div className="mt-1.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--color-text-faint)]">
+                  <div className="mt-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--color-text-faint)]">
                     Derrotas
                   </div>
                 </div>
@@ -212,20 +212,20 @@ export function RivalDetailPage() {
               <div className="card-surface flex items-center justify-center gap-8 p-4">
                 <div className="text-center">
                   <div className="stat-number text-2xl">{golesFavorTotal}</div>
-                  <div className="mt-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--color-text-faint)]">
+                  <div className="mt-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--color-text-faint)]">
                     Goles a favor
                   </div>
                 </div>
                 <div className="text-center">
                   <div className="stat-number text-2xl">{golesContraTotal}</div>
-                  <div className="mt-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--color-text-faint)]">
+                  <div className="mt-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--color-text-faint)]">
                     Goles en contra
                   </div>
                 </div>
               </div>
 
               <div>
-                <div className="mb-2 text-[9px] font-bold uppercase tracking-[0.16em] text-[var(--color-text-faint)]">
+                <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--color-text-faint)]">
                   Nuestra eficacia de tiro
                 </div>
                 <div className="flex items-center justify-center gap-6 card-surface p-4">
@@ -239,11 +239,11 @@ export function RivalDetailPage() {
                     ]}
                     centro={
                       pctJuego === null ? (
-                        <span className="px-1 text-center text-[8px] uppercase leading-tight tracking-[0.06em] text-[var(--color-text-faint)]">Juego abierto</span>
+                        <div className="flex flex-col items-center leading-tight"><span className="text-[11px] font-semibold text-[var(--color-text-muted)]">Sin tiros</span><span className="px-1 text-center text-[11px] uppercase leading-tight tracking-[0.02em] text-[var(--color-text-faint)]">Juego abierto</span></div>
                       ) : (
                         <div className="flex flex-col items-center leading-none">
                           <span className="stat-number text-lg text-[var(--color-ink)]">{pctJuego}%</span>
-                          <span className="mt-0.5 px-1 text-center text-[7px] uppercase leading-tight tracking-[0.06em] text-[var(--color-text-faint)]">Juego abierto</span>
+                          <span className="mt-0.5 px-1 text-center text-[11px] uppercase leading-tight tracking-[0.02em] text-[var(--color-text-faint)]">Juego abierto</span>
                         </div>
                       )
                     }
@@ -258,11 +258,11 @@ export function RivalDetailPage() {
                     ]}
                     centro={
                       pctPenalti === null ? (
-                        <span className="px-1 text-center text-[8px] uppercase leading-tight tracking-[0.06em] text-[var(--color-text-faint)]">7 metros</span>
+                        <div className="flex flex-col items-center leading-tight"><span className="text-[11px] font-semibold text-[var(--color-text-muted)]">Sin tiros</span><span className="px-1 text-center text-[11px] uppercase leading-tight tracking-[0.02em] text-[var(--color-text-faint)]">7 metros</span></div>
                       ) : (
                         <div className="flex flex-col items-center leading-none">
                           <span className="stat-number text-lg text-[var(--color-ink)]">{pctPenalti}%</span>
-                          <span className="mt-0.5 px-1 text-center text-[7px] uppercase leading-tight tracking-[0.06em] text-[var(--color-text-faint)]">7 metros</span>
+                          <span className="mt-0.5 px-1 text-center text-[11px] uppercase leading-tight tracking-[0.02em] text-[var(--color-text-faint)]">7 metros</span>
                         </div>
                       )
                     }
@@ -271,7 +271,7 @@ export function RivalDetailPage() {
               </div>
 
               <div className="card-surface p-4">
-                <div className="mb-2 text-[9px] font-bold uppercase tracking-[0.16em] text-[var(--color-text-faint)]">
+                <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--color-text-faint)]">
                   Dónde tiramos nosotros
                 </div>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -295,7 +295,7 @@ export function RivalDetailPage() {
               </div>
 
               <div className="card-surface p-4">
-                <div className="mb-2 text-[9px] font-bold uppercase tracking-[0.16em] text-[var(--color-text-faint)]">
+                <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--color-text-faint)]">
                   Dónde nos tira el rival
                 </div>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -319,7 +319,7 @@ export function RivalDetailPage() {
               </div>
 
               <div>
-                <div className="mb-2 text-[9px] font-bold uppercase tracking-[0.16em] text-[var(--color-text-faint)]">
+                <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--color-text-faint)]">
                   Partidos contra {rival.nombre}
                 </div>
                 <div className="card-surface divide-y divide-[var(--color-border)] overflow-hidden p-0">

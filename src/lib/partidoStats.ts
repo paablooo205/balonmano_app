@@ -94,8 +94,13 @@ export const ETIQUETAS_EVENTO_JSONB: Record<TipoEventoPartido, string> = Object.
   [...ACCIONES_JSONB.map((a) => [a.tipo, a.label]), ...SUSTITUCIONES.map((s) => [s.tipo, s.label])],
 ) as Record<TipoEventoPartido, string>;
 
-export function crearEventoJsonb(tipo: TipoEventoPartido, jugadorId: string | null, minuto: number | null): EventoPartido {
-  return { id: crypto.randomUUID(), tipo, jugador_id: jugadorId, minuto, creado_en: new Date().toISOString() };
+export function crearEventoJsonb(
+  tipo: TipoEventoPartido,
+  jugadorId: string | null,
+  minuto: number | null,
+  segundo: number | null = null,
+): EventoPartido {
+  return { id: crypto.randomUUID(), tipo, jugador_id: jugadorId, minuto, segundo, creado_en: new Date().toISOString() };
 }
 
 export const ETIQUETAS_ORIGEN: Record<OrigenLanzamiento, string> = {
@@ -178,9 +183,19 @@ export function golesContra(eventos: EventosRow[]): number {
   return eventos.filter((e) => e.tipo === "tiro" && e.equipo_origen === "rival" && e.resultado === "gol").length;
 }
 
+/** Hay marcador registrado en vivo (algún gol, de quien sea). Criterio
+ * único para los tres helpers de marcador: antes `resultadoPartido` y
+ * `marcadorNumerico` miraban "hay algún evento", así que un partido con solo
+ * una tarjeta o una pérdida apuntada y el resultado escrito a mano salía
+ * como empate 0-0 en Rival/Progreso mientras `marcadorPartido` mostraba el
+ * resultado escrito. */
+function tieneMarcadorEnVivo(eventos: EventosRow[]): boolean {
+  return golesFavor(eventos) > 0 || golesContra(eventos) > 0;
+}
+
 /** Resultado del partido: prioriza los toques en vivo (fuente de verdad) sobre el campo `resultado` escrito a mano. */
 export function resultadoPartido(p: PartidosRow, eventos: EventosRow[]): "victoria" | "derrota" | "empate" | null {
-  if (eventos.length > 0) {
+  if (tieneMarcadorEnVivo(eventos)) {
     const favor = golesFavor(eventos);
     const contra = golesContra(eventos);
     if (favor === contra) return "empate";
@@ -195,7 +210,7 @@ export function resultadoPartido(p: PartidosRow, eventos: EventosRow[]): "victor
 
 /** Marcador textual: prioriza los toques en vivo (fuente de verdad) sobre el campo escrito a mano. */
 export function marcadorPartido(p: PartidosRow, eventos: EventosRow[]): string {
-  if (golesFavor(eventos) > 0 || golesContra(eventos) > 0) {
+  if (tieneMarcadorEnVivo(eventos)) {
     return `${golesFavor(eventos)}-${golesContra(eventos)}`;
   }
   return p.resultado ?? "—";
@@ -207,7 +222,7 @@ export function marcadorPartido(p: PartidosRow, eventos: EventosRow[]): string {
  * mano). `null` si no hay ninguno de los dos.
  */
 export function marcadorNumerico(p: PartidosRow, eventos: EventosRow[]): { favor: number; contra: number } | null {
-  if (eventos.length > 0) {
+  if (tieneMarcadorEnVivo(eventos)) {
     return { favor: golesFavor(eventos), contra: golesContra(eventos) };
   }
   const m = p.resultado?.match(/(\d+)\s*[-–:]\s*(\d+)/);
@@ -271,9 +286,14 @@ export function segundosPartido(c: CronometroPartido | undefined, duracionParteM
   return (c.parte - 1) * duracionParteMin * 60 + segundosActuales(c);
 }
 
+/** Minuto de partido en curso (1-based). Acotado al último minuto de la
+ * parte en curso: si el reloj siguió corriendo con la app en segundo plano
+ * (el auto-stop solo actúa con la pantalla abierta), un toque de la 1ª parte
+ * no puede acabar con minuto 35 y contarse como de la 2ª. */
 export function minutoActual(c: CronometroPartido | undefined, duracionParteMin = 30): number | null {
   if (!c || (c.segundosAcumulados === 0 && !c.corriendo && c.parte === 1)) return null;
-  return Math.floor(segundosPartido(c, duracionParteMin) / 60) + 1;
+  const minutoEnParte = Math.min(Math.floor(segundosActuales(c) / 60) + 1, duracionParteMin);
+  return (c.parte - 1) * duracionParteMin + minutoEnParte;
 }
 
 /** El partido ha llegado al final de la 2ª parte y se ha parado solo (ver el
@@ -303,16 +323,57 @@ export function iniciarOReanudar(c: CronometroPartido | undefined): CronometroPa
   return { ...base, corriendo: true, ultimaMarca: new Date().toISOString() };
 }
 
-export function pausar(c: CronometroPartido | undefined): CronometroPartido {
-  const base = c ?? CRONOMETRO_INICIAL;
-  if (!base.corriendo) return base;
-  return { ...base, segundosAcumulados: segundosActuales(base), corriendo: false, ultimaMarca: null };
+/** Segundo de partido en curso (reloj de partido: la 2ª parte con el offset
+ * de la 1ª), acotado al final de la parte igual que `minutoActual`. `null`
+ * con el reloj sin iniciar — mismo criterio que `minutoActual`. */
+export function segundoActual(c: CronometroPartido | undefined, duracionParteMin = 30): number | null {
+  if (!c || (c.segundosAcumulados === 0 && !c.corriendo && c.parte === 1)) return null;
+  const enParte = Math.min(Math.floor(segundosActuales(c)), duracionParteMin * 60);
+  return (c.parte - 1) * duracionParteMin * 60 + enParte;
 }
 
-/** Cambia de parte (alterna 1ª/2ª) y reinicia el contador de la parte, en pausa. */
+/** Duración de una exclusión, en segundos de reloj de partido. */
+export const DURACION_EXCLUSION_SEG = 120;
+
+export type ExclusionActiva = { eventoId: string; jugadorId: string | null; finSegundo: number; restante: number };
+
+/** Exclusiones de 2' que siguen cumpliéndose en `segundoAhora` (reloj de
+ * partido: la cuenta corre con el reloj y se para con él, como el tiempo de
+ * la exclusión en pista). Solo las que tienen `segundo` registrado — las
+ * anteriores a ese campo no se pueden situar. Ordenadas por la que antes
+ * termina. */
+export function exclusionesActivas(eventos: EventosRow[], segundoAhora: number | null): ExclusionActiva[] {
+  if (segundoAhora === null) return [];
+  return eventos
+    .filter((e) => e.tipo === "exclusion" && e.segundo != null)
+    .map((e) => ({
+      eventoId: e.id,
+      jugadorId: e.jugador_id,
+      finSegundo: e.segundo! + DURACION_EXCLUSION_SEG,
+      restante: e.segundo! + DURACION_EXCLUSION_SEG - segundoAhora,
+    }))
+    .filter((x) => x.restante > 0 && x.restante <= DURACION_EXCLUSION_SEG)
+    .sort((a, b) => a.restante - b.restante);
+}
+
+/** Con `duracionParteMin`, acota lo acumulado a la duración de la parte —
+ * si no, volver tras horas con la app cerrada guardaba p.ej. 400 minutos. */
+export function pausar(c: CronometroPartido | undefined, duracionParteMin?: number): CronometroPartido {
+  const base = c ?? CRONOMETRO_INICIAL;
+  if (!base.corriendo) return base;
+  const segundos = segundosActuales(base);
+  const acotados = duracionParteMin !== undefined ? Math.min(segundos, duracionParteMin * 60) : segundos;
+  return { ...base, segundosAcumulados: acotados, corriendo: false, ultimaMarca: null };
+}
+
+/** Pasa de la 1ª a la 2ª parte, con el contador a 0 y en pausa. Solo hacia
+ * delante: antes alternaba, y tocar "1ª parte" durante la 2ª ponía el reloj
+ * a 0 en la 1ª — el resto del partido quedaba apuntado como minutos 1-30
+ * (visto en partidos reales). En la 2ª parte no hace nada. */
 export function cambiarParte(c: CronometroPartido | undefined): CronometroPartido {
   const base = c ?? CRONOMETRO_INICIAL;
-  return { parte: base.parte === 1 ? 2 : 1, segundosAcumulados: 0, corriendo: false, ultimaMarca: null };
+  if (base.parte === 2) return base;
+  return { parte: 2, segundosAcumulados: 0, corriendo: false, ultimaMarca: null };
 }
 
 /**
@@ -335,26 +396,109 @@ export function eficaciaLanzamiento(eventos: EventosRow[], jugadorId?: string): 
  * "entra_pista"/"sale_pista" (siguen en `estadisticas.eventos`, jsonb — no
  * migran a la tabla `eventos`, ver alcance en 0017_eventos.sql). Empareja
  * cronológicamente por minuto; si queda una entrada sin salida, cuenta hasta
- * el final del partido (60' por convenio, dos partes de 30').
+ * `hastaMin` (el minuto actual, en vivo) o el final del partido
+ * (`duracionTotalMin` = 2 × duracion_parte_min). Si el primer toque del
+ * jugador es una salida sin entrada previa, se asume titular (entró en el
+ * minuto 0) — antes esa salida se ignoraba y el titular salía con 0'.
+ *
+ * Calcula en segundos cuando el toque los tiene (`segundo`, exacto) y cae a
+ * `minuto` × 60 en los anteriores a ese campo; el resultado se redondea a
+ * minutos enteros.
  */
-export function minutosJugados(eventosJsonb: EventoPartido[], jugadorId: string, duracionTotalMin = 60): number {
-  const propios = eventosJsonb
-    .filter((e) => e.jugador_id === jugadorId && (e.tipo === "entra_pista" || e.tipo === "sale_pista"))
-    .slice()
-    .sort((a, b) => (a.minuto ?? 0) - (b.minuto ?? 0) || a.creado_en.localeCompare(b.creado_en));
+export function minutosJugados(
+  eventosJsonb: EventoPartido[],
+  jugadorId: string,
+  duracionTotalMin = 60,
+  hastaMin?: number,
+): number {
+  const propios = toquesPista(eventosJsonb).filter((e) => e.jugador_id === jugadorId);
 
+  const fin = Math.min(hastaMin ?? duracionTotalMin, duracionTotalMin) * 60;
   let total = 0;
-  let entradaMin: number | null = null;
+  let entrada: number | null = propios[0]?.tipo === "sale_pista" ? 0 : null;
   for (const e of propios) {
+    const t = segundoDeToque(e);
     if (e.tipo === "entra_pista") {
-      entradaMin = e.minuto ?? entradaMin ?? 0;
-    } else if (entradaMin !== null) {
-      total += Math.max(0, (e.minuto ?? entradaMin) - entradaMin);
-      entradaMin = null;
+      entrada = t ?? entrada ?? 0;
+    } else if (entrada !== null) {
+      total += Math.max(0, (t ?? entrada) - entrada);
+      entrada = null;
     }
   }
-  if (entradaMin !== null) total += Math.max(0, duracionTotalMin - entradaMin);
-  return total;
+  if (entrada !== null) total += Math.max(0, fin - entrada);
+  return Math.round(total / 60);
+}
+
+/** Momento de un toque jsonb en segundos de partido: `segundo` si lo tiene,
+ * si no `minuto` × 60 (histórico); null si se registró con el reloj sin
+ * iniciar (titulares antes del pitido inicial → cuenta como 0). */
+function segundoDeToque(e: EventoPartido): number | null {
+  if (e.segundo != null) return e.segundo;
+  return e.minuto != null ? e.minuto * 60 : null;
+}
+
+/** Entradas/salidas de pista en orden cronológico (por momento de partido y,
+ * a igualdad, por orden de registro). */
+function toquesPista(eventosJsonb: EventoPartido[]): EventoPartido[] {
+  return eventosJsonb
+    .filter((e) => e.tipo === "entra_pista" || e.tipo === "sale_pista")
+    .slice()
+    .sort((a, b) => (segundoDeToque(a) ?? 0) - (segundoDeToque(b) ?? 0) || a.creado_en.localeCompare(b.creado_en));
+}
+
+/** Tiempo de pista de un jugador en `segundoAhora` (reloj de partido):
+ * `totalSeg` = todo lo jugado hasta ahora; `tramoSeg` = lo que lleva desde
+ * su última entrada si sigue en pista (null si está en el banquillo). Para
+ * las tarjetas del registro en vivo; mismo emparejamiento que
+ * `minutosJugados`, pero en segundos y hasta el instante actual. */
+export function tiempoDePista(
+  eventosJsonb: EventoPartido[],
+  jugadorId: string,
+  segundoAhora: number | null,
+): { totalSeg: number; tramoSeg: number | null } {
+  const ahora = segundoAhora ?? 0;
+  let total = 0;
+  let entrada: number | null = null;
+  const propios = toquesPista(eventosJsonb).filter((e) => e.jugador_id === jugadorId);
+  if (propios[0]?.tipo === "sale_pista") entrada = 0;
+  for (const e of propios) {
+    const t = segundoDeToque(e);
+    if (e.tipo === "entra_pista") {
+      entrada = t ?? entrada ?? 0;
+    } else if (entrada !== null) {
+      total += Math.max(0, (t ?? entrada) - entrada);
+      entrada = null;
+    }
+  }
+  const tramo = entrada !== null ? Math.max(0, ahora - entrada) : null;
+  return { totalSeg: total + (tramo ?? 0), tramoSeg: tramo };
+}
+
+/** Jugadores en pista ahora mismo: aquellos cuyo último toque de pista es una
+ * entrada. Vacío si en este partido no se han registrado cambios. */
+export function jugadoresEnPista(eventosJsonb: EventoPartido[]): Set<string> {
+  const enPista = new Set<string>();
+  for (const e of toquesPista(eventosJsonb)) {
+    if (!e.jugador_id) continue;
+    if (e.tipo === "entra_pista") enPista.add(e.jugador_id);
+    else enPista.delete(e.jugador_id);
+  }
+  return enPista;
+}
+
+/** ¿Se ha registrado alguna entrada/salida de pista en el partido? Si no, la
+ * pantalla en vivo propone elegir titulares. */
+export function hayRegistroDePista(eventosJsonb: EventoPartido[]): boolean {
+  return eventosJsonb.some((e) => e.tipo === "entra_pista" || e.tipo === "sale_pista");
+}
+
+/** Titulares de un partido ya jugado: quienes entraron a pista antes de que
+ * corriera el reloj (o en el segundo 0). Sirve para proponer los mismos en
+ * el siguiente partido. */
+export function titularesDe(eventosJsonb: EventoPartido[]): string[] {
+  return eventosJsonb
+    .filter((e) => e.tipo === "entra_pista" && e.jugador_id && (segundoDeToque(e) ?? 0) === 0)
+    .map((e) => e.jugador_id!);
 }
 
 /** `null` si no hay intentos — nunca un `0%`/`NaN%` engañoso. El recuento

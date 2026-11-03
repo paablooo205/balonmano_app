@@ -53,7 +53,7 @@ export function InformeJugadorPartidoPdf({
     ? porcentajeParadas(propios, { soloPenalti: true })
     : eficaciaConDetalle(propios, { soloPenalti: true });
 
-  const minutos = minutosJugados(partido.estadisticas.eventos ?? [], jugador.id);
+  const minutos = minutosJugados(partido.estadisticas.eventos ?? [], jugador.id, partido.duracion_parte_min * 2);
 
   const fechaLarga = formatearFechaLarga(partido.fecha);
 

@@ -7,6 +7,23 @@
 import { supabase } from "@/lib/supabaseClient";
 import { dbDelete, dbGet, dbGetAll, dbPut, STORE_CACHE, STORE_QUEUE } from "./db";
 
+/**
+ * Red de seguridad para la columna `eventos.segundo` (0035_eventos_segundo.sql):
+ * si el código nuevo corre contra una base donde aún no se ha aplicado esa
+ * migración, PostgREST rechaza el insert por columna desconocida — y como
+ * no es un error de red, el evento se descartaría. En ese caso se reintenta
+ * sin el campo: la acción se guarda igual, solo sin el segundo exacto.
+ */
+export function esErrorColumnaSegundo(error: { message: string }): boolean {
+  return /segundo/.test(error.message);
+}
+
+export function sinColumnaSegundo<T extends { segundo?: unknown }>(fila: T): Omit<T, "segundo"> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { segundo, ...resto } = fila;
+  return resto;
+}
+
 // "rivales" solo usa `guardarCache`/`leerCache` (lectura offline del
 // selector de rival) — a propósito, ninguna escritura se encola para esa
 // tabla: crear un rival nuevo sigue exigiendo red (ver PartidoModal.tsx),
@@ -85,6 +102,12 @@ export async function flushQueue(): Promise<void> {
       if (op.tipo === "insert") {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         ({ error, status } = await tabla.insert(op.payload as any));
+        // Ver `sinColumnaSegundo` en lib/eventos.ts: si la columna aún no
+        // existe en la base, el evento se guarda sin ella en vez de perderse.
+        if (error && op.tabla === "eventos" && esErrorColumnaSegundo(error)) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ({ error, status } = await tabla.insert(sinColumnaSegundo(op.payload as any)));
+        }
       } else if (op.tipo === "update") {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         ({ error, status } = await tabla.update(op.payload as any).eq("id", op.rowId));

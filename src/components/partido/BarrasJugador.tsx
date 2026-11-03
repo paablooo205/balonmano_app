@@ -31,7 +31,7 @@ export function BarrasJugador({
 
   return (
     <div>
-      <div className="mb-2 text-[9px] font-bold uppercase tracking-[0.16em] text-[var(--color-text-faint)]">Por jugador</div>
+      <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--color-text-faint)]">Por jugador</div>
       <div className="card-surface p-4">
         <div className="flex flex-col gap-2">
           {filas.map((f) => (
@@ -55,7 +55,7 @@ export function BarrasJugador({
             </button>
           ))}
         </div>
-        <div className="mt-3 flex gap-3 text-[9px] text-[var(--color-text-faint)]">
+        <div className="mt-3 flex gap-3 text-[11px] text-[var(--color-text-faint)]">
           <span className="flex items-center gap-1">
             <span className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--color-success)" }} />
             Gol
