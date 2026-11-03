@@ -891,7 +891,7 @@ export function ContadoresEnVivo({
       <div className="flex min-w-0 flex-1 items-center justify-center gap-3 md:gap-5">
         <div className="min-w-0 text-right">
           <div className="truncate text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--color-accent)]">{equipoNombre ?? "Nosotros"}</div>
-          <div className={cn("stat-number leading-none text-white", compacto ? "text-[28px]" : "text-[40px]")}>{golesFavor(eventos)}</div>
+          <div className={cn("stat-number leading-none text-white", compacto ? "text-[34px]" : "text-[56px]")}>{golesFavor(eventos)}</div>
           {/* Cuenta atrás de las exclusiones en curso, justo bajo nuestros goles. */}
           {excluidos.length > 0 && (
             <div className="mt-1 flex flex-wrap justify-end gap-1">
@@ -914,7 +914,7 @@ export function ContadoresEnVivo({
           <div
             className={cn(
               "stat-number leading-none tracking-[0.04em]",
-              compacto ? "text-xl" : "text-[28px]",
+              compacto ? "text-2xl" : "text-[38px]",
               relojParado ? "text-[var(--color-accent)]" : "text-white",
             )}
           >
@@ -928,7 +928,7 @@ export function ContadoresEnVivo({
         </div>
         <div className="min-w-0 text-left">
           <div className="truncate text-[11px] font-semibold uppercase tracking-[0.08em] text-white/60">{partido.rival}</div>
-          <div className={cn("stat-number leading-none text-white/60", compacto ? "text-[28px]" : "text-[40px]")}>{golesContra(eventos)}</div>
+          <div className={cn("stat-number leading-none text-white/60", compacto ? "text-[34px]" : "text-[56px]")}>{golesContra(eventos)}</div>
         </div>
       </div>
 
