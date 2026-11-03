@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { generarInsights, cortePorMediana, dividirPorCorte, insightsEjecucion, insightsTendencia, insightsZona } from "./insights";
+import { generarInsights, dividirPorParte, insightsEjecucion, insightsTendencia, insightsZona } from "./insights";
 import type { EventosRow } from "@/types/database";
 
 function tiro(overrides: Partial<EventosRow> & Pick<EventosRow, "resultado" | "zona">): EventosRow {
@@ -123,32 +123,15 @@ describe("insightsEjecucion", () => {
   });
 });
 
-describe("cortePorMediana", () => {
-  it("devuelve null sin tiros", () => {
-    expect(cortePorMediana([])).toBeNull();
-  });
-
-  it("devuelve el creado_en mediano de los eventos de tipo tiro, ignorando otros tipos", () => {
-    const eventos: EventosRow[] = [
-      tiro({ resultado: "gol", zona: 1, creado_en: "2026-01-01T00:00:00.000Z" }),
-      tiro({ resultado: "gol", zona: 1, creado_en: "2026-01-01T00:01:00.000Z" }),
-      tiro({ resultado: "gol", zona: 1, creado_en: "2026-01-01T00:02:00.000Z" }),
-      tiro({ resultado: "gol", zona: 1, creado_en: "2026-01-01T00:03:00.000Z" }),
-      tiro({ resultado: "gol", zona: 1, creado_en: "2026-01-01T00:04:00.000Z" }),
-      { ...tiro({ resultado: null, zona: null }), tipo: "perdida", creado_en: "2026-01-01T00:10:00.000Z" },
-    ];
-    expect(cortePorMediana(eventos)).toBe("2026-01-01T00:02:00.000Z");
-  });
-});
-
-describe("dividirPorCorte", () => {
-  it("divide en antes/después del corte (inclusive en el segundo tramo)", () => {
-    const antes = tiro({ resultado: "gol", zona: 1, creado_en: "2026-01-01T00:00:00.000Z" });
-    const enElCorte = tiro({ resultado: "gol", zona: 1, creado_en: "2026-01-01T00:02:00.000Z" });
-    const despues = tiro({ resultado: "gol", zona: 1, creado_en: "2026-01-01T00:04:00.000Z" });
-    const [periodoA, periodoB] = dividirPorCorte([antes, enElCorte, despues], "2026-01-01T00:02:00.000Z");
-    expect(periodoA).toEqual([antes]);
-    expect(periodoB).toEqual([enElCorte, despues]);
+describe("dividirPorParte", () => {
+  it("divide por minuto real (el último minuto de la parte cuenta en la 1ª) y descarta los que no tienen minuto", () => {
+    const primera = tiro({ resultado: "gol", zona: 1, minuto: 3 });
+    const finPrimera = tiro({ resultado: "gol", zona: 1, minuto: 25 });
+    const segunda = tiro({ resultado: "gol", zona: 1, minuto: 26 });
+    const sinMinuto = tiro({ resultado: "gol", zona: 1, minuto: null });
+    const [parte1, parte2] = dividirPorParte([primera, finPrimera, segunda, sinMinuto], 25);
+    expect(parte1).toEqual([primera, finPrimera]);
+    expect(parte2).toEqual([segunda]);
   });
 });
 

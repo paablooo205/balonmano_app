@@ -48,12 +48,13 @@ export function CuadriculaPorteria({
 
   return (
     <div className={cn("mx-auto flex w-full flex-col gap-1.5", compacto ? "max-w-[280px]" : "max-w-[560px]")}>
-      <div className="flex justify-end">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[11px] leading-tight text-white/60">Portería de frente, desde el lanzador</span>
         <button
           onClick={() => setMapaCalor((v) => !v)}
           className={cn(
-            "flex h-6 items-center rounded-[3px] px-2 text-[9px] font-semibold uppercase tracking-[0.08em] transition-colors",
-            mapaCalor ? "bg-[var(--color-accent)] text-white" : "bg-white/[.08] text-white/50",
+            "flex h-11 min-w-11 shrink-0 items-center rounded-[3px] px-3 text-[11px] font-semibold uppercase tracking-[0.08em] transition-colors",
+            mapaCalor ? "bg-[var(--color-accent)] text-white" : "bg-white/[.08] text-white/60",
           )}
         >
           Mapa de calor
@@ -91,7 +92,7 @@ export function CuadriculaPorteria({
                     : "rgba(255,255,255,.06)",
                 }}
               >
-                <span className="stat-number pointer-events-none absolute left-1 top-0.5 text-[9px] leading-none text-white/30">
+                <span className="stat-number pointer-events-none absolute left-1 top-0.5 text-[11px] leading-none text-white/60">
                   {zona}
                 </span>
                 {hot && <span className="stat-number text-xs text-white">{cnt}</span>}
@@ -99,6 +100,10 @@ export function CuadriculaPorteria({
             );
           })}
         </div>
+      </div>
+      <div className="flex justify-between px-0.5 text-[11px] leading-none text-white/60" aria-hidden="true">
+        <span>Izq.</span>
+        <span>Der.</span>
       </div>
     </div>
   );

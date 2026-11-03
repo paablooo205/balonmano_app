@@ -40,7 +40,7 @@ export function LineaMarcador({ eventos }: { eventos: EventosRow[] }) {
   return (
     <div>
       <div className="mb-1 flex items-baseline justify-between">
-        <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-[var(--color-text-faint)]">Marcador</span>
+        <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--color-text-faint)]">Marcador</span>
         <span className="stat-number text-lg text-[var(--color-ink)]">
           {ultimo.favor} - {ultimo.contra}
         </span>
@@ -50,7 +50,7 @@ export function LineaMarcador({ eventos }: { eventos: EventosRow[] }) {
           <polyline points={puntosContra} fill="none" stroke="var(--color-text-faint)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
           <polyline points={puntosFavor} fill="none" stroke="var(--color-accent)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
         </svg>
-        <div className="mb-2 mt-1 flex gap-3 text-[9px] text-[var(--color-text-faint)]">
+        <div className="mb-2 mt-1 flex gap-3 text-[11px] text-[var(--color-text-faint)]">
           <span className="flex items-center gap-1">
             <span className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--color-accent)" }} />
             Nosotros
@@ -62,7 +62,7 @@ export function LineaMarcador({ eventos }: { eventos: EventosRow[] }) {
         </div>
         <div className="border-t border-[var(--color-border)] pt-2">
           <div className="mb-1 flex items-baseline justify-between">
-            <span className="text-[8px] font-semibold uppercase tracking-[0.08em] text-[var(--color-text-faint)]">Diferencia</span>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--color-text-faint)]">Diferencia</span>
             <span className="stat-number text-sm text-[var(--color-ink)]">{diffUltimo > 0 ? `+${diffUltimo}` : diffUltimo}</span>
           </div>
           <svg viewBox={`0 0 ${w} ${hDiff}`} className="h-9 w-full" preserveAspectRatio="none">

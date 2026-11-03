@@ -8,6 +8,7 @@ import { useEntrenador } from "@/hooks/useEntrenador";
 import { microcicloDeFecha, mesocicloDeMicrociclo } from "@/hooks/useCalendarData";
 import { RESULTADO_BADGE, marcadorPartido, resultadoPartido, resumenResultados } from "@/lib/partidoStats";
 import { agruparPorPartido, cargarEventosEquipo } from "@/lib/eventos";
+import { traerTodo } from "@/lib/paginar";
 import { crearSesionRapida } from "@/lib/sesiones";
 import { DIAS_SEMANA, MESES, getWeekDates, toISODate } from "@/lib/calendar";
 import { Modal } from "@/components/ui/modal";
@@ -62,7 +63,9 @@ export function InicioPage() {
         supabase.from("microciclos").select("*").eq("equipo_id", equipoId),
         supabase.from("mesociclos").select("*").eq("equipo_id", equipoId),
         supabase.from("jugadores").select("*").eq("equipo_id", equipoId),
-        supabase.from("asistencia").select("*").eq("equipo_id", equipoId),
+        traerTodo<AsistenciaRow>((desde, hasta) =>
+          supabase.from("asistencia").select("*").eq("equipo_id", equipoId).order("id").range(desde, hasta),
+        ),
         cargarEventosEquipo(equipoId),
       ]);
       setSesiones(s.data ?? []);

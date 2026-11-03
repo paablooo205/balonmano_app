@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { traerTodo } from "@/lib/paginar";
 import { useEquipo } from "@/hooks/useEquipo";
 import { JugadoresSection } from "@/components/equipo/JugadoresSection";
 import { FichasOficialesCard } from "@/components/equipo/FichasOficialesCard";
@@ -15,7 +16,15 @@ export function EquipoPage() {
         supabase.from("jugadores").select("id", { count: "exact", head: true }).eq("equipo_id", equipoId),
         // Solo entrenamientos: las filas de convocatoria de partido
         // (sesion_id null) no cuentan como asistencia.
-        supabase.from("asistencia").select("presente, sesion_id").eq("equipo_id", equipoId).not("sesion_id", "is", null),
+        traerTodo<{ presente: boolean }>((desde, hasta) =>
+          supabase
+            .from("asistencia")
+            .select("presente")
+            .eq("equipo_id", equipoId)
+            .not("sesion_id", "is", null)
+            .order("id")
+            .range(desde, hasta),
+        ),
       ]);
       setTotalJugadores(count ?? 0);
       setAsistenciaMedia(

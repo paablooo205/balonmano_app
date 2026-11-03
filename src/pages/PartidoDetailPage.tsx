@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ChevronLeft, Pencil } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
@@ -26,6 +26,7 @@ export function PartidoDetailPage() {
   const [asistenciaPartido, setAsistenciaPartido] = useState<AsistenciaRow[]>([]);
   const [asistenciaPartidoCargada, setAsistenciaPartidoCargada] = useState(false);
   const [cargando, setCargando] = useState(true);
+  const cargadoRef = useRef(false);
   const [searchParams] = useSearchParams();
   const vistaParam = searchParams.get("vista");
   const [vista, setVista] = useState<Vista>(
@@ -35,7 +36,12 @@ export function PartidoDetailPage() {
 
   async function cargar() {
     if (!partidoId) return;
-    setCargando(true);
+    // Solo la carga inicial muestra "Cargando...": `cargar` también se
+    // dispara con cada cambio de la cola offline (cada toque sin cobertura,
+    // cada op volcada al volver la red), y poner cargando=true ahí
+    // desmontaba ContadoresEnVivo en pleno partido — se perdía el jugador
+    // seleccionado, la acción armada y la pantalla completa.
+    if (!cargadoRef.current) setCargando(true);
     const { data } = await supabase.from("partidos").select("*").eq("id", partidoId).maybeSingle();
 
     // Base: el partido recién descargado si el fetch tuvo éxito, si no la
@@ -57,6 +63,7 @@ export function PartidoDetailPage() {
     const cola = await obtenerCola();
     const fusionado = aplicarPendientes("partidos", base, cola);
     setPartido(fusionado.find((p) => p.id === partidoId) ?? null);
+    cargadoRef.current = true;
     setCargando(false);
   }
 
@@ -73,6 +80,7 @@ export function PartidoDetailPage() {
   }
 
   useEffect(() => {
+    cargadoRef.current = false;
     cargar();
     return onQueueChange(() => void cargar());
     // eslint-disable-next-line react-hooks/exhaustive-deps

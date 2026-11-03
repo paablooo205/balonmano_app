@@ -70,7 +70,7 @@ export function MapaCalorPorteria({
                       : "rgba(255,255,255,.06)",
                 }}
               >
-                <span className="stat-number pointer-events-none absolute left-1 top-0.5 text-[9px] leading-none text-white/30">
+                <span className="stat-number pointer-events-none absolute left-1 top-0.5 text-[11px] leading-none text-white/60">
                   {zona}
                 </span>
                 {cnt > 0 ? (
@@ -81,7 +81,7 @@ export function MapaCalorPorteria({
                   ) : (
                     <>
                       <span className="stat-number text-sm text-white">{pct !== null ? `${pct}%` : cnt}</span>
-                      {pct !== null && <span className="text-[8px] leading-none text-white/45">{cnt}</span>}
+                      {pct !== null && <span className="text-[11px] leading-none text-white/60">{cnt}</span>}
                     </>
                   )
                 ) : (
@@ -91,6 +91,11 @@ export function MapaCalorPorteria({
             );
           })}
         </div>
+      </div>
+      <div className="mt-1 flex items-center justify-between gap-2 text-[11px] leading-none text-[var(--color-text-faint)]">
+        <span>Izq.</span>
+        <span className="text-center">Portería de frente, desde el lanzador</span>
+        <span>Der.</span>
       </div>
     </div>
   );

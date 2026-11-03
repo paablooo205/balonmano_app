@@ -12,7 +12,7 @@ import {
   minutosJugados,
   parcialesPorTramos,
 } from "@/lib/partidoStats";
-import { cortePorMediana, dividirPorCorte, generarInsights } from "@/lib/insights";
+import { dividirPorParte, generarInsights } from "@/lib/insights";
 import { formatearFechaLarga, PdfEscudoFondo } from "@/lib/pdf/PdfComponents";
 import {
   fichaEstilos,
@@ -101,8 +101,13 @@ export function FichaPartidoPdf({
   const eventosJsonb = partido.estadisticas.eventos ?? [];
   const duracionTotalMin = duracionParteMin * 2;
 
-  const jugadoresDeCampo = jugadores
-    .filter((j) => !esPortero(j.puesto))
+  // Un portero entra en esta tabla si tiene algún tiro propio apuntado — si
+  // no, sus goles quedaban fuera y la suma de la tabla no cuadraba con el
+  // marcador del propio PDF.
+  const tiraEnPartido = (jugadorId: string) =>
+    eventos.some((e) => e.tipo === "tiro" && e.equipo_origen === "propio" && e.jugador_id === jugadorId);
+  const filasJugadores = jugadores
+    .filter((j) => !esPortero(j.puesto) || tiraEnPartido(j.id))
     .map((j): FilaJugadorPdf => {
       const golesJugador = eventos.filter(
         (e) => e.tipo === "tiro" && e.equipo_origen === "propio" && e.jugador_id === j.id && e.resultado === "gol",
@@ -124,6 +129,31 @@ export function FichaPartidoPdf({
       };
     })
     .sort((a, b) => (a.dorsal ?? 999) - (b.dorsal ?? 999));
+
+  // Eventos propios sin jugador reconocible (jugador borrado — FK `on delete
+  // set null` —, o histórico sin atribuir): fila aparte para que el total
+  // siga cuadrando con el marcador en vez de perderlos.
+  const idsJugadores = new Set(jugadores.map((j) => j.id));
+  const huerfanos = eventos.filter((e) => e.jugador_id === null || !idsJugadores.has(e.jugador_id));
+  const tirosHuerfanos = huerfanos.filter((e) => e.tipo === "tiro" && e.equipo_origen === "propio");
+  const jugadoresDeCampo: FilaJugadorPdf[] =
+    tirosHuerfanos.length > 0
+      ? [
+          ...filasJugadores,
+          {
+            dorsal: null,
+            nombre: "Sin asignar",
+            pos: "—",
+            goles: tirosHuerfanos.filter((e) => e.resultado === "gol").length,
+            fallos: tirosHuerfanos.filter((e) => e.resultado !== "gol").length,
+            eficaciaPct: eficaciaConDetalle(tirosHuerfanos)?.pct ?? null,
+            perdidas: huerfanos.filter((e) => e.tipo === "perdida" && e.equipo_origen === "propio").length,
+            robos: huerfanos.filter((e) => e.tipo === "perdida" && e.equipo_origen === "rival").length,
+            exclusiones: huerfanos.filter((e) => e.tipo === "exclusion").length,
+            minutos: 0,
+          },
+        ]
+      : filasJugadores;
 
   const maxTiros = Math.max(...jugadoresDeCampo.map((f) => f.goles + f.fallos), 1);
 
@@ -166,11 +196,11 @@ export function FichaPartidoPdf({
     .sort((a, b) => b.minutos - a.minutos);
 
   // ── Destacados ───────────────────────────────────────────────────────────
-  const masMinutos = [...jugadoresDeCampo, ...porteros.map((p) => ({ ...p, dorsal: p.dorsal, nombre: p.nombre }))]
+  const masMinutos = [...filasJugadores, ...porteros.filter((p) => !tiraEnPartido(p.id)).map((p) => ({ ...p, dorsal: p.dorsal, nombre: p.nombre }))]
     .sort((a, b) => b.minutos - a.minutos)
     .slice(0, 3)
     .map((f) => ({ etiqueta: `${f.dorsal ?? "—"} · ${f.nombre}`, valor: `${f.minutos}'` }));
-  const masGoleadores = jugadoresDeCampo
+  const masGoleadores = filasJugadores
     .filter((f) => f.goles > 0)
     .sort((a, b) => b.goles - a.goles)
     .slice(0, 3)
@@ -181,7 +211,6 @@ export function FichaPartidoPdf({
   const tirosPenaltiPropio = tirosPropios.filter((e) => e.es_penalti);
   const tirosJuegoRival = tirosRivales.filter((e) => !e.es_penalti);
   const tirosPenaltiRival = tirosRivales.filter((e) => e.es_penalti);
-  const corte = cortePorMediana(eventos);
   const insights = generarInsights({
     zonaPropioJuego: tirosJuegoPropio,
     zonaPropioPenalti: tirosPenaltiPropio,
@@ -189,13 +218,11 @@ export function FichaPartidoPdf({
     zonaRivalPenalti: tirosPenaltiRival,
     ejecucionPropioJuego: tirosJuegoPropio,
     contextoAusencia: "en el partido",
-    tendencia: corte
-      ? {
-          propio: dividirPorCorte(tirosJuegoPropio, corte),
-          rival: dividirPorCorte(tirosJuegoRival, corte),
-          etiquetas: { a: "de la 1ª parte", b: "la 2ª parte" },
-        }
-      : undefined,
+    tendencia: {
+      propio: dividirPorParte(tirosJuegoPropio, duracionParteMin),
+      rival: dividirPorParte(tirosJuegoRival, duracionParteMin),
+      etiquetas: { a: "de la 1ª parte", b: "la 2ª parte" },
+    },
   });
 
   const tarjetasFilas = BOTONES_TARJETA.map((b) => ({

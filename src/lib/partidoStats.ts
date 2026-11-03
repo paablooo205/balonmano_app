@@ -178,9 +178,19 @@ export function golesContra(eventos: EventosRow[]): number {
   return eventos.filter((e) => e.tipo === "tiro" && e.equipo_origen === "rival" && e.resultado === "gol").length;
 }
 
+/** Hay marcador registrado en vivo (algún gol, de quien sea). Criterio
+ * único para los tres helpers de marcador: antes `resultadoPartido` y
+ * `marcadorNumerico` miraban "hay algún evento", así que un partido con solo
+ * una tarjeta o una pérdida apuntada y el resultado escrito a mano salía
+ * como empate 0-0 en Rival/Progreso mientras `marcadorPartido` mostraba el
+ * resultado escrito. */
+function tieneMarcadorEnVivo(eventos: EventosRow[]): boolean {
+  return golesFavor(eventos) > 0 || golesContra(eventos) > 0;
+}
+
 /** Resultado del partido: prioriza los toques en vivo (fuente de verdad) sobre el campo `resultado` escrito a mano. */
 export function resultadoPartido(p: PartidosRow, eventos: EventosRow[]): "victoria" | "derrota" | "empate" | null {
-  if (eventos.length > 0) {
+  if (tieneMarcadorEnVivo(eventos)) {
     const favor = golesFavor(eventos);
     const contra = golesContra(eventos);
     if (favor === contra) return "empate";
@@ -195,7 +205,7 @@ export function resultadoPartido(p: PartidosRow, eventos: EventosRow[]): "victor
 
 /** Marcador textual: prioriza los toques en vivo (fuente de verdad) sobre el campo escrito a mano. */
 export function marcadorPartido(p: PartidosRow, eventos: EventosRow[]): string {
-  if (golesFavor(eventos) > 0 || golesContra(eventos) > 0) {
+  if (tieneMarcadorEnVivo(eventos)) {
     return `${golesFavor(eventos)}-${golesContra(eventos)}`;
   }
   return p.resultado ?? "—";
@@ -207,7 +217,7 @@ export function marcadorPartido(p: PartidosRow, eventos: EventosRow[]): string {
  * mano). `null` si no hay ninguno de los dos.
  */
 export function marcadorNumerico(p: PartidosRow, eventos: EventosRow[]): { favor: number; contra: number } | null {
-  if (eventos.length > 0) {
+  if (tieneMarcadorEnVivo(eventos)) {
     return { favor: golesFavor(eventos), contra: golesContra(eventos) };
   }
   const m = p.resultado?.match(/(\d+)\s*[-–:]\s*(\d+)/);
@@ -271,9 +281,14 @@ export function segundosPartido(c: CronometroPartido | undefined, duracionParteM
   return (c.parte - 1) * duracionParteMin * 60 + segundosActuales(c);
 }
 
+/** Minuto de partido en curso (1-based). Acotado al último minuto de la
+ * parte en curso: si el reloj siguió corriendo con la app en segundo plano
+ * (el auto-stop solo actúa con la pantalla abierta), un toque de la 1ª parte
+ * no puede acabar con minuto 35 y contarse como de la 2ª. */
 export function minutoActual(c: CronometroPartido | undefined, duracionParteMin = 30): number | null {
   if (!c || (c.segundosAcumulados === 0 && !c.corriendo && c.parte === 1)) return null;
-  return Math.floor(segundosPartido(c, duracionParteMin) / 60) + 1;
+  const minutoEnParte = Math.min(Math.floor(segundosActuales(c) / 60) + 1, duracionParteMin);
+  return (c.parte - 1) * duracionParteMin + minutoEnParte;
 }
 
 /** El partido ha llegado al final de la 2ª parte y se ha parado solo (ver el
@@ -303,16 +318,24 @@ export function iniciarOReanudar(c: CronometroPartido | undefined): CronometroPa
   return { ...base, corriendo: true, ultimaMarca: new Date().toISOString() };
 }
 
-export function pausar(c: CronometroPartido | undefined): CronometroPartido {
+/** Con `duracionParteMin`, acota lo acumulado a la duración de la parte —
+ * si no, volver tras horas con la app cerrada guardaba p.ej. 400 minutos. */
+export function pausar(c: CronometroPartido | undefined, duracionParteMin?: number): CronometroPartido {
   const base = c ?? CRONOMETRO_INICIAL;
   if (!base.corriendo) return base;
-  return { ...base, segundosAcumulados: segundosActuales(base), corriendo: false, ultimaMarca: null };
+  const segundos = segundosActuales(base);
+  const acotados = duracionParteMin !== undefined ? Math.min(segundos, duracionParteMin * 60) : segundos;
+  return { ...base, segundosAcumulados: acotados, corriendo: false, ultimaMarca: null };
 }
 
-/** Cambia de parte (alterna 1ª/2ª) y reinicia el contador de la parte, en pausa. */
+/** Pasa de la 1ª a la 2ª parte, con el contador a 0 y en pausa. Solo hacia
+ * delante: antes alternaba, y tocar "1ª parte" durante la 2ª ponía el reloj
+ * a 0 en la 1ª — el resto del partido quedaba apuntado como minutos 1-30
+ * (visto en partidos reales). En la 2ª parte no hace nada. */
 export function cambiarParte(c: CronometroPartido | undefined): CronometroPartido {
   const base = c ?? CRONOMETRO_INICIAL;
-  return { parte: base.parte === 1 ? 2 : 1, segundosAcumulados: 0, corriendo: false, ultimaMarca: null };
+  if (base.parte === 2) return base;
+  return { parte: 2, segundosAcumulados: 0, corriendo: false, ultimaMarca: null };
 }
 
 /**
@@ -335,16 +358,25 @@ export function eficaciaLanzamiento(eventos: EventosRow[], jugadorId?: string): 
  * "entra_pista"/"sale_pista" (siguen en `estadisticas.eventos`, jsonb — no
  * migran a la tabla `eventos`, ver alcance en 0017_eventos.sql). Empareja
  * cronológicamente por minuto; si queda una entrada sin salida, cuenta hasta
- * el final del partido (60' por convenio, dos partes de 30').
+ * `hastaMin` (el minuto actual, en vivo) o el final del partido
+ * (`duracionTotalMin` = 2 × duracion_parte_min). Si el primer toque del
+ * jugador es una salida sin entrada previa, se asume titular (entró en el
+ * minuto 0) — antes esa salida se ignoraba y el titular salía con 0'.
  */
-export function minutosJugados(eventosJsonb: EventoPartido[], jugadorId: string, duracionTotalMin = 60): number {
+export function minutosJugados(
+  eventosJsonb: EventoPartido[],
+  jugadorId: string,
+  duracionTotalMin = 60,
+  hastaMin?: number,
+): number {
   const propios = eventosJsonb
     .filter((e) => e.jugador_id === jugadorId && (e.tipo === "entra_pista" || e.tipo === "sale_pista"))
     .slice()
     .sort((a, b) => (a.minuto ?? 0) - (b.minuto ?? 0) || a.creado_en.localeCompare(b.creado_en));
 
+  const fin = Math.min(hastaMin ?? duracionTotalMin, duracionTotalMin);
   let total = 0;
-  let entradaMin: number | null = null;
+  let entradaMin: number | null = propios[0]?.tipo === "sale_pista" ? 0 : null;
   for (const e of propios) {
     if (e.tipo === "entra_pista") {
       entradaMin = e.minuto ?? entradaMin ?? 0;
@@ -353,7 +385,7 @@ export function minutosJugados(eventosJsonb: EventoPartido[], jugadorId: string,
       entradaMin = null;
     }
   }
-  if (entradaMin !== null) total += Math.max(0, duracionTotalMin - entradaMin);
+  if (entradaMin !== null) total += Math.max(0, fin - entradaMin);
   return total;
 }
 

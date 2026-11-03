@@ -124,20 +124,19 @@ export function insightsEjecucion(tirosJuegoAbierto: EventosRow[]): Insight[] {
 const MIN_INTENTOS_TENDENCIA = 5;
 const DEVIACION_MINIMA_TENDENCIA = 20;
 
-/** Mediana de `creado_en` entre los eventos de tipo "tiro" (propios y
- * rivales) — aproxima "mitad del partido" sin depender de un minuto real
- * por tiro (no existe en `eventos`, solo en el jsonb de sustituciones). */
-export function cortePorMediana(eventos: EventosRow[]): string | null {
-  const timestamps = eventos
-    .filter((e) => e.tipo === "tiro")
-    .map((e) => e.creado_en)
-    .sort();
-  if (timestamps.length === 0) return null;
-  return timestamps[Math.floor(timestamps.length / 2)];
-}
-
-export function dividirPorCorte(eventos: EventosRow[], corte: string): [EventosRow[], EventosRow[]] {
-  return [eventos.filter((e) => e.creado_en < corte), eventos.filter((e) => e.creado_en >= corte)];
+/** Divide en [1ª parte, 2ª parte] por el `minuto` real de cada evento
+ * (antes se cortaba por la mediana de `creado_en`, que partía los tiros por
+ * la mitad pero NO por las partes, aunque el insight dijera "1ª/2ª parte").
+ * Los eventos sin minuto (reloj sin iniciar) no se pueden situar y quedan
+ * fuera de esta comparación — no se asignan a una parte a ciegas. Si en un
+ * partido se apuntó todo con el reloj en la 1ª parte, la 2ª sale vacía y el
+ * insight simplemente no aparece (umbral mínimo de intentos). */
+export function dividirPorParte(eventos: EventosRow[], duracionParteMin: number): [EventosRow[], EventosRow[]] {
+  const conMinuto = eventos.filter((e) => e.minuto !== null);
+  return [
+    conMinuto.filter((e) => e.minuto! <= duracionParteMin),
+    conMinuto.filter((e) => e.minuto! > duracionParteMin),
+  ];
 }
 
 /** `periodoA` es el periodo de referencia (más antiguo o "resto"),

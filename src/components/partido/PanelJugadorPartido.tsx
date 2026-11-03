@@ -55,16 +55,16 @@ export function PanelJugadorPartido({
             <span className="stat-number text-sm text-[var(--color-text-muted)]">#{jugador.dorsal ?? "—"} </span>
             <span className="text-sm font-medium text-[var(--color-text)]">{jugador.nombre}</span>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1">
             <button
               aria-label="Descargar PDF"
               onClick={descargarInformePdf}
               disabled={descargando}
-              className="text-[var(--color-text-muted)] hover:text-[var(--color-accent)] disabled:opacity-50"
+              className="flex h-11 w-11 items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-accent)] disabled:opacity-50"
             >
               <Download size={18} />
             </button>
-            <button aria-label="Cerrar" onClick={onCerrar} className="text-[var(--color-text-muted)] hover:text-[var(--color-text)]">
+            <button aria-label="Cerrar" onClick={onCerrar} className="flex h-11 w-11 items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-text)]">
               <X size={20} />
             </button>
           </div>

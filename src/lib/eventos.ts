@@ -1,17 +1,32 @@
 import { supabase } from "@/lib/supabaseClient";
+import { traerTodo } from "@/lib/paginar";
 import { aplicarPendientes, encolarOperacion, esErrorDeRed, guardarCache, leerCache, obtenerCola } from "@/lib/offline/queue";
 import type { Database, EventosRow } from "@/types/database";
 
 type EventoInsert = Database["public"]["Tables"]["eventos"]["Insert"];
 
 /** Carga todos los eventos del equipo (mismo patrón que PartidoPage.tsx para
- * `partidos`: red primero, caché si falla, cola pendiente fusionada encima). */
+ * `partidos`: red primero, caché si falla, cola pendiente fusionada encima).
+ * Paginado: un equipo supera las 1000 filas que PostgREST devuelve por
+ * respuesta en ~10 partidos. */
 export async function cargarEventosEquipo(equipoId: string): Promise<EventosRow[]> {
-  const { data } = await supabase.from("eventos").select("*").eq("equipo_id", equipoId);
+  const { data } = await traerTodo<EventosRow>((desde, hasta) =>
+    supabase.from("eventos").select("*").eq("equipo_id", equipoId).order("id").range(desde, hasta),
+  );
   const base = data ?? (await leerCache<EventosRow>("eventos", equipoId)) ?? [];
   if (data) void guardarCache("eventos", equipoId, data);
   const cola = await obtenerCola();
-  return aplicarPendientes("eventos", base, cola);
+  return normalizarEventos(aplicarPendientes("eventos", base, cola));
+}
+
+/**
+ * Corrección SOLO DE LECTURA (nunca se reescribe la fila en la base): un tiro
+ * con origen "7m" es un penalti aunque no se activara el interruptor
+ * "Penalti" al registrarlo — antes de que el chip "7m" lo activara solo,
+ * hubo tiros guardados así, y contaban como juego abierto en la eficacia.
+ */
+export function normalizarEventos(eventos: EventosRow[]): EventosRow[] {
+  return eventos.map((e) => (e.tipo === "tiro" && e.origen === "7m" && !e.es_penalti ? { ...e, es_penalti: true } : e));
 }
 
 /** Indexa una lista de eventos por partido_id, para pintar/leer por partido sin volver a consultar. */
@@ -28,7 +43,7 @@ export function agruparPorPartido(eventos: EventosRow[]): Map<string, EventosRow
 
 /** Inserta un evento (tiro/pérdida/exclusión), con la misma cola offline que
  * el resto de escrituras en vivo (ver ContadoresEnVivo.tsx `persistirEstadisticas`). */
-export async function registrarEvento(datos: Omit<EventoInsert, "creado_en">): Promise<EventosRow> {
+export async function registrarEvento(datos: EventoInsert): Promise<EventosRow> {
   const fila: EventosRow = {
     id: datos.id ?? crypto.randomUUID(),
     equipo_id: datos.equipo_id,
@@ -43,7 +58,10 @@ export async function registrarEvento(datos: Omit<EventoInsert, "creado_en">): P
     es_penalti: datos.es_penalti ?? false,
     color_tarjeta: datos.color_tarjeta ?? null,
     minuto: datos.minuto ?? null,
-    creado_en: new Date().toISOString(),
+    // Respeta el `creado_en` del estado local si viene (ContadoresEnVivo lo
+    // pone al crear la fila): si no, la fila guardada difería unos ms de la
+    // pintada y el orden de la cronología podía cambiar al recargar.
+    creado_en: datos.creado_en ?? new Date().toISOString(),
   };
   if (!navigator.onLine) {
     await encolarOperacion({ tabla: "eventos", tipo: "insert", rowId: fila.id, payload: fila });

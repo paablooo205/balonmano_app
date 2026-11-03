@@ -54,12 +54,12 @@ export function AnilloDonut({
           )}
         </svg>
         <div className="absolute inset-0 flex items-center justify-center px-2 text-center">
-          {centro ?? (total === 0 && <span className="text-[9px] text-[var(--color-text-faint)]">Sin datos</span>)}
+          {centro ?? (total === 0 && <span className="text-[11px] text-[var(--color-text-faint)]">Sin datos</span>)}
         </div>
       </div>
       <div className="flex flex-wrap justify-center gap-x-2.5 gap-y-1">
         {segmentos.map((s) => (
-          <span key={s.label} className="flex items-center gap-1 text-[9px] text-[var(--color-text-faint)]">
+          <span key={s.label} className="flex items-center gap-1 text-[11px] text-[var(--color-text-faint)]">
             <span className="h-1.5 w-1.5 rounded-full" style={{ background: s.color }} />
             {s.label} ({s.valor})
           </span>

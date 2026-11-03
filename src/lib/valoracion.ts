@@ -64,7 +64,7 @@ type MetricasCampo = {
 
 function minutosTotales(partidos: PartidosRow[], jugadorId: string): number {
   let total = 0;
-  for (const p of partidos) total += minutosJugados(p.estadisticas.eventos ?? [], jugadorId);
+  for (const p of partidos) total += minutosJugados(p.estadisticas.eventos ?? [], jugadorId, p.duracion_parte_min * 2);
   return total;
 }
 

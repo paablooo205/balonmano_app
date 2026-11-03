@@ -62,7 +62,7 @@ export function MarcadorSanciones({ eventos, jugadores }: { eventos: EventosRow[
 
   return (
     <div>
-      <div className="mb-1 text-[9px] font-bold uppercase tracking-[0.16em] text-[var(--color-text-faint)]">Sanciones</div>
+      <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--color-text-faint)]">Sanciones</div>
       <div className="card-surface p-4">
         <div className="flex items-end justify-around gap-2">
           {filas.map((f) => (
@@ -83,11 +83,11 @@ export function MarcadorSanciones({ eventos, jugadores }: { eventos: EventosRow[
                   />
                 </div>
               </div>
-              <span className="text-[9px] uppercase tracking-[0.06em] text-[var(--color-text-faint)]">{f.label}</span>
+              <span className="text-[11px] uppercase tracking-[0.06em] text-[var(--color-text-faint)]">{f.label}</span>
             </div>
           ))}
         </div>
-        <div className="mt-3 flex justify-center gap-3 text-[9px] text-[var(--color-text-faint)]">
+        <div className="mt-3 flex justify-center gap-3 text-[11px] text-[var(--color-text-faint)]">
           <span className="flex items-center gap-1">
             <span className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--color-accent)" }} />
             Nuestro
@@ -114,14 +114,14 @@ export function MarcadorSanciones({ eventos, jugadores }: { eventos: EventosRow[
             {detalle.map((d) => (
               <div key={d.id} className="flex items-center gap-3 rounded-[10px] bg-[var(--color-bg)] px-3 py-2.5">
                 <span
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[9px] font-bold uppercase text-white"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-bold uppercase text-white"
                   style={{ background: d.color }}
                 >
                   {d.etiqueta === "2 min" ? "2'" : d.etiqueta.slice(0, 1)}
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-medium text-[var(--color-text)]">{d.nombre}</div>
-                  <div className="text-[9px] font-semibold uppercase tracking-[0.08em] text-[var(--color-text-faint)]">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--color-text-faint)]">
                     {d.etiqueta} · {d.esRival ? "Rival" : "Nuestro"}
                   </div>
                 </div>
