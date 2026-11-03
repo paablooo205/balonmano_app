@@ -446,6 +446,34 @@ function toquesPista(eventosJsonb: EventoPartido[]): EventoPartido[] {
     .sort((a, b) => (segundoDeToque(a) ?? 0) - (segundoDeToque(b) ?? 0) || a.creado_en.localeCompare(b.creado_en));
 }
 
+/** Tiempo de pista de un jugador en `segundoAhora` (reloj de partido):
+ * `totalSeg` = todo lo jugado hasta ahora; `tramoSeg` = lo que lleva desde
+ * su última entrada si sigue en pista (null si está en el banquillo). Para
+ * las tarjetas del registro en vivo; mismo emparejamiento que
+ * `minutosJugados`, pero en segundos y hasta el instante actual. */
+export function tiempoDePista(
+  eventosJsonb: EventoPartido[],
+  jugadorId: string,
+  segundoAhora: number | null,
+): { totalSeg: number; tramoSeg: number | null } {
+  const ahora = segundoAhora ?? 0;
+  let total = 0;
+  let entrada: number | null = null;
+  const propios = toquesPista(eventosJsonb).filter((e) => e.jugador_id === jugadorId);
+  if (propios[0]?.tipo === "sale_pista") entrada = 0;
+  for (const e of propios) {
+    const t = segundoDeToque(e);
+    if (e.tipo === "entra_pista") {
+      entrada = t ?? entrada ?? 0;
+    } else if (entrada !== null) {
+      total += Math.max(0, (t ?? entrada) - entrada);
+      entrada = null;
+    }
+  }
+  const tramo = entrada !== null ? Math.max(0, ahora - entrada) : null;
+  return { totalSeg: total + (tramo ?? 0), tramoSeg: tramo };
+}
+
 /** Jugadores en pista ahora mismo: aquellos cuyo último toque de pista es una
  * entrada. Vacío si en este partido no se han registrado cambios. */
 export function jugadoresEnPista(eventosJsonb: EventoPartido[]): Set<string> {

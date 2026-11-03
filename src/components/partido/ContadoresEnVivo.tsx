@@ -40,6 +40,7 @@ import {
   hayRegistroDePista,
   titularesDe,
   exclusionesActivas,
+  tiempoDePista,
   type ExclusionActiva,
   type BotonTiro,
 } from "@/lib/partidoStats";
@@ -601,6 +602,16 @@ export function ContadoresEnVivo({
   // para con el reloj, como el tiempo de la exclusión en pista). Se pinta en
   // el marcador, en la tarjeta del jugador y en su panel de estadísticas.
   const excluidos = exclusionesActivas(eventos, segundoActual(cronometro, duracionParteMin));
+
+  /** Segunda línea de tiempo de cada tarjeta (solo si se llevan cambios):
+   * en pista, mm:ss desde su última entrada (avanza con el reloj); en el
+   * banquillo, el total jugado en mm:ss (sin punto verde; "Sin jugar" si aún no ha salido). */
+  const tiempoTarjeta = (jugadorId: string): { texto: string; enPista: boolean } | null => {
+    if (!conRegistroPista || eligiendoTitulares) return null;
+    const { totalSeg, tramoSeg } = tiempoDePista(eventosJsonb, jugadorId, segundoActual(cronometro, duracionParteMin));
+    if (tramoSeg !== null) return { texto: formatoReloj(tramoSeg), enPista: true };
+    return { texto: totalSeg > 0 ? formatoReloj(totalSeg) : "Sin jugar", enPista: false };
+  };
   const exclusionDe = (jugadorId: string | null): ExclusionActiva | null =>
     jugadorId ? (excluidos.find((x) => x.jugadorId === jugadorId) ?? null) : null;
 
@@ -687,6 +698,7 @@ export function ContadoresEnVivo({
         portero={esPortero(j.puesto)}
         goles={golesFavor(eventos.filter((e) => e.jugador_id === j.id))}
         exclusionRestante={exclusionDe(j.id)?.restante ?? null}
+        tiempo={tiempoTarjeta(j.id)}
         banquillo={banquillo}
         temblando={cambioArmado === j.id}
         compacto={compacto}
@@ -1289,6 +1301,7 @@ function ChipJugador({
   exclusionRestante,
   banquillo = false,
   temblando = false,
+  tiempo = null,
   compacto,
   onClick,
 }: {
@@ -1306,12 +1319,28 @@ function ChipJugador({
   /** Cambio armado para este jugador: la tarjeta tiembla hasta que se toca a
    * alguien de la otra sección (o se vuelve a tocar para desarmar). */
   temblando?: boolean;
+  /** Tiempo de pista (solo con cambios registrados): en pista, lo que lleva
+   * desde que entró (mm:ss, en vivo); en el banquillo, lo jugado en total. */
+  tiempo?: { texto: string; enPista: boolean } | null;
   /** Móvil apaisado: fila de 44px, solo dorsal + nombre (salvo exclusión). */
   compacto?: boolean;
   onClick: () => void;
 }) {
   const excluido = exclusionRestante !== null;
-  const detalle = excluido ? `2' · ${formatoReloj(exclusionRestante)}` : portero ? "Portero" : goles > 0 ? `${goles} gol${goles === 1 ? "" : "es"}` : " ";
+  const textoGoles = goles > 0 ? `${goles} gol${goles === 1 ? "" : "es"}` : null;
+  // Con tiempo de pista, la segunda línea es "tiempo · goles" (o "· PO"); en
+  // móvil apaisado solo el tiempo, no cabe más.
+  const detalle = excluido
+    ? `2' · ${formatoReloj(exclusionRestante)}`
+    : tiempo
+      ? compacto
+        ? ""
+        : portero
+          ? "PO"
+          : (textoGoles ?? "")
+      : portero
+        ? "Portero"
+        : (textoGoles ?? "");
   return (
     <button
       onClick={onClick}
@@ -1338,20 +1367,39 @@ function ChipJugador({
       </span>
       <span className="flex min-w-0 flex-col leading-tight">
         <span className={cn("truncate text-[13px] font-semibold", activo ? "text-[var(--color-ink)]" : "text-white/90")}>{nombre}</span>
-        {(!compacto || excluido) && <span
-          className={cn(
-            "text-[11px] font-semibold uppercase tracking-[0.06em]",
-            excluido
-              ? "stat-number w-fit rounded-[3px] bg-[var(--color-accent)] px-1 text-[12px] tracking-normal text-white"
-              : activo
-                ? "text-[var(--color-ink)]/60"
-                : portero
-                  ? "text-white/60"
-                  : "text-[var(--color-accent)]",
-          )}
-        >
-          {detalle}
-        </span>}
+        {(!compacto || excluido || tiempo) && (
+          <span className="flex min-w-0 items-center gap-1.5">
+            {/* Tiempo de pista: punto verde + mm:ss en pista; minutos jugados en el banquillo. */}
+            {tiempo && !excluido && (
+              <span
+                className={cn(
+                  "stat-number flex shrink-0 items-center gap-1 text-[13px] leading-none",
+                  activo ? "text-[var(--color-ink)]" : tiempo.enPista ? "text-white" : "text-white/70",
+                )}
+              >
+                {tiempo.enPista && <span className="h-1.5 w-1.5 rounded-full bg-[#4ddc8a]" />}
+                {tiempo.texto}
+              </span>
+            )}
+            {detalle.trim() !== "" && (
+              <span
+                className={cn(
+                  "truncate text-[11px] font-semibold uppercase tracking-[0.06em]",
+                  excluido
+                    ? "stat-number w-fit rounded-[3px] bg-[var(--color-accent)] px-1 text-[12px] tracking-normal text-white"
+                    : activo
+                      ? "text-[var(--color-ink)]/60"
+                      : portero
+                        ? "text-white/60"
+                        : "text-[var(--color-accent)]",
+                )}
+              >
+                {tiempo && !excluido ? `· ${detalle}` : detalle}
+              </span>
+            )}
+            {detalle.trim() === "" && !tiempo && <span className="text-[11px]">&nbsp;</span>}
+          </span>
+        )}
       </span>
     </button>
   );
