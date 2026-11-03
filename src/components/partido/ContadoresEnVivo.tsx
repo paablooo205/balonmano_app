@@ -81,6 +81,9 @@ import type {
  * espera acción — lo que llegue primero completa el registro. "Anular"
  * limpia lo pendiente sin registrar.
  */
+/** Jugadores de campo titulares (más 1 portero = los 7 en pista). */
+const TITULARES_CAMPO = 6;
+
 export function ContadoresEnVivo({
   partido,
   equipoNombre,
@@ -142,7 +145,11 @@ export function ContadoresEnVivo({
         for (const p of data) {
           const titulares = titularesDe(p.estadisticas?.eventos ?? []).filter((id) => convocados.has(id));
           if (titulares.length > 0) {
-            setTitularesSel(new Set(titulares));
+            // Mismo límite que al marcarlos a mano: 1 portero + 6 de campo.
+            const porId = new Map(jugadores.map((j) => [j.id, j]));
+            const porteros = titulares.filter((id) => esPortero(porId.get(id)?.puesto ?? null)).slice(0, 1);
+            const campo = titulares.filter((id) => !esPortero(porId.get(id)?.puesto ?? null)).slice(0, TITULARES_CAMPO);
+            setTitularesSel(new Set([...porteros, ...campo]));
             return;
           }
         }
@@ -512,11 +519,26 @@ export function ContadoresEnVivo({
     void persistirEstadisticas({ ...partido.estadisticas, eventos: [...eventosJsonb, ...nuevos] });
   }
 
+  /** Titulares: 1 portero + 6 de campo como máximo. Tocar otro portero
+   * sustituye al marcado; con 6 de campo ya marcados, el 7º no entra (la
+   * barra de estado avisa de que hay que quitar uno antes). */
   function alternarTitular(id: string) {
+    const j = jugadores.find((x) => x.id === id);
+    if (!j) return;
     setTitularesSel((prev) => {
       const nuevo = new Set(prev);
-      if (nuevo.has(id)) nuevo.delete(id);
-      else nuevo.add(id);
+      if (nuevo.has(id)) {
+        nuevo.delete(id);
+        return nuevo;
+      }
+      if (esPortero(j.puesto)) {
+        for (const otro of jugadores) if (esPortero(otro.puesto)) nuevo.delete(otro.id);
+        nuevo.add(id);
+        return nuevo;
+      }
+      const deCampo = jugadores.filter((x) => nuevo.has(x.id) && !esPortero(x.puesto)).length;
+      if (deCampo >= TITULARES_CAMPO) return prev;
+      nuevo.add(id);
       return nuevo;
     });
   }
@@ -624,6 +646,14 @@ export function ContadoresEnVivo({
   /** Reloj en pausa con el partido ya empezado: los dígitos pasan a rojo. */
   const relojParado = !finalizado && !corriendo && minutoAhora !== null;
 
+  // Titulares: hacen falta 1 portero + 6 de campo — o todos los que haya si
+  // hay menos convocados de cada tipo.
+  const titularesPortero = jugadores.filter((j) => titularesSel.has(j.id) && esPortero(j.puesto)).length;
+  const titularesCampo = titularesSel.size - titularesPortero;
+  const necesariosPortero = Math.min(1, jugadores.filter((j) => esPortero(j.puesto)).length);
+  const necesariosCampo = Math.min(TITULARES_CAMPO, jugadores.filter((j) => !esPortero(j.puesto)).length);
+  const titularesCompletos = titularesPortero === necesariosPortero && titularesCampo === necesariosCampo;
+
   let statusMain = "Selecciona un jugador";
   let statusHint = "Paso 1 de 2";
   if (jugadorActual) {
@@ -639,7 +669,12 @@ export function ContadoresEnVivo({
   }
   if (eligiendoTitulares) {
     statusMain = "Elige los titulares";
-    statusHint = `${titularesSel.size} marcados · toca para marcar o quitar`;
+    statusHint =
+      titularesCampo >= necesariosCampo && titularesPortero < necesariosPortero
+        ? `Falta el portero · campo ${titularesCampo}/${TITULARES_CAMPO}`
+        : titularesCampo >= TITULARES_CAMPO
+          ? `Portero ${titularesPortero}/1 · campo 6/6 — quita uno para cambiar`
+          : `Portero ${titularesPortero}/1 · campo ${titularesCampo}/${TITULARES_CAMPO}`;
   } else if (cambioArmado) {
     statusMain = enPista.has(cambioArmado) ? `Sale ${etiquetaJugador(cambioArmado)}` : `Entra ${etiquetaJugador(cambioArmado)}`;
     statusHint = enPista.has(cambioArmado) ? "Toca quién entra (banquillo)" : "Toca quién sale (en pista)";
@@ -656,10 +691,10 @@ export function ContadoresEnVivo({
     <div className="flex gap-1.5">
       <button
         onClick={confirmarTitulares}
-        disabled={titularesSel.size === 0}
+        disabled={!titularesCompletos}
         className={cn(claseBotonColumna, "bg-[var(--color-accent)] text-white")}
       >
-        Confirmar ({titularesSel.size})
+        Confirmar ({titularesSel.size}/{necesariosPortero + necesariosCampo})
       </button>
       <button onClick={() => setOmitirTitulares(true)} className={cn(claseBotonColumna, "flex-none bg-white/[.08] px-3 text-white/70")}>
         Omitir
