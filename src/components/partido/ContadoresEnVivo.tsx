@@ -510,12 +510,26 @@ export function ContadoresEnVivo({
 
   /** Registra uno o varios movimientos de pista en el mismo instante; si son
    * varios (cambio, titulares), comparten `grupo`. */
-  function registrarPista(movimientos: { tipo: "entra_pista" | "sale_pista"; jugadorId: string }[]) {
+  /** `segundo` propio: el movimiento ocurre en otro instante que "ahora" —
+   * el sustituto de un excluido entra cuando acaba la exclusión. `cubre`: id
+   * de la exclusión cuyo hueco ocupa ese sustituto. */
+  function registrarPista(
+    movimientos: { tipo: "entra_pista" | "sale_pista"; jugadorId: string; segundo?: number; cubre?: string }[],
+  ) {
     if (finalizado || movimientos.length === 0) return;
     const grupo = movimientos.length > 1 ? crypto.randomUUID() : undefined;
     const minuto = minutoActual(cronometro, duracionParteMin);
     const segundo = segundoActual(cronometro, duracionParteMin);
-    const nuevos = movimientos.map((m) => ({ ...crearEventoJsonb(m.tipo, m.jugadorId, minuto, segundo), ...(grupo ? { grupo } : {}) }));
+    const nuevos = movimientos.map((m) => ({
+      ...crearEventoJsonb(
+        m.tipo,
+        m.jugadorId,
+        m.segundo !== undefined ? Math.floor(m.segundo / 60) + 1 : minuto,
+        m.segundo !== undefined ? m.segundo : segundo,
+      ),
+      ...(grupo ? { grupo } : {}),
+      ...(m.cubre ? { cubre_exclusion: m.cubre } : {}),
+    }));
     void persistirEstadisticas({ ...partido.estadisticas, eventos: [...eventosJsonb, ...nuevos] });
   }
 
@@ -565,17 +579,32 @@ export function ContadoresEnVivo({
         setCambioArmado(null);
         return;
       }
-      // De la otra sección (pista ↔ banquillo): cambio hecho directamente.
-      const armadoEnPista = enPista.has(cambioArmado);
-      if (armadoEnPista !== enPista.has(j.id)) {
-        registrarPista([
-          { tipo: "sale_pista", jugadorId: armadoEnPista ? cambioArmado : j.id },
-          { tipo: "entra_pista", jugadorId: armadoEnPista ? j.id : cambioArmado },
-        ]);
+      // Banquillo ↔ pista o banquillo ↔ excluidos: cambio hecho directamente.
+      // Pista ↔ excluidos o misma sección: se desarma y se selecciona a ese.
+      const seccionArmado = seccionDe(cambioArmado);
+      const seccionTocado = seccionDe(j.id);
+      if (seccionArmado !== seccionTocado && (seccionArmado === "banquillo" || seccionTocado === "banquillo")) {
+        const delBanquillo = seccionArmado === "banquillo" ? cambioArmado : j.id;
+        const otro = seccionArmado === "banquillo" ? j.id : cambioArmado;
+        const hueco = huecoDe(otro);
+        if (!hueco) {
+          registrarPista([
+            { tipo: "sale_pista", jugadorId: otro },
+            { tipo: "entra_pista", jugadorId: delBanquillo },
+          ]);
+        } else {
+          // El del banquillo ocupa el hueco de la exclusión y entra cuando
+          // acabe. Si quien lo ocupaba ya era un sustituto (aún sin entrar),
+          // su salida se fecha en el mismo instante que su entrada: 0'.
+          const eraSustituto = otro !== hueco.jugadorId;
+          registrarPista([
+            { tipo: "sale_pista", jugadorId: otro, ...(eraSustituto ? { segundo: hueco.finSegundo } : {}) },
+            { tipo: "entra_pista", jugadorId: delBanquillo, segundo: hueco.finSegundo, cubre: hueco.eventoId },
+          ]);
+        }
         setCambioArmado(null);
         return;
       }
-      // De la misma sección: se desarma y se selecciona a ese, como siempre.
       setCambioArmado(null);
     }
     seleccionarJugador(j);
@@ -648,6 +677,18 @@ export function ContadoresEnVivo({
   const exclusionDe = (jugadorId: string | null): ExclusionActiva | null =>
     jugadorId ? (excluidos.find((x) => x.jugadorId === jugadorId) ?? null) : null;
 
+  // Hueco de cada exclusión en curso (sección "Excluidos"): lo ocupa el
+  // excluido o, si se hizo un cambio con él, el último sustituto (su
+  // `entra_pista` lleva `cubre_exclusion` y está fechado al final de la
+  // exclusión, así que al acabar la cuenta pasa solo a "En pista").
+  const huecosExclusion = excluidos.map((x) => {
+    const sustituto = eventosJsonb.filter((e) => e.tipo === "entra_pista" && e.cubre_exclusion === x.eventoId && e.jugador_id).at(-1);
+    return { ...x, ocupanteId: sustituto?.jugador_id ?? x.jugadorId };
+  });
+  const huecoDe = (jugadorId: string) => huecosExclusion.find((h) => h.ocupanteId === jugadorId) ?? null;
+  const seccionDe = (jugadorId: string): "excluidos" | "pista" | "banquillo" =>
+    huecoDe(jugadorId) ? "excluidos" : enPista.has(jugadorId) ? "pista" : "banquillo";
+
   const avisoReloj =
     finalizado || corriendo
       ? null
@@ -687,8 +728,15 @@ export function ContadoresEnVivo({
           ? `Portero ${titularesPortero}/1 · campo 6/6 — quita uno para cambiar`
           : `Portero ${titularesPortero}/1 · campo ${titularesCampo}/${TITULARES_CAMPO}`;
   } else if (cambioArmado) {
-    statusMain = enPista.has(cambioArmado) ? `Sale ${etiquetaJugador(cambioArmado)}` : `Entra ${etiquetaJugador(cambioArmado)}`;
-    statusHint = enPista.has(cambioArmado) ? "Toca quién entra (banquillo)" : "Toca quién sale (en pista)";
+    const seccionArmada = seccionDe(cambioArmado);
+    statusMain =
+      seccionArmada === "banquillo" ? `Entra ${etiquetaJugador(cambioArmado)}` : `Sale ${etiquetaJugador(cambioArmado)}`;
+    statusHint =
+      seccionArmada === "excluidos"
+        ? "Toca uno del banquillo: ocupará su hueco y entrará al acabar los 2'"
+        : seccionArmada === "pista"
+          ? "Toca quién entra (banquillo)"
+          : "Toca quién sale (en pista o excluidos)";
   }
 
   const claseBotonColumna = cn(
@@ -743,7 +791,7 @@ export function ContadoresEnVivo({
         activo={activo}
         portero={esPortero(j.puesto)}
         goles={golesFavor(eventos.filter((e) => e.jugador_id === j.id))}
-        exclusionRestante={exclusionDe(j.id)?.restante ?? null}
+        exclusionRestante={huecoDe(j.id)?.restante ?? null}
         tiempo={tiempoTarjeta(j.id)}
         sanciones={sancionesDe(j.id)}
         banquillo={banquillo}
@@ -759,12 +807,19 @@ export function ContadoresEnVivo({
    * (móvil en vertical, el único layout que sí hace scroll de página).
    *
    * Con cambios registrados, la lista se parte en "En pista" y "Banquillo"
-   * — siempre se ve quién está jugando. Los excluidos siguen en pista (su
-   * cuenta atrás aparece en la tarjeta) y vuelven solos al acabar. */
+   * — siempre se ve quién está jugando. Con una exclusión en curso aparece
+   * encima "Excluidos" (con su cuenta atrás): al acabar, quien ocupe ese
+   * hueco pasa solo a "En pista". Un cambio banquillo ↔ excluido mete al del
+   * banquillo en el hueco (el excluido ya no vuelve). */
   function bloqueJugadores(vertical: boolean) {
     const separar = conRegistroPista && !eligiendoTitulares;
-    const enPistaLista = jugadores.filter((j) => enPista.has(j.id));
-    const banquillo = jugadores.filter((j) => !enPista.has(j.id));
+    // Excluidos: quien ocupa el hueco de cada exclusión en curso (el excluido
+    // o su sustituto), ordenados por la que antes acaba. No cuentan en pista.
+    const excluidosLista = huecosExclusion
+      .map((h) => jugadores.find((j) => j.id === h.ocupanteId))
+      .filter((j): j is JugadoresRow => !!j);
+    const enPistaLista = jugadores.filter((j) => seccionDe(j.id) === "pista");
+    const banquillo = jugadores.filter((j) => seccionDe(j.id) === "banquillo");
     const rotulo = (texto: string, n: number) => (
       <div className={cn("shrink-0 text-[11px] font-bold uppercase tracking-[0.1em] text-white/60", vertical ? "pt-1" : "self-center px-1")}>
         {texto} <span className="stat-number text-white/80">{n}</span>
@@ -786,6 +841,8 @@ export function ContadoresEnVivo({
         >
           {separar ? (
             <>
+              {excluidosLista.length > 0 && rotulo("Excluidos", excluidosLista.length)}
+              {excluidosLista.map((j) => chip(j, false))}
               {rotulo("En pista", enPistaLista.length)}
               {enPistaLista.map((j) => chip(j, false))}
               {rotulo("Banquillo", banquillo.length)}
@@ -1395,14 +1452,14 @@ function ChipJugador({
   // Tarjetitas de amonestación, en orden: amarilla, azul, roja y una "2" por
   // cada exclusión (en balonmano la 3ª exclusión ya es descalificación).
   const iconosSancion: { fondo: string; borde?: string; texto?: string }[] = [
-    ...Array.from({ length: Math.min(sanciones.amarillas, 1) }, () => ({ fondo: "#f0c419" })),
-    ...Array.from({ length: Math.min(sanciones.azules, 1) }, () => ({ fondo: "#3d8ad6" })),
-    ...Array.from({ length: Math.min(sanciones.rojas, 1) }, () => ({ fondo: "var(--color-accent)" })),
+    ...Array.from({ length: sanciones.amarillas }, () => ({ fondo: "#f0c419" })),
+    ...Array.from({ length: sanciones.azules }, () => ({ fondo: "#3d8ad6" })),
+    ...Array.from({ length: sanciones.rojas }, () => ({ fondo: "var(--color-accent)" })),
     ...Array.from({ length: Math.min(sanciones.exclusiones, 3) }, () => ({ fondo: "#0d0d0f", borde: "rgba(255,255,255,.85)", texto: "2" })),
   ];
   const resumenSanciones = [
-    sanciones.amarillas > 0 && "tarjeta amarilla",
-    sanciones.azules > 0 && "tarjeta azul",
+    sanciones.amarillas > 0 && (sanciones.amarillas === 1 ? "tarjeta amarilla" : `${sanciones.amarillas} amarillas`),
+    sanciones.azules > 0 && (sanciones.azules === 1 ? "tarjeta azul" : `${sanciones.azules} azules`),
     sanciones.rojas > 0 && "tarjeta roja",
     sanciones.exclusiones > 0 && `${sanciones.exclusiones} exclusión${sanciones.exclusiones === 1 ? "" : "es"} de 2'`,
   ]
@@ -1435,18 +1492,18 @@ function ChipJugador({
       </span>
       {iconosSancion.length > 0 && (
         <span
-          className="pointer-events-none absolute right-2 top-1.5 flex items-start gap-[3px]"
+          className="pointer-events-none absolute right-2 top-1.5 flex items-start"
           aria-label={resumenSanciones}
           title={resumenSanciones}
         >
           {iconosSancion.map((s, i) => (
-            <TarjetitaSancion key={i} {...s} />
+            <TarjetitaSancion key={i} indice={i} {...s} />
           ))}
         </span>
       )}
       <span className="flex min-w-0 flex-col leading-tight">
         {/* Solo el nombre deja hueco a las tarjetitas de la esquina; la segunda línea (tiempo, exclusión) usa el ancho completo. */}
-        <span className={cn("truncate text-[13px] font-semibold", activo ? "text-[var(--color-ink)]" : "text-white/90")} style={{ paddingRight: iconosSancion.length * 12 }}>
+        <span className={cn("truncate text-[13px] font-semibold", activo ? "text-[var(--color-ink)]" : "text-white/90")} style={{ paddingRight: iconosSancion.length > 0 ? 16 + (iconosSancion.length - 1) * 6 : 0 }}>
           {nombre}
         </span>
         {(!compacto || excluido || tiempo) && (
@@ -1487,16 +1544,26 @@ function ChipJugador({
   );
 }
 
+/** Inclinaciones de cada tarjetita, en orden: distintas entre sí para que el
+ * montón se vea "dejado" a mano, como un abanico suelto, no alineado. */
+const GIROS_TARJETITA = [-7, 5, 11, -2, 8, -5];
+
 /**
  * Tarjetita de amonestación para la esquina de la tarjeta de jugador: forma
- * de tarjeta de árbitro (vertical, esquinas apenas redondeadas), ligeramente
- * inclinada y con sombra suave, como "apoyada" — discreta, no un badge.
+ * de tarjeta de árbitro (vertical, esquinas apenas redondeadas) con sombra
+ * suave. Varias se solapan ~4px, cada una con su giro — discreto, no un badge.
  */
-function TarjetitaSancion({ fondo, borde, texto }: { fondo: string; borde?: string; texto?: string }) {
+function TarjetitaSancion({ fondo, borde, texto, indice }: { fondo: string; borde?: string; texto?: string; indice: number }) {
   return (
     <span
-      className="stat-number flex h-[14px] w-[10px] rotate-[8deg] items-center justify-center rounded-[2px] text-[9px] leading-none text-white shadow-[0_1px_2px_rgba(0,0,0,.45)]"
-      style={{ backgroundColor: fondo, border: borde ? `1px solid ${borde}` : undefined }}
+      className="stat-number flex h-[14px] w-[10px] items-center justify-center rounded-[2px] text-[9px] leading-none text-white shadow-[0_1px_2px_rgba(0,0,0,.5)]"
+      style={{
+        backgroundColor: fondo,
+        border: borde ? `1px solid ${borde}` : undefined,
+        transform: `rotate(${GIROS_TARJETITA[indice % GIROS_TARJETITA.length]}deg)`,
+        marginLeft: indice > 0 ? -4 : 0,
+        zIndex: indice,
+      }}
     >
       {texto}
     </span>

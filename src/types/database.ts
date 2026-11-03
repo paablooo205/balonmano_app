@@ -232,6 +232,10 @@ export type EventoPartido = {
    * los titulares = varias entradas): comparten este id, "deshacer" los quita
    * a la vez y la cronología los pinta como una sola línea. */
   grupo?: string;
+  /** Solo en `entra_pista`: id del evento de exclusión cuyo hueco ocupa este
+   * jugador (sustituto del excluido). Su entrada se registra con el `segundo`
+   * en que acaba la exclusión: hasta entonces espera en "Excluidos". */
+  cubre_exclusion?: string;
   creado_en: string;
 };
 
