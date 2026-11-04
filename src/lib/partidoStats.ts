@@ -641,3 +641,13 @@ export function serieMarcador(eventos: EventosRow[]): { ts: string; favor: numbe
     return { ts: e.creado_en, favor, contra };
   });
 }
+
+/**
+ * Corrección SOLO DE LECTURA (nunca se reescribe la fila en la base): un tiro
+ * con origen "7m" es un penalti aunque no se activara el interruptor
+ * "Penalti" al registrarlo — antes de que el chip "7m" lo activara solo,
+ * hubo tiros guardados así, y contaban como juego abierto en la eficacia.
+ */
+export function normalizarEventos(eventos: EventosRow[]): EventosRow[] {
+  return eventos.map((e) => (e.tipo === "tiro" && e.origen === "7m" && !e.es_penalti ? { ...e, es_penalti: true } : e));
+}
