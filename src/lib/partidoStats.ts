@@ -432,7 +432,7 @@ export function minutosJugados(
   for (const e of propios) {
     const t = segundoDeToque(e);
     if (e.tipo === "entra_pista") {
-      entrada = t ?? entrada ?? 0;
+      if (entrada === null) entrada = t ?? 0;
     } else if (entrada !== null) {
       total += Math.max(0, (t ?? entrada) - entrada);
       entrada = null;
@@ -477,7 +477,7 @@ export function tiempoDePista(
   for (const e of propios) {
     const t = segundoDeToque(e);
     if (e.tipo === "entra_pista") {
-      entrada = t ?? entrada ?? 0;
+      if (entrada === null) entrada = t ?? 0;
     } else if (entrada !== null) {
       total += Math.max(0, (t ?? entrada) - entrada);
       entrada = null;

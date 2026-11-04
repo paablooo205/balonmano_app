@@ -14,6 +14,7 @@ import {
   porcentajeParadas,
   resultadoPartido,
   segundoActual,
+  tiempoDePista,
 } from "./partidoStats";
 import { normalizarEventos } from "./eventos";
 import type { CronometroPartido, EventoPartido, EventosRow, PartidosRow } from "@/types/database";
@@ -166,6 +167,12 @@ describe("pista y banquillo", () => {
     expect(minutosJugados(partidoConCambio, "a", 60)).toBe(10);
     expect(minutosJugados(partidoConCambio, "c", 60)).toBe(50);
     expect(minutosJugados(partidoConCambio, "c", 60, 25)).toBe(15);
+  });
+
+  it("doble entrada sin salida no reinicia el tramo: cuenta desde la primera entrada", () => {
+    const dobleEntrada = [toque("entra_pista", "a", 100), toque("entra_pista", "a", 500)];
+    expect(minutosJugados(dobleEntrada, "a", 60)).toBe(58);
+    expect(tiempoDePista(dobleEntrada, "a", 1000).tramoSeg).toBe(900);
   });
 });
 

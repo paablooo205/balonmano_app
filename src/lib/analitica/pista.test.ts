@@ -23,6 +23,25 @@ describe("intervalosEnPista", () => {
     const jsonb = [toque("entra_pista", "b", 1120, { cubre_exclusion: "x" })];
     expect(intervalosEnPista(jsonb, [], TOTAL).get("b")).toEqual([{ inicio: 1120, fin: TOTAL }]);
   });
+  it("doble entrada sin salida conserva la primera entrada", () => {
+    const jsonb = [toque("entra_pista", "a", 100), toque("entra_pista", "a", 500)];
+    expect(intervalosEnPista(jsonb, [], TOTAL).get("a")).toEqual([{ inicio: 100, fin: TOTAL }]);
+  });
+  it("secuencia en vivo de exclusión: el sustituto entra al cumplirse el hueco", () => {
+    const jsonb = [
+      toque("entra_pista", "x", null),
+      toque("sale_pista", "x", 1000),
+      toque("entra_pista", "b", 1120, { cubre_exclusion: "e1" }),
+    ];
+    const exclusion = ev({ id: "e1", tipo: "exclusion", resultado: null, jugador_id: "x", segundo: 1000 });
+    const m = intervalosEnPista(jsonb, [exclusion], TOTAL);
+    expect(m.get("x")).toEqual([{ inicio: 0, fin: 1000 }]);
+    expect(m.get("b")).toEqual([{ inicio: 1120, fin: TOTAL }]);
+  });
+  it("sustituto reemplazado antes de entrar no tiene intervalo", () => {
+    const jsonb = [toque("entra_pista", "b", 1120, { cubre_exclusion: "e1" }), toque("sale_pista", "b", 1120)];
+    expect((intervalosEnPista(jsonb, [], TOTAL).get("b") ?? []).length).toBe(0);
+  });
 });
 
 describe("plusMinus y formaciones", () => {
