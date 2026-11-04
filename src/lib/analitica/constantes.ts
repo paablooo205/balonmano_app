@@ -47,3 +47,6 @@ export const MAX_FRACCION_MISMO_MINUTO = 0.3;
  * tiempo muerto). Desde esta fecha, que no haya un "fuera" rival significa
  * que no lo hubo, no que no se registrara. Fijar al desplegar la fase 1. */
 export const FECHA_CAPTURA_AMPLIADA = "2026-11-05";
+
+/** Un factor solo protagoniza el titular si mueve al menos este número de goles. */
+export const UMBRAL_FACTOR_DOMINANTE = 0.5;
