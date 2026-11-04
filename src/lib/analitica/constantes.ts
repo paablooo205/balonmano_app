@@ -29,6 +29,8 @@ export const REFERENCIA_FIJA = {
 export const N_MEZCLA_REFERENCIA = 3;
 
 export const DURACION_EXCLUSION_SEG = 120;
+/** Mínimo de segundos en igualdad y en inferioridad para calcular el coste por exclusión. */
+export const MIN_SEG_ESTADO_COSTE = 60;
 export const MIN_SEG_FORMACION = 300;
 export const MIN_POSESIONES_CON_SIN = 10;
 export const RACHA_MIN_GOLES = 3;

@@ -66,3 +66,24 @@ describe("resumirNumericas", () => {
     expect(r.valor.superioridad.disponible).toBe(false);
   });
 });
+
+describe("coste por exclusión con igualdad de tasa no nula", () => {
+  // Igualdad 3480 s (0-600 y 720-3600): 3 GF (100, 200, 300) y 2 GC (400, 500) → +1 neto → tasa 1/3480 por s.
+  // Inferioridad 600-720 (120 s): 2 GC (610, 700), 0 GF → −2 neto → tasa −2/120 por s.
+  // Coste = (1/3480 − (−2/120)) × 120 = 120/3480 + 2 ≈ 2.0344828.
+  // Goles netos sobre igualdad = (0 − 2) − (1/3480) × 120 = −2 − 120/3480 ≈ −2.0344828.
+  const evs = [
+    ev({ tipo: "exclusion", resultado: null, equipo_origen: "propio", segundo: 600 }),
+    tiro("propio", "gol", { segundo: 100 }), tiro("propio", "gol", { segundo: 200 }), tiro("propio", "gol", { segundo: 300 }),
+    tiro("rival", "gol", { segundo: 400 }), tiro("rival", "gol", { segundo: 500 }),
+    tiro("rival", "gol", { segundo: 610 }), tiro("rival", "gol", { segundo: 700 }),
+  ];
+  it("coste y goles netos sobre igualdad con tasa de igualdad distinta de cero", () => {
+    const r = resumirNumericas(evs, TOTAL, calidad);
+    if (!r.disponible) throw new Error("debería estar disponible");
+    expect(r.valor.porEstado.igualdad.segundos).toBe(3480);
+    expect(r.valor.costePorExclusion.disponible).toBe(true);
+    if (r.valor.costePorExclusion.disponible) expect(r.valor.costePorExclusion.valor).toBeCloseTo(2 + 120 / 3480, 6);
+    expect(r.valor.golesNetosSobreIgualdad).toBeCloseTo(-2 - 120 / 3480, 6);
+  });
+});

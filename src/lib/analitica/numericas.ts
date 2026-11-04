@@ -1,5 +1,5 @@
 import type { EventosRow } from "@/types/database";
-import { DURACION_EXCLUSION_SEG } from "./constantes";
+import { DURACION_EXCLUSION_SEG, MIN_SEG_ESTADO_COSTE } from "./constantes";
 import { esCierrePosesion } from "./posesiones";
 import { disponible, noDisponible, type CalidadDatos, type Equipo, type Metrica } from "./tipos";
 
@@ -64,9 +64,9 @@ export function resumirNumericas(eventos: EventosRow[], duracionTotalSeg: number
   const difPorSeg = (r: ResumenEstado) => (r.golesFavor - r.golesContra) / r.segundos;
   const { igualdad, inferioridad, superioridad } = porEstado;
   const costePorExclusion: Metrica<number> =
-    igualdad.segundos >= 60 && inferioridad.segundos >= 60
-      ? disponible((difPorSeg(igualdad) - difPorSeg(inferioridad)) * 60 * 2)
-      : noDisponible("Menos de 1 minuto en igualdad o en inferioridad");
+    igualdad.segundos >= MIN_SEG_ESTADO_COSTE && inferioridad.segundos >= MIN_SEG_ESTADO_COSTE
+      ? disponible((difPorSeg(igualdad) - difPorSeg(inferioridad)) * DURACION_EXCLUSION_SEG)
+      : noDisponible(`Menos de ${MIN_SEG_ESTADO_COSTE} s en igualdad o en inferioridad`);
   const tasaIgualdad = igualdad.segundos > 0 ? difPorSeg(igualdad) : 0;
   const golesNetosSobreIgualdad = [inferioridad, superioridad].reduce(
     (s, r) => s + (r.golesFavor - r.golesContra) - tasaIgualdad * r.segundos,
