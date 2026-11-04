@@ -41,6 +41,7 @@ import {
   titularesDe,
   exclusionesActivas,
   tiempoDePista,
+  tiemposMuertosRestantes,
   type ExclusionActiva,
   type BotonTiro,
 } from "@/lib/partidoStats";
@@ -104,6 +105,7 @@ export function ContadoresEnVivo({
   useFullscreenHorizontal();
   const compacto = useMovilHorizontal();
   const [tick, setTick] = useState(0);
+  const [tiempoMuerto, setTiempoMuerto] = useState<{ equipo: EquipoOrigenEvento; finMs: number } | null>(null);
   const [jugadorSel, setJugadorSel] = useState<string | null>(null);
   const [sietePendiente, setSietePendiente] = useState(false);
   const [verTodasAcciones, setVerTodasAcciones] = useState(false);
@@ -197,6 +199,21 @@ export function ContadoresEnVivo({
         creadoEn: e.creado_en,
         afectaMarcador: e.resultado === "gol",
         detalle: [e.zona ? `Z${e.zona}` : null, e.origen ? ETIQUETAS_ORIGEN[e.origen] : null].filter(Boolean).join(" · "),
+      };
+    }
+    if (e.tipo === "tiempo_muerto") {
+      return {
+        id: e.id,
+        origen: "tabla",
+        label: e.equipo_origen === "rival" ? "Tiempo muerto rival" : "Tiempo muerto",
+        color: "rgba(255,255,255,.35)",
+        jugadorId: null,
+        esRival: e.equipo_origen === "rival",
+        minuto: e.minuto,
+        segundo: e.segundo ?? null,
+        creadoEn: e.creado_en,
+        afectaMarcador: false,
+        detalle: "",
       };
     }
     if (e.tipo === "tarjeta") {
@@ -298,6 +315,16 @@ export function ContadoresEnVivo({
     return () => clearInterval(id);
   }, [cronometro?.corriendo]);
   void tick;
+
+  // Cuenta atrás del tiempo muerto: refresca cada segundo y se cierra sola.
+  useEffect(() => {
+    if (!tiempoMuerto) return;
+    const id = setInterval(() => {
+      if (Date.now() >= tiempoMuerto.finMs) setTiempoMuerto(null);
+      else setTick((t) => t + 1);
+    }, 1000);
+    return () => clearInterval(id);
+  }, [tiempoMuerto]);
 
   // Al llegar a la duración configurada de la parte: para el cronómetro
   // automáticamente y, si era la 1ª parte, la deja lista (en pausa, a 0:00)
@@ -501,6 +528,35 @@ export function ContadoresEnVivo({
     };
     onEventosActualizados([...eventos, nuevo]);
     void registrarEvento(nuevo);
+  }
+
+  /** Tiempo muerto (1 minuto): para el reloj, registra el evento y muestra la
+   * cuenta atrás a pantalla completa (cerrable). Se deshace como cualquier
+   * acción; deshacerlo no vuelve a poner el reloj en marcha. */
+  function registrarTiempoMuerto(equipo: EquipoOrigenEvento) {
+    const parte = (cronometro?.parte ?? 1) as 1 | 2;
+    if (finalizado || tiemposMuertosRestantes(eventos, equipo, parte, duracionParteMin) === 0) return;
+    if (cronometro?.corriendo) void persistirEstadisticas({ ...partido.estadisticas, cronometro: pausar(cronometro, duracionParteMin) });
+    const nuevo: EventosRow = {
+      id: crypto.randomUUID(),
+      equipo_id: partido.equipo_id,
+      partido_id: partido.id,
+      sesion_id: null,
+      jugador_id: null,
+      equipo_origen: equipo,
+      tipo: "tiempo_muerto",
+      resultado: null,
+      zona: null,
+      origen: null,
+      es_penalti: false,
+      color_tarjeta: null,
+      minuto: minutoActual(cronometro, duracionParteMin),
+      segundo: segundoActual(cronometro, duracionParteMin),
+      creado_en: new Date().toISOString(),
+    };
+    onEventosActualizados([...eventos, nuevo]);
+    void registrarEvento(nuevo);
+    setTiempoMuerto({ equipo, finMs: Date.now() + 60_000 });
   }
 
   function registrarTarjeta(color: ColorTarjeta) {
@@ -1294,6 +1350,21 @@ export function ContadoresEnVivo({
           {corriendo ? <Pause size={15} /> : <Play size={15} />}
           {!compacto && textoBotonReloj}
         </button>
+        {(["propio", "rival"] as const).map((eq) => {
+          const quedan = tiemposMuertosRestantes(eventos, eq, (cronometro?.parte ?? 1) as 1 | 2, duracionParteMin);
+          return (
+            <button
+              key={eq}
+              onClick={() => registrarTiempoMuerto(eq)}
+              disabled={finalizado || quedan === 0}
+              aria-label={`${eq === "propio" ? "Tiempo muerto nuestro" : "Tiempo muerto del rival"} (quedan ${quedan})`}
+              className="flex h-11 min-w-11 items-center justify-center gap-0.5 rounded-[6px] bg-white/[.08] px-2 text-xs font-semibold text-white/80 disabled:pointer-events-none disabled:opacity-35"
+            >
+              {eq === "propio" ? "TM" : compacto ? "TM R" : "TM rival"}
+              <sup className="stat-number text-[10px] leading-none text-white/60">{quedan}</sup>
+            </button>
+          );
+        })}
         {cronometro?.parte !== 2 && (
           <button
             onClick={siguienteParte}
@@ -1326,6 +1397,16 @@ export function ContadoresEnVivo({
         style={{ paddingLeft: "env(safe-area-inset-left)", paddingRight: "env(safe-area-inset-right)" }}
       >
         {cabecera}
+      {tiempoMuerto && (
+        <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center gap-3 bg-[#0d0d0f]/95">
+          <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-accent)]">Tiempo muerto</div>
+          <div className="text-lg font-semibold text-white">{tiempoMuerto.equipo === "rival" ? partido.rival : (equipoNombre ?? "Nuestro equipo")}</div>
+          <div className="stat-number text-[120px] leading-none text-white">{formatoReloj(Math.max(0, Math.ceil((tiempoMuerto.finMs - Date.now()) / 1000)))}</div>
+          <button onClick={() => setTiempoMuerto(null)} className="h-11 rounded-[15px] bg-white/[.12] px-8 text-sm font-semibold text-white">
+            Cerrar
+          </button>
+        </div>
+      )}
         <div className="shrink-0">{barraEstado}</div>
         <div className="grid min-h-0 flex-1 grid-cols-[112px_minmax(0,1fr)_minmax(0,250px)_132px] grid-rows-[minmax(0,1fr)] gap-2.5 p-2">
           <div className="min-h-0">{bloqueJugadores(true)}</div>
@@ -1343,6 +1424,16 @@ export function ContadoresEnVivo({
       style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       {cabecera}
+      {tiempoMuerto && (
+        <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center gap-3 bg-[#0d0d0f]/95">
+          <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-accent)]">Tiempo muerto</div>
+          <div className="text-lg font-semibold text-white">{tiempoMuerto.equipo === "rival" ? partido.rival : (equipoNombre ?? "Nuestro equipo")}</div>
+          <div className="stat-number text-[120px] leading-none text-white">{formatoReloj(Math.max(0, Math.ceil((tiempoMuerto.finMs - Date.now()) / 1000)))}</div>
+          <button onClick={() => setTiempoMuerto(null)} className="h-11 rounded-[15px] bg-white/[.12] px-8 text-sm font-semibold text-white">
+            Cerrar
+          </button>
+        </div>
+      )}
       {/* Sticky: en el layout con scroll (móvil en vertical) la barra de
           estado/aviso se queda arriba; en pantalla fija ya no se mueve nada. */}
       <div className="sticky top-0 z-10 shrink-0">{barraEstado}</div>

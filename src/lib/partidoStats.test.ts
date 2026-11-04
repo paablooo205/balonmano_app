@@ -17,6 +17,7 @@ import {
   resultadoPartido,
   segundoActual,
   tiempoDePista,
+  tiemposMuertosRestantes,
 } from "./partidoStats";
 import { normalizarEventos } from "./eventos";
 import type { CronometroPartido, EventoPartido, EventosRow, PartidosRow } from "@/types/database";
@@ -212,5 +213,17 @@ describe("tiro rival fuera", () => {
     expect(BOTONES_TIRO_RIVAL.map((b) => b.label)).toEqual(["Parada", "Gol en contra", "Fuera"]);
     expect(etiquetaTiro(evento({ equipo_origen: "rival", resultado: "fuera" }))).toBe("Tiro rival fuera");
     expect(etiquetaTiro(evento({ equipo_origen: "propio", resultado: "fuera" }))).toBe("Fuera");
+  });
+});
+
+describe("tiemposMuertosRestantes", () => {
+  const tm = (equipo: "propio" | "rival", segundo: number) =>
+    evento({ tipo: "tiempo_muerto", resultado: null, equipo_origen: equipo, segundo });
+  it("3 por partido y máximo 2 por parte, por equipo", () => {
+    expect(tiemposMuertosRestantes([], "propio", 1, 30)).toBe(2);
+    expect(tiemposMuertosRestantes([tm("propio", 300), tm("propio", 900)], "propio", 1, 30)).toBe(0);
+    expect(tiemposMuertosRestantes([tm("propio", 300), tm("propio", 900)], "propio", 2, 30)).toBe(1);
+    expect(tiemposMuertosRestantes([tm("propio", 300), tm("propio", 2000)], "propio", 2, 30)).toBe(1);
+    expect(tiemposMuertosRestantes([tm("propio", 300)], "rival", 1, 30)).toBe(2);
   });
 });

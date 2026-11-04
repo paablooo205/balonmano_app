@@ -653,3 +653,16 @@ export function serieMarcador(eventos: EventosRow[]): { ts: string; favor: numbe
 export function normalizarEventos(eventos: EventosRow[]): EventosRow[] {
   return eventos.map((e) => (e.tipo === "tiro" && e.origen === "7m" && !e.es_penalti ? { ...e, es_penalti: true } : e));
 }
+
+/** Tiempos muertos por equipo: 3 por partido, máximo 2 por parte. */
+export const MAX_TM_PARTIDO = 3;
+export const MAX_TM_PARTE = 2;
+
+/** Tiempos muertos que le quedan a un equipo en la parte en curso (el menor
+ * entre lo que queda de partido y lo que queda de la parte). */
+export function tiemposMuertosRestantes(eventos: EventosRow[], equipo: EquipoOrigenEvento, parte: 1 | 2, duracionParteMin: number): number {
+  const propios = eventos.filter((e) => e.tipo === "tiempo_muerto" && e.equipo_origen === equipo);
+  const corte = duracionParteMin * 60;
+  const enParte = propios.filter((e) => (parte === 1 ? (e.segundo ?? 0) < corte : (e.segundo ?? 0) >= corte)).length;
+  return Math.max(0, Math.min(MAX_TM_PARTIDO - propios.length, MAX_TM_PARTE - enParte));
+}
