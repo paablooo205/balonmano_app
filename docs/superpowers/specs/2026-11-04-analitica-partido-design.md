@@ -59,7 +59,8 @@ Estimador común: Beta-Binomial. Para una categoría c con a aciertos en n inten
 - **PSxG post-tiro por zona**: solo tiros a puerta (gol o parado) con zona 1-9. p₀ por zona = tasa de gol global de tiros a puerta del equipo (se calcula; si n < 30, 0,65). `PSxG(zona)` estimado con todos los tiros a puerta **del rival** de la temporada excluyendo el partido analizado.
   - **Goles evitados del portero** = Σ PSxG de los tiros a puerta que recibió − goles encajados. Texto en UI: "comparado con el portero medio de vuestro equipo".
   - **Colocación del tirador** = media de PSxG de sus tiros a puerta, con tasas por zona estimadas sobre los tiros **propios** a puerta de la temporada (excluido el partido). Se muestra como "dificultad para el portero de sus tiros a puerta" (más alto = mejor colocados), nunca como goles.
-- Los 7m se tratan aparte en ambos (categoría propia en pre-tiro; PSxG solo juego abierto, 7m con su propia tasa por zona si n ≥ 20, si no se excluyen de goles evitados y se muestran aparte).
+- Los 7m se tratan aparte en ambos: categoría propia en pre-tiro; el PSxG y los goles evitados usan **solo juego abierto**, y los 7m del rival se muestran aparte por portero como "7m parados / 7m recibidos".
+- Solo cuentan como tiros a puerta del rival los de resultado gol o parado: los "fuera" nuevos no entran en % de paradas ni en goles evitados (en todo el código del portero se filtra a tiros a puerta).
 
 ### 4.3 Pista: +/−, con/sin, formaciones (`pista.ts`)
 Requiere `tienePista` y `tieneSegundo`.
