@@ -26,15 +26,15 @@ const FRASE: Record<ClaveFactor, { positivo: string; negativo: string }> = {
   acierto: { positivo: "con acierto de cara a portería", negativo: "por falta de acierto" },
   perdidas: { positivo: "cuidando el balón", negativo: "por las pérdidas" },
   porteria: { positivo: "desde la portería", negativo: "por la portería" },
-  numericas: { positivo: "en las situaciones numéricas", negativo: "en inferioridad" },
-  sieteMetros: { positivo: "desde los 7 metros", negativo: "desde los 7 metros" },
+  numericas: { positivo: "aprovechando las situaciones numéricas", negativo: "en inferioridad" },
+  sieteMetros: { positivo: "acertando desde los 7 metros", negativo: "por los 7 metros fallados" },
 };
 const PESE_A: Record<ClaveFactor, { positivo: string; negativo: string }> = {
   acierto: { positivo: "un buen acierto", negativo: "la falta de acierto" },
   perdidas: { positivo: "cuidar el balón", negativo: "las pérdidas" },
   porteria: { positivo: "una buena portería", negativo: "la portería" },
-  numericas: { positivo: "las situaciones numéricas", negativo: "la inferioridad" },
-  sieteMetros: { positivo: "los 7 metros", negativo: "los 7 metros fallados" },
+  numericas: { positivo: "un buen balance en las situaciones numéricas", negativo: "la inferioridad" },
+  sieteMetros: { positivo: "un buen acierto en 7 metros", negativo: "los 7 metros fallados" },
 };
 
 function fmt(n: number): string {
@@ -46,10 +46,12 @@ export function titular(golesFavor: number, golesContra: number, d: Descomposici
   const base = `${verbo} ${golesFavor}-${golesContra}`;
   const candidatos = d.factores.filter((f) => f.goles.disponible && Math.abs(f.goles.valor) >= UMBRAL_FACTOR_DOMINANTE);
   if (candidatos.length === 0) return `${base} sin un factor que destaque`;
+  // Empate en |valor|: gana el primero en el orden de entrada (la comparación es estricta).
   const top = candidatos.reduce((a, b) => (Math.abs((b.goles as { valor: number }).valor) > Math.abs((a.goles as { valor: number }).valor) ? b : a));
   const valor = (top.goles as { valor: number }).valor;
   const signo = valor > 0 ? "positivo" : "negativo";
   const detalle = `${fmt(Math.abs(valor))} goles ${valor > 0 ? "a favor" : "en contra"} frente a lo habitual`;
-  const coincide = golesFavor === golesContra || (golesFavor > golesContra) === valor > 0;
+  if (golesFavor === golesContra) return `${base}; lo que más pesó: ${ETIQUETAS_FACTOR[top.clave].toLowerCase()} (${detalle})`;
+  const coincide = (golesFavor > golesContra) === valor > 0;
   return coincide ? `${base} ${FRASE[top.clave][signo]}: ${detalle}` : `${base} pese a ${PESE_A[top.clave][signo]}: ${detalle}`;
 }

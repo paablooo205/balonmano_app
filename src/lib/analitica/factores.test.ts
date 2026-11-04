@@ -34,3 +34,38 @@ describe("titular", () => {
     expect(titular(22, 22, d)).toBe("Empatamos 22-22 sin un factor que destaque");
   });
 });
+
+describe("titular (wording por factor y signo)", () => {
+  it("derrota con portería positiva: pese a una buena portería", () => {
+    const d = descomponer(-4, 0, [f("porteria", 2)]);
+    expect(titular(20, 24, d)).toBe("Perdimos 20-24 pese a una buena portería: 2,0 goles a favor frente a lo habitual");
+  });
+  it("victoria con 7 metros positivos: acertando desde los 7 metros", () => {
+    const d = descomponer(2, 1, [f("sieteMetros", 1.2)]);
+    expect(titular(25, 23, d)).toBe("Ganamos 25-23 acertando desde los 7 metros: 1,2 goles a favor frente a lo habitual");
+  });
+  it("derrota con 7 metros negativos: por los 7 metros fallados", () => {
+    const d = descomponer(-4, -2.8, [f("sieteMetros", -1.2)]);
+    expect(titular(20, 24, d)).toBe("Perdimos 20-24 por los 7 metros fallados: 1,2 goles en contra frente a lo habitual");
+  });
+  it("derrota con numéricas positivas: pese a un buen balance en las situaciones numéricas", () => {
+    const d = descomponer(-4, -2.5, [f("numericas", 1.5)]);
+    expect(titular(20, 24, d)).toBe("Perdimos 20-24 pese a un buen balance en las situaciones numéricas: 1,5 goles a favor frente a lo habitual");
+  });
+  it("empate con un factor: lo que más pesó", () => {
+    const d = descomponer(0, 0, [f("porteria", 3.1)]);
+    expect(titular(22, 22, d)).toBe("Empatamos 22-22; lo que más pesó: portería (3,1 goles a favor frente a lo habitual)");
+  });
+  it("umbral: un factor de exactamente 0,5 se usa", () => {
+    const d = descomponer(2, 1.5, [f("acierto", 0.5)]);
+    expect(titular(25, 23, d)).toBe("Ganamos 25-23 con acierto de cara a portería: 0,5 goles a favor frente a lo habitual");
+  });
+  it("umbral: 0,49 solo no protagoniza el titular", () => {
+    const d = descomponer(2, 1.51, [f("acierto", 0.49)]);
+    expect(titular(25, 23, d)).toBe("Ganamos 25-23 sin un factor que destaque");
+  });
+  it("empate en |valor|: gana el primero en el orden de entrada", () => {
+    const d = descomponer(0, -1, [f("acierto", 1), f("perdidas", -1)]);
+    expect(titular(25, 23, d)).toBe("Ganamos 25-23 con acierto de cara a portería: 1,0 goles a favor frente a lo habitual");
+  });
+});
