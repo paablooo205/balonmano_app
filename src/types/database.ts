@@ -297,7 +297,7 @@ export type RivalesRow = {
 };
 
 export type EquipoOrigenEvento = "propio" | "rival";
-export type TipoEvento = "tiro" | "perdida" | "exclusion" | "tarjeta";
+export type TipoEvento = "tiro" | "perdida" | "exclusion" | "tarjeta" | "tiempo_muerto";
 export type ResultadoTiro = "gol" | "fuera" | "parado" | "poste";
 export type OrigenLanzamiento = "ext_izq" | "lat_izq" | "central" | "lat_der" | "ext_der" | "pivote" | "9m" | "contragolpe" | "7m";
 export type ColorTarjeta = "amarilla" | "azul" | "roja";

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   cambiarParte,
+  esTiroRivalAPuerta,
+  exclusiones,
   exclusionesActivas,
   hayRegistroDePista,
   jugadoresEnPista,
@@ -9,6 +11,7 @@ import {
   minutoActual,
   minutosJugados,
   pausar,
+  porcentajeParadas,
   resultadoPartido,
   segundoActual,
 } from "./partidoStats";
@@ -163,5 +166,34 @@ describe("pista y banquillo", () => {
     expect(minutosJugados(partidoConCambio, "a", 60)).toBe(10);
     expect(minutosJugados(partidoConCambio, "c", 60)).toBe(50);
     expect(minutosJugados(partidoConCambio, "c", 60, 25)).toBe(15);
+  });
+});
+
+describe("captura ampliada: exclusiones y tiros del rival", () => {
+  it("exclusiones() cuenta solo las nuestras", () => {
+    const evs = [
+      evento({ tipo: "exclusion", resultado: null, equipo_origen: "propio" }),
+      evento({ tipo: "exclusion", resultado: null, equipo_origen: "rival" }),
+    ];
+    expect(exclusiones(evs)).toBe(1);
+  });
+
+  it("exclusionesActivas separa propias y del rival", () => {
+    const evs = [
+      evento({ tipo: "exclusion", resultado: null, equipo_origen: "propio", jugador_id: "j1", segundo: 100 }),
+      evento({ tipo: "exclusion", resultado: null, equipo_origen: "rival", jugador_id: null, segundo: 110 }),
+    ];
+    expect(exclusionesActivas(evs, 150).map((x) => x.jugadorId)).toEqual(["j1"]);
+    expect(exclusionesActivas(evs, 150, "rival").map((x) => x.finSegundo)).toEqual([230]);
+  });
+
+  it("un tiro rival fuera no cuenta en el % de paradas", () => {
+    const evs = [
+      evento({ equipo_origen: "rival", resultado: "parado" }),
+      evento({ equipo_origen: "rival", resultado: "gol" }),
+      evento({ equipo_origen: "rival", resultado: "fuera" }),
+    ];
+    expect(porcentajeParadas(evs)).toEqual({ pct: 50, aciertos: 1, intentos: 2 });
+    expect(evs.filter(esTiroRivalAPuerta)).toHaveLength(2);
   });
 });

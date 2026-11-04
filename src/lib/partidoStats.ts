@@ -53,8 +53,17 @@ export function perdidas(eventos: EventosRow[]): number {
   return eventos.filter((e) => e.tipo === "perdida" && e.equipo_origen === "propio").length;
 }
 
+/** Exclusiones de 2' NUESTRAS — las del rival (botón "2' rival", sin
+ * jugador) van aparte y nunca suman aquí. */
 export function exclusiones(eventos: EventosRow[]): number {
-  return eventos.filter((e) => e.tipo === "exclusion").length;
+  return eventos.filter((e) => e.tipo === "exclusion" && e.equipo_origen === "propio").length;
+}
+
+/** Tiro del rival que va a portería (gol o parada). Los "fuera"/"poste" del
+ * rival existen desde la captura ampliada: cuentan como posesión del rival
+ * pero nunca en el % de paradas ni en goles evitados. */
+export function esTiroRivalAPuerta(e: EventosRow): boolean {
+  return e.tipo === "tiro" && e.equipo_origen === "rival" && (e.resultado === "gol" || e.resultado === "parado");
 }
 
 export function tarjetas(eventos: EventosRow[]): number {
@@ -342,10 +351,14 @@ export type ExclusionActiva = { eventoId: string; jugadorId: string | null; finS
  * la exclusión en pista). Solo las que tienen `segundo` registrado — las
  * anteriores a ese campo no se pueden situar. Ordenadas por la que antes
  * termina. */
-export function exclusionesActivas(eventos: EventosRow[], segundoAhora: number | null): ExclusionActiva[] {
+export function exclusionesActivas(
+  eventos: EventosRow[],
+  segundoAhora: number | null,
+  equipo: "propio" | "rival" = "propio",
+): ExclusionActiva[] {
   if (segundoAhora === null) return [];
   return eventos
-    .filter((e) => e.tipo === "exclusion" && e.segundo != null)
+    .filter((e) => e.tipo === "exclusion" && e.equipo_origen === equipo && e.segundo != null)
     .map((e) => ({
       eventoId: e.id,
       jugadorId: e.jugador_id,
@@ -432,14 +445,14 @@ export function minutosJugados(
 /** Momento de un toque jsonb en segundos de partido: `segundo` si lo tiene,
  * si no `minuto` × 60 (histórico); null si se registró con el reloj sin
  * iniciar (titulares antes del pitido inicial → cuenta como 0). */
-function segundoDeToque(e: EventoPartido): number | null {
+export function segundoDeToque(e: EventoPartido): number | null {
   if (e.segundo != null) return e.segundo;
   return e.minuto != null ? e.minuto * 60 : null;
 }
 
 /** Entradas/salidas de pista en orden cronológico (por momento de partido y,
  * a igualdad, por orden de registro). */
-function toquesPista(eventosJsonb: EventoPartido[]): EventoPartido[] {
+export function toquesPista(eventosJsonb: EventoPartido[]): EventoPartido[] {
   return eventosJsonb
     .filter((e) => e.tipo === "entra_pista" || e.tipo === "sale_pista")
     .slice()
@@ -537,7 +550,7 @@ export function distribucionPorZona(eventos: EventosRow[]): Record<number, numbe
  * ambos en un % global (para la cifra protagonista). */
 export function porcentajeParadas(eventos: EventosRow[], opts?: { soloPenalti: boolean }): EficaciaDetalle {
   const rivales = eventos.filter(
-    (e) => e.tipo === "tiro" && e.equipo_origen === "rival" && (opts === undefined || e.es_penalti === opts.soloPenalti),
+    (e) => esTiroRivalAPuerta(e) && (opts === undefined || e.es_penalti === opts.soloPenalti),
   );
   const aciertos = rivales.filter((e) => e.resultado === "parado").length;
   const intentos = rivales.length;

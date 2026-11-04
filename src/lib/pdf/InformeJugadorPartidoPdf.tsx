@@ -9,6 +9,7 @@ import {
   perdidas,
   porcentajeParadas,
   robos,
+  esTiroRivalAPuerta,
 } from "@/lib/partidoStats";
 import {
   PdfCabecera,
@@ -39,8 +40,11 @@ export function InformeJugadorPartidoPdf({
   const resultadoAcierto = portero ? "parado" : "gol";
   const etiquetaAcierto = portero ? "paradas" : "goles";
 
-  const tirosJuego = propios.filter((e) => e.tipo === "tiro" && e.equipo_origen === equipoOrigenRelevante && !e.es_penalti);
-  const tirosPenalti = propios.filter((e) => e.tipo === "tiro" && e.equipo_origen === equipoOrigenRelevante && e.es_penalti);
+  // Portero: solo tiros que llegan a puerta (gol/parada); un "fuera" del rival no es un tiro afrontado.
+  const esTiroRelevante = (e: EventosRow) =>
+    portero ? esTiroRivalAPuerta(e) : e.tipo === "tiro" && e.equipo_origen === equipoOrigenRelevante;
+  const tirosJuego = propios.filter((e) => esTiroRelevante(e) && !e.es_penalti);
+  const tirosPenalti = propios.filter((e) => esTiroRelevante(e) && e.es_penalti);
   const zonasJuego = distribucionPorZona(tirosJuego);
   const zonasPenalti = distribucionPorZona(tirosPenalti);
   const aciertosZonasJuego = distribucionPorZona(tirosJuego.filter((e) => e.resultado === resultadoAcierto));

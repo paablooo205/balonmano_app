@@ -11,6 +11,7 @@ import {
   marcadorPartido,
   minutosJugados,
   parcialesPorTramos,
+  esTiroRivalAPuerta,
 } from "@/lib/partidoStats";
 import { dividirPorParte, generarInsights } from "@/lib/insights";
 import { formatearFechaLarga, PdfEscudoFondo } from "@/lib/pdf/PdfComponents";
@@ -74,7 +75,7 @@ export function FichaPartidoPdf({
   const fechaLarga = formatearFechaLarga(partido.fecha);
 
   const tirosPropios = eventos.filter((e) => e.tipo === "tiro" && e.equipo_origen === "propio");
-  const tirosRivales = eventos.filter((e) => e.tipo === "tiro" && e.equipo_origen === "rival");
+  const tirosRivales = eventos.filter(esTiroRivalAPuerta);
 
   const zonasPropias = distribucionPorZona(tirosPropios);
   const golesZonasPropias = distribucionPorZona(tirosPropios.filter((e) => e.resultado === "gol"));
@@ -178,7 +179,7 @@ export function FichaPartidoPdf({
   const porteros = jugadores
     .filter((j) => esPortero(j.puesto))
     .map((j) => {
-      const afrontados = eventos.filter((e) => e.tipo === "tiro" && e.equipo_origen === "rival" && e.jugador_id === j.id);
+      const afrontados = eventos.filter((e) => esTiroRivalAPuerta(e) && e.jugador_id === j.id);
       const paradas = afrontados.filter((e) => e.resultado === "parado").length;
       const penaltis = afrontados.filter((e) => e.es_penalti);
       return {
