@@ -1068,7 +1068,7 @@ export function ContadoresEnVivo({
           onClick={() => registrarTarjeta(b.color)}
         />
       ))}
-      <BotonAccion label="2' rival" color="var(--color-warning)" count={exclusionesRival} disabled={finalizado} onClick={registrarExclusionRival} />
+      <BotonAccion label="2' rival" color="var(--color-warning)" count={exclusionesRival} disabled={finalizado} className="border-[var(--color-warning)]/70" onClick={registrarExclusionRival} />
       {ACCIONES_JSONB.map((a) => (
         <BotonAccion
           key={a.tipo}
@@ -1105,7 +1105,7 @@ export function ContadoresEnVivo({
         ))}
       </GrupoBotones>
       <GrupoBotones titulo="Rival" cols={4}>
-        <BotonAccion label="2' rival" color="var(--color-warning)" count={exclusionesRival} disabled={finalizado} onClick={registrarExclusionRival} />
+        <BotonAccion label="2' rival" color="var(--color-warning)" count={exclusionesRival} disabled={finalizado} className="border-[var(--color-warning)]/70" onClick={registrarExclusionRival} />
       </GrupoBotones>
       <GrupoBotones titulo="Otros" cols={2}>
         {ACCIONES_JSONB.map((a) => (
@@ -1325,7 +1325,7 @@ export function ContadoresEnVivo({
               {excluidosRival.map((x) => (
                 <span
                   key={x.eventoId}
-                  className="stat-number whitespace-nowrap rounded-[4px] bg-[var(--color-warning)] px-1.5 text-[13px] leading-snug text-white"
+                  className="stat-number whitespace-nowrap rounded-[4px] bg-[var(--color-warning)] px-1.5 text-[13px] leading-snug text-[var(--color-ink)]"
                   title={`Vuelve a las ${formatoReloj(x.finSegundo)}`}
                 >
                   2' · {formatoReloj(x.restante)}
@@ -1350,21 +1350,6 @@ export function ContadoresEnVivo({
           {corriendo ? <Pause size={15} /> : <Play size={15} />}
           {!compacto && textoBotonReloj}
         </button>
-        {(["propio", "rival"] as const).map((eq) => {
-          const quedan = tiemposMuertosRestantes(eventos, eq, (cronometro?.parte ?? 1) as 1 | 2, duracionParteMin);
-          return (
-            <button
-              key={eq}
-              onClick={() => registrarTiempoMuerto(eq)}
-              disabled={finalizado || quedan === 0}
-              aria-label={`${eq === "propio" ? "Tiempo muerto nuestro" : "Tiempo muerto del rival"} (quedan ${quedan})`}
-              className="flex h-11 min-w-11 items-center justify-center gap-0.5 rounded-[6px] bg-white/[.08] px-2 text-xs font-semibold text-white/80 disabled:pointer-events-none disabled:opacity-35"
-            >
-              {eq === "propio" ? "TM" : compacto ? "TM R" : "TM rival"}
-              <sup className="stat-number text-[10px] leading-none text-white/60">{quedan}</sup>
-            </button>
-          );
-        })}
         {cronometro?.parte !== 2 && (
           <button
             onClick={siguienteParte}
@@ -1375,6 +1360,24 @@ export function ContadoresEnVivo({
             {compacto ? "2ª" : "2ª parte"}
           </button>
         )}
+        {/* Grupos separados (reloj | tiempos muertos | deshacer) para no tocar el vecino por error. */}
+        <span aria-hidden className="mx-1 h-8 w-px bg-white/15" />
+        {(["propio", "rival"] as const).map((eq) => {
+          const quedan = tiemposMuertosRestantes(eventos, eq, (cronometro?.parte ?? 1) as 1 | 2, duracionParteMin);
+          return (
+            <button
+              key={eq}
+              onClick={() => registrarTiempoMuerto(eq)}
+              disabled={finalizado || quedan === 0}
+              aria-label={`${eq === "propio" ? "Tiempo muerto nuestro" : "Tiempo muerto del rival"} (quedan ${quedan})`}
+              className="flex h-11 min-w-11 items-center justify-center gap-1 whitespace-nowrap rounded-[6px] bg-white/[.08] px-2 text-xs font-semibold text-white/80 disabled:pointer-events-none disabled:opacity-35"
+            >
+              {eq === "propio" ? "TM" : compacto ? `TM ${partido.rival.slice(0, 3).toUpperCase()}` : "TM rival"}
+              <span className="stat-number text-[11px] text-white">· {quedan}</span>
+            </button>
+          );
+        })}
+        <span aria-hidden className="mx-1 h-8 w-px bg-white/15" />
         <button
           onClick={deshacer}
           disabled={toquesDesc.length === 0}
@@ -1387,6 +1390,14 @@ export function ContadoresEnVivo({
     </div>
   );
 
+  const overlayTiempoMuerto = tiempoMuerto && (
+    <OverlayTiempoMuerto
+      equipo={tiempoMuerto.equipo === "rival" ? partido.rival : (equipoNombre ?? "Nuestro equipo")}
+      finMs={tiempoMuerto.finMs}
+      onCerrar={() => setTiempoMuerto(null)}
+    />
+  );
+
   // ── Móvil apaisado: pantalla fija a 4 columnas, sin scroll de página. Solo
   // la lista de jugadores y la cronología se desplazan dentro de su columna.
   // Sin panel de estadísticas (no cabe; está en la ficha técnica).
@@ -1397,16 +1408,7 @@ export function ContadoresEnVivo({
         style={{ paddingLeft: "env(safe-area-inset-left)", paddingRight: "env(safe-area-inset-right)" }}
       >
         {cabecera}
-      {tiempoMuerto && (
-        <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center gap-3 bg-[#0d0d0f]/95">
-          <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-accent)]">Tiempo muerto</div>
-          <div className="text-lg font-semibold text-white">{tiempoMuerto.equipo === "rival" ? partido.rival : (equipoNombre ?? "Nuestro equipo")}</div>
-          <div className="stat-number text-[120px] leading-none text-white">{formatoReloj(Math.max(0, Math.ceil((tiempoMuerto.finMs - Date.now()) / 1000)))}</div>
-          <button onClick={() => setTiempoMuerto(null)} className="h-11 rounded-[15px] bg-white/[.12] px-8 text-sm font-semibold text-white">
-            Cerrar
-          </button>
-        </div>
-      )}
+        {overlayTiempoMuerto}
         <div className="shrink-0">{barraEstado}</div>
         <div className="grid min-h-0 flex-1 grid-cols-[112px_minmax(0,1fr)_minmax(0,250px)_132px] grid-rows-[minmax(0,1fr)] gap-2.5 p-2">
           <div className="min-h-0">{bloqueJugadores(true)}</div>
@@ -1424,16 +1426,7 @@ export function ContadoresEnVivo({
       style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       {cabecera}
-      {tiempoMuerto && (
-        <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center gap-3 bg-[#0d0d0f]/95">
-          <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-accent)]">Tiempo muerto</div>
-          <div className="text-lg font-semibold text-white">{tiempoMuerto.equipo === "rival" ? partido.rival : (equipoNombre ?? "Nuestro equipo")}</div>
-          <div className="stat-number text-[120px] leading-none text-white">{formatoReloj(Math.max(0, Math.ceil((tiempoMuerto.finMs - Date.now()) / 1000)))}</div>
-          <button onClick={() => setTiempoMuerto(null)} className="h-11 rounded-[15px] bg-white/[.12] px-8 text-sm font-semibold text-white">
-            Cerrar
-          </button>
-        </div>
-      )}
+      {overlayTiempoMuerto}
       {/* Sticky: en el layout con scroll (móvil en vertical) la barra de
           estado/aviso se queda arriba; en pantalla fija ya no se mueve nada. */}
       <div className="sticky top-0 z-10 shrink-0">{barraEstado}</div>
@@ -1466,6 +1459,25 @@ export function ContadoresEnVivo({
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Cuenta atrás del tiempo muerto, a pantalla completa sobre el registro. */
+function OverlayTiempoMuerto({ equipo, finMs, onCerrar }: { equipo: string; finMs: number; onCerrar: () => void }) {
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Tiempo muerto"
+      className="fixed inset-0 z-[60] flex flex-col items-center justify-center gap-3 bg-[#0d0d0f]/95"
+    >
+      <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-accent)]">Tiempo muerto</div>
+      <div className="text-lg font-semibold text-white">{equipo}</div>
+      <div className="stat-number text-[120px] leading-none text-white">{formatoReloj(Math.max(0, Math.ceil((finMs - Date.now()) / 1000)))}</div>
+      <button onClick={onCerrar} className="h-11 rounded-[15px] bg-white px-8 text-sm font-semibold text-[var(--color-ink)]">
+        Cerrar
+      </button>
     </div>
   );
 }
@@ -1510,9 +1522,10 @@ function BotonAccion({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        className,
         "flex h-11 flex-col items-center justify-center gap-0.5 rounded-[6px] border px-1 text-center transition-colors active:scale-[0.96] disabled:opacity-35 disabled:pointer-events-none",
         armado ? "border-[var(--color-accent)] bg-[var(--color-accent)]/20" : "border-white/[.1] bg-white/[.05]",
+        // Al final: lo que pasa el llamante (p. ej. un borde) prevalece sobre el por defecto.
+        className,
       )}
     >
       <span className="text-[11px] font-medium leading-[1.1] text-white/90">{label}</span>
