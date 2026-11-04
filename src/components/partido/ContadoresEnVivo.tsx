@@ -215,7 +215,7 @@ export function ContadoresEnVivo({
         detalle: "",
       };
     }
-    const label = e.tipo === "perdida" ? (e.equipo_origen === "rival" ? "Balón ganado" : "Balón perdido") : "Exclusión 2'";
+    const label = e.tipo === "perdida" ? (e.equipo_origen === "rival" ? "Balón ganado" : "Balón perdido") : e.equipo_origen === "rival" ? "Exclusión 2' rival" : "Exclusión 2'";
     const color = e.tipo === "perdida" ? (e.equipo_origen === "rival" ? "var(--color-success)" : "var(--color-warning)") : "var(--color-warning)";
     return {
       id: e.id,
@@ -430,7 +430,8 @@ export function ContadoresEnVivo({
   }
 
   function registrarPerdidaRobo(equipoOrigen: EquipoOrigenEvento) {
-    if (finalizado || !jugadorSel) return;
+    if (finalizado) return;
+    if (equipoOrigen === "propio" && !jugadorSel) return;
     const nuevo: EventosRow = {
       id: crypto.randomUUID(),
       equipo_id: partido.equipo_id,
@@ -475,6 +476,31 @@ export function ContadoresEnVivo({
     onEventosActualizados([...eventos, nuevo]);
     void registrarEvento(nuevo);
     anular();
+  }
+
+  /** Exclusión del rival: sin jugador (botón "2' rival"). Abre la cuenta
+   * atrás bajo los goles del rival y alimenta la superioridad numérica. */
+  function registrarExclusionRival() {
+    if (finalizado) return;
+    const nuevo: EventosRow = {
+      id: crypto.randomUUID(),
+      equipo_id: partido.equipo_id,
+      partido_id: partido.id,
+      sesion_id: null,
+      jugador_id: null,
+      equipo_origen: "rival",
+      tipo: "exclusion",
+      resultado: null,
+      zona: null,
+      origen: null,
+      es_penalti: false,
+      color_tarjeta: null,
+      minuto: minutoActual(cronometro, duracionParteMin),
+      segundo: segundoActual(cronometro, duracionParteMin),
+      creado_en: new Date().toISOString(),
+    };
+    onEventosActualizados([...eventos, nuevo]);
+    void registrarEvento(nuevo);
   }
 
   function registrarTarjeta(color: ColorTarjeta) {
@@ -653,6 +679,8 @@ export function ContadoresEnVivo({
   // para con el reloj, como el tiempo de la exclusión en pista). Se pinta en
   // el marcador, en la tarjeta del jugador y en su panel de estadísticas.
   const excluidos = exclusionesActivas(eventos, segundoActual(cronometro, duracionParteMin));
+  const excluidosRival = exclusionesActivas(eventos, segundoActual(cronometro, duracionParteMin), "rival");
+  const exclusionesRival = eventos.filter((e) => e.tipo === "exclusion" && e.equipo_origen === "rival").length;
 
   /** Segunda línea de tiempo de cada tarjeta (solo si se llevan cambios):
    * en pista, mm:ss desde su última entrada (avanza con el reloj); en el
@@ -883,7 +911,7 @@ export function ContadoresEnVivo({
   // "Parado" (tiro nuestro) se confundía con "Parada" — había paradas
   // guardadas como tiros nuestros fallados. Mismo sitio, mismos botones.
   const grupoTiro = esJugadorActualPortero ? (
-    <GrupoBotones titulo="Portero · tiro del rival" cols={2}>
+    <GrupoBotones titulo="Portero · tiro del rival" cols={3}>
       {BOTONES_TIRO_RIVAL.map((b) => (
         <BotonAccion
           key={`${b.equipoOrigen}-${b.resultado}`}
@@ -937,7 +965,6 @@ export function ContadoresEnVivo({
           count={contarBotonTiro(eventos, b)}
           armado={esBotonArmado(b)}
           disabled={finalizado}
-          className="col-span-2"
           onClick={() => tocarBotonTiro(b)}
         />
       ))
@@ -952,6 +979,7 @@ export function ContadoresEnVivo({
           onClick={() => tocarBotonTiro(b)}
         />
       ));
+  const rellenoTiroCompacto = esJugadorActualPortero ? <span aria-hidden="true" /> : null;
 
   // Móvil apaisado: no caben los títulos de grupo sin hacer scroll, así que
   // los mismos botones van en una rejilla de 4×4 con el mismo orden de
@@ -959,6 +987,7 @@ export function ContadoresEnVivo({
   const accionesCompacto = (
     <div className="grid grid-cols-4 gap-1.5">
       {botonesTiro}
+      {rellenoTiroCompacto}
       <button
         onClick={() => setSietePendiente((v) => !v)}
         disabled={finalizado}
@@ -970,7 +999,7 @@ export function ContadoresEnVivo({
       >
         Penalti 7m
       </button>
-      <BotonAccion label="Robo" color="var(--color-success)" count={robos(eventos)} disabled={!jugadorSel || finalizado} onClick={() => registrarPerdidaRobo("rival")} />
+      <BotonAccion label="Robo" color="var(--color-success)" count={robos(eventos)} disabled={finalizado} onClick={() => registrarPerdidaRobo("rival")} />
       <BotonAccion label="Pérdida" color="var(--color-warning)" count={perdidas(eventos)} disabled={!jugadorSel || finalizado} onClick={() => registrarPerdidaRobo("propio")} />
       <BotonAccion label="2'" color="var(--color-warning)" count={exclusiones(eventos)} disabled={!jugadorSel || finalizado} onClick={registrarExclusion} />
       {BOTONES_TARJETA.map((b) => (
@@ -983,7 +1012,7 @@ export function ContadoresEnVivo({
           onClick={() => registrarTarjeta(b.color)}
         />
       ))}
-      <span aria-hidden="true" />
+      <BotonAccion label="2' rival" color="var(--color-warning)" count={exclusionesRival} disabled={finalizado} onClick={registrarExclusionRival} />
       {ACCIONES_JSONB.map((a) => (
         <BotonAccion
           key={a.tipo}
@@ -1003,7 +1032,7 @@ export function ContadoresEnVivo({
       {botonPenalti}
       {grupoTiro}
       <GrupoBotones titulo="Pérdida / Robo" cols={2}>
-        <BotonAccion label="Robo" color="var(--color-success)" count={robos(eventos)} disabled={!jugadorSel || finalizado} onClick={() => registrarPerdidaRobo("rival")} />
+        <BotonAccion label="Robo" color="var(--color-success)" count={robos(eventos)} disabled={finalizado} onClick={() => registrarPerdidaRobo("rival")} />
         <BotonAccion label="Pérdida" color="var(--color-warning)" count={perdidas(eventos)} disabled={!jugadorSel || finalizado} onClick={() => registrarPerdidaRobo("propio")} />
       </GrupoBotones>
       <GrupoBotones titulo="Sanción" cols={4}>
@@ -1018,6 +1047,9 @@ export function ContadoresEnVivo({
             onClick={() => registrarTarjeta(b.color)}
           />
         ))}
+      </GrupoBotones>
+      <GrupoBotones titulo="Rival" cols={4}>
+        <BotonAccion label="2' rival" color="var(--color-warning)" count={exclusionesRival} disabled={finalizado} onClick={registrarExclusionRival} />
       </GrupoBotones>
       <GrupoBotones titulo="Otros" cols={2}>
         {ACCIONES_JSONB.map((a) => (
@@ -1231,6 +1263,20 @@ export function ContadoresEnVivo({
         <div className="min-w-0 text-left">
           <div className="truncate text-[11px] font-semibold uppercase tracking-[0.08em] text-white/60">{partido.rival}</div>
           <div className={cn("stat-number leading-none text-white/60", compacto ? "text-[34px]" : "text-[56px]")}>{golesContra(eventos)}</div>
+          {/* Cuenta atrás de las exclusiones del rival, bajo sus goles. */}
+          {excluidosRival.length > 0 && (
+            <div className="mt-1 flex flex-wrap justify-start gap-1">
+              {excluidosRival.map((x) => (
+                <span
+                  key={x.eventoId}
+                  className="stat-number whitespace-nowrap rounded-[4px] bg-[var(--color-warning)] px-1.5 text-[13px] leading-snug text-white"
+                  title={`Vuelve a las ${formatoReloj(x.finSegundo)}`}
+                >
+                  2' · {formatoReloj(x.restante)}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -1339,10 +1385,10 @@ function GrupoBotones({
   children,
 }: {
   titulo: string;
-  cols: 2 | 4;
+  cols: 2 | 3 | 4;
   children: React.ReactNode;
 }) {
-  const colsClass = cols === 2 ? "grid-cols-2" : "grid-cols-4";
+  const colsClass = cols === 2 ? "grid-cols-2" : cols === 3 ? "grid-cols-3" : "grid-cols-4";
   return (
     <div>
       <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.12em] text-white/60">{titulo}</div>

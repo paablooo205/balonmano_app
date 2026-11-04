@@ -24,10 +24,13 @@ export const BOTONES_TIRO_PROPIO: BotonTiro[] = [
   { resultado: "poste", equipoOrigen: "propio", label: "Poste", color: "var(--color-accent)" },
 ];
 
-/** Grupo "Porteros" — resultado de los lanzamientos del rival contra nosotros. */
+/** Grupo "Porteros" — resultado de los lanzamientos del rival contra nosotros.
+ * "Fuera" (incluye poste) no lleva zona y no cuenta en el % de paradas: sirve
+ * para contar las posesiones del rival (captura ampliada, spec §5). */
 export const BOTONES_TIRO_RIVAL: BotonTiro[] = [
   { resultado: "parado", equipoOrigen: "rival", label: "Parada", color: "#3d8ad6" },
   { resultado: "gol", equipoOrigen: "rival", label: "Gol en contra", color: "var(--color-accent)" },
+  { resultado: "fuera", equipoOrigen: "rival", label: "Fuera", color: "var(--color-text-faint)" },
 ];
 
 /** Un tiro necesita zona (arma la cuadrícula de portería) solo si va a
@@ -152,16 +155,15 @@ export function esPortero(puesto: string | null): boolean {
   return !!puesto && puesto.toLowerCase().includes("portero");
 }
 
-/** Etiqueta de un evento de tiro (gol/fuera/parado/poste, propio o rival, con
- * o sin penalti) para la cronología — mismo texto que su botón en el panel
- * de acciones (ver `BOTONES_TIRO_PROPIO`/`BOTONES_TIRO_RIVAL`). */
+/** Etiqueta de un evento de tiro para la cronología — mismo texto que su
+ * botón; el fuera/poste del rival se distingue del nuestro. */
 export function etiquetaTiro(e: EventosRow): string {
   const propio = e.equipo_origen === "propio";
   let base: string;
   if (e.resultado === "gol") base = propio ? "Gol" : "Gol en contra";
   else if (e.resultado === "parado") base = propio ? "Parado" : "Parada";
-  else if (e.resultado === "fuera") base = "Fuera";
-  else base = "Poste";
+  else if (!propio) base = "Tiro rival fuera";
+  else base = e.resultado === "fuera" ? "Fuera" : "Poste";
   return `${base}${e.es_penalti ? " (7m)" : ""}`;
 }
 

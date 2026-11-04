@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  BOTONES_TIRO_RIVAL,
+  etiquetaTiro,
   cambiarParte,
   esTiroRivalAPuerta,
   exclusiones,
@@ -202,5 +204,13 @@ describe("captura ampliada: exclusiones y tiros del rival", () => {
     ];
     expect(porcentajeParadas(evs)).toEqual({ pct: 50, aciertos: 1, intentos: 2 });
     expect(evs.filter(esTiroRivalAPuerta)).toHaveLength(2);
+  });
+});
+
+describe("tiro rival fuera", () => {
+  it("existe el botón Fuera del rival y su etiqueta en la cronología", () => {
+    expect(BOTONES_TIRO_RIVAL.map((b) => b.label)).toEqual(["Parada", "Gol en contra", "Fuera"]);
+    expect(etiquetaTiro(evento({ equipo_origen: "rival", resultado: "fuera" }))).toBe("Tiro rival fuera");
+    expect(etiquetaTiro(evento({ equipo_origen: "propio", resultado: "fuera" }))).toBe("Fuera");
   });
 });
