@@ -197,6 +197,13 @@ describe("captura ampliada: exclusiones y tiros del rival", () => {
     expect(exclusionesActivas(evs, 150, "rival").map((x) => x.finSegundo)).toEqual([230]);
   });
 
+  it("exclusionesActivas del rival: una exclusión sin jugador (jugador_id null) cuenta", () => {
+    const evs = [evento({ id: "rx", tipo: "exclusion", resultado: null, equipo_origen: "rival", jugador_id: null, segundo: 500 })];
+    expect(exclusionesActivas(evs, 560, "rival")).toEqual([{ eventoId: "rx", jugadorId: null, finSegundo: 620, restante: 60 }]);
+    expect(exclusionesActivas(evs, 560, "propio")).toEqual([]);
+    expect(exclusionesActivas(evs, 620, "rival")).toEqual([]);
+  });
+
   it("un tiro rival fuera no cuenta en el % de paradas", () => {
     const evs = [
       evento({ equipo_origen: "rival", resultado: "parado" }),

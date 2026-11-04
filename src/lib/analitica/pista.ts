@@ -1,6 +1,6 @@
 import { segundoDeToque, toquesPista } from "@/lib/partidoStats";
 import type { EventoPartido, EventosRow } from "@/types/database";
-import { DURACION_EXCLUSION_SEG, MIN_POSESIONES_CON_SIN, MIN_SEG_FORMACION } from "./constantes";
+import { DURACION_EXCLUSION_SEG, MIN_POSESIONES_CON_SIN, MIN_SEG_FORMACION, SEGUNDOS_REFERENCIA_POR30 } from "./constantes";
 import { esCierrePosesion } from "./posesiones";
 import { disponible, noDisponible, type Metrica } from "./tipos";
 
@@ -85,7 +85,7 @@ export function plusMinus(eventos: EventosRow[], intervalos: Map<string, Interva
       else golesContra++;
     }
     const masMenos = golesFavor - golesContra;
-    return { jugadorId, segundos, golesFavor, golesContra, masMenos, por30: segundos > 0 ? (masMenos * 1800) / segundos : null };
+    return { jugadorId, segundos, golesFavor, golesContra, masMenos, por30: segundos > 0 ? (masMenos * SEGUNDOS_REFERENCIA_POR30) / segundos : null };
   });
 }
 

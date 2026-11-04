@@ -1,6 +1,6 @@
 import { hayRegistroDePista } from "@/lib/partidoStats";
 import type { EventosRow, PartidosRow } from "@/types/database";
-import { FECHA_CAPTURA_AMPLIADA, MAX_FRACCION_MISMO_MINUTO, UMBRAL_TIENE_SEGUNDO } from "./constantes";
+import { FECHA_CAPTURA_AMPLIADA, MAX_FRACCION_MISMO_MINUTO, MIN_EVENTOS_SEGUNDA_PARTE_MINUTO, UMBRAL_TIENE_SEGUNDO } from "./constantes";
 import type { CalidadDatos } from "./tipos";
 
 /** ¿El `minuto` de los eventos de este partido refleja el partido real? Falso
@@ -12,7 +12,7 @@ export function esMinutoFiable(eventos: EventosRow[], duracionParteMin: number):
   if (minutos.length === 0) return false;
   const segunda = minutos.filter((m) => m > duracionParteMin);
   if (segunda.length === 0) return false;
-  if (segunda.length >= 10) {
+  if (segunda.length >= MIN_EVENTOS_SEGUNDA_PARTE_MINUTO) {
     const conteo = new Map<number, number>();
     for (const m of segunda) conteo.set(m, (conteo.get(m) ?? 0) + 1);
     const max = Math.max(...conteo.values());

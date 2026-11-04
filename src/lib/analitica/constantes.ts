@@ -28,10 +28,16 @@ export const REFERENCIA_FIJA = {
 } as const;
 export const N_MEZCLA_REFERENCIA = 3;
 
-export const DURACION_EXCLUSION_SEG = 120;
+/** Duración de una exclusión: definida en `partidoStats` (que no depende del
+ * motor) y re-exportada aquí para que el motor tenga todas sus constantes juntas. */
+export { DURACION_EXCLUSION_SEG } from "@/lib/partidoStats";
 /** Mínimo de segundos en igualdad y en inferioridad para calcular el coste por exclusión. */
 export const MIN_SEG_ESTADO_COSTE = 60;
 export const MIN_SEG_FORMACION = 300;
+/** Segundos de referencia para normalizar el +/− "por 30 minutos". */
+export const SEGUNDOS_REFERENCIA_POR30 = 1800;
+/** Mínimo de eventos en la 2ª parte para evaluar si se amontonan en un mismo minuto. */
+export const MIN_EVENTOS_SEGUNDA_PARTE_MINUTO = 10;
 export const MIN_POSESIONES_CON_SIN = 10;
 export const RACHA_MIN_GOLES = 3;
 export const SEQUIA_MIN_SEG = 300;
