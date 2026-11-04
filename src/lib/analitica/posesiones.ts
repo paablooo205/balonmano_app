@@ -21,7 +21,7 @@ export type ResumenPosesiones = {
   pctPerdidas: Metrica<number>;
 };
 
-const SIN_FUERA_RIVAL = "En este partido no se registraban los tiros del rival fuera o al poste";
+export const SIN_FUERA_RIVAL = "En este partido no se registraban los tiros del rival fuera o al poste";
 
 /** Equipo cuya posesión termina con este evento, o null si no cierra ninguna.
  * Nuestra posesión: tiro propio (incl. 7m) o pérdida propia. La del rival:

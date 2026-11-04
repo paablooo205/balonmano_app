@@ -11,8 +11,9 @@ export type ResumenNumericas = {
   costePorExclusion: Metrica<number>;
   superioridad: Metrica<ResumenEstado>;
   /** Goles netos en inferioridad + superioridad menos lo que se habría hecho
-   * en ese tiempo al ritmo de igualdad (factor "situaciones numéricas"). */
-  golesNetosSobreIgualdad: number;
+   * en ese tiempo al ritmo de igualdad (factor "situaciones numéricas").
+   * Sin al menos MIN_SEG_ESTADO_COSTE s de igualdad no hay ritmo de referencia. */
+  golesNetosSobreIgualdad: Metrica<number>;
 };
 
 /** Exclusiones (y rojas, que también dejan 2' en inferioridad) con segundo
@@ -67,11 +68,15 @@ export function resumirNumericas(eventos: EventosRow[], duracionTotalSeg: number
     igualdad.segundos >= MIN_SEG_ESTADO_COSTE && inferioridad.segundos >= MIN_SEG_ESTADO_COSTE
       ? disponible((difPorSeg(igualdad) - difPorSeg(inferioridad)) * DURACION_EXCLUSION_SEG)
       : noDisponible(`Menos de ${MIN_SEG_ESTADO_COSTE} s en igualdad o en inferioridad`);
-  const tasaIgualdad = igualdad.segundos > 0 ? difPorSeg(igualdad) : 0;
-  const golesNetosSobreIgualdad = [inferioridad, superioridad].reduce(
-    (s, r) => s + (r.golesFavor - r.golesContra) - tasaIgualdad * r.segundos,
-    0,
-  );
+  const golesNetosSobreIgualdad: Metrica<number> =
+    igualdad.segundos < MIN_SEG_ESTADO_COSTE
+      ? noDisponible(`Menos de ${MIN_SEG_ESTADO_COSTE} s en igualdad`)
+      : disponible(
+          [inferioridad, superioridad].reduce(
+            (s, r) => s + (r.golesFavor - r.golesContra) - difPorSeg(igualdad) * r.segundos,
+            0,
+          ),
+        );
   return disponible({
     porEstado,
     costePorExclusion,

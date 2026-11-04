@@ -57,7 +57,8 @@ describe("resumirNumericas", () => {
     expect(r.valor.costePorExclusion.disponible).toBe(true);
     if (r.valor.costePorExclusion.disponible) expect(r.valor.costePorExclusion.valor).toBeCloseTo(2);
     // goles netos sobre lo esperado a ritmo de igualdad: (0 − 2) − 0 × 120 = −2
-    expect(r.valor.golesNetosSobreIgualdad).toBeCloseTo(-2);
+    expect(r.valor.golesNetosSobreIgualdad.disponible).toBe(true);
+    if (r.valor.golesNetosSobreIgualdad.disponible) expect(r.valor.golesNetosSobreIgualdad.valor).toBeCloseTo(-2);
   });
   it("sin segundo no está disponible; sin exclusiones rival, la superioridad tampoco", () => {
     expect(resumirNumericas(evs, TOTAL, { ...calidad, tieneSegundo: false }).disponible).toBe(false);
@@ -84,6 +85,18 @@ describe("coste por exclusión con igualdad de tasa no nula", () => {
     expect(r.valor.porEstado.igualdad.segundos).toBe(3480);
     expect(r.valor.costePorExclusion.disponible).toBe(true);
     if (r.valor.costePorExclusion.disponible) expect(r.valor.costePorExclusion.valor).toBeCloseTo(2 + 120 / 3480, 6);
-    expect(r.valor.golesNetosSobreIgualdad).toBeCloseTo(-2 - 120 / 3480, 6);
+    expect(r.valor.golesNetosSobreIgualdad.disponible).toBe(true);
+    if (r.valor.golesNetosSobreIgualdad.disponible) expect(r.valor.golesNetosSobreIgualdad.valor).toBeCloseTo(-2 - 120 / 3480, 6);
+  });
+});
+
+describe("goles netos sobre igualdad sin igualdad suficiente", () => {
+  it("menos de 60 s en igualdad → no disponible (no se asume tasa 0)", () => {
+    // Partido de 100 s con una exclusión propia desde el segundo 0: todo inferioridad, 0 s de igualdad.
+    const evs = [ev({ tipo: "exclusion", resultado: null, equipo_origen: "propio", segundo: 0 }), tiro("rival", "gol", { segundo: 50 })];
+    const r = resumirNumericas(evs, 100, calidad);
+    if (!r.disponible) throw new Error("debería estar disponible");
+    expect(r.valor.porEstado.igualdad.segundos).toBe(0);
+    expect(r.valor.golesNetosSobreIgualdad).toEqual({ disponible: false, motivo: "Menos de 60 s en igualdad" });
   });
 });
