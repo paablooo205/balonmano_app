@@ -66,4 +66,12 @@ describe("resumirPosesiones", () => {
     expect(r.eficienciaAtaque.disponible).toBe(false);
     expect(r.pctPerdidas.disponible).toBe(false);
   });
+  it("partido sin ninguna posesión registrada: ritmo no disponible, no 0", () => {
+    const r = resumirPosesiones([], 30, calidadCompleta);
+    expect(r.ritmo.disponible).toBe(false);
+  });
+  it("duración de parte 0: ritmo no disponible (evita Infinity/NaN)", () => {
+    const r = resumirPosesiones(partido, 0, calidadCompleta);
+    expect(r.ritmo.disponible).toBe(false);
+  });
 });

@@ -73,7 +73,11 @@ export function resumirPosesiones(eventos: EventosRow[], duracionParteMin: numbe
       : noDisponible(eficienciaDefensa.disponible ? "Sin posesiones nuestras registradas" : SIN_FUERA_RIVAL);
   const ritmo: Metrica<number> = !calidad.tieneTirosRivalFuera
     ? noDisponible(SIN_FUERA_RIVAL)
-    : disponible(((c.posesionesPropias + c.posesionesRival) / 2 / (2 * duracionParteMin)) * 60);
+    : duracionParteMin <= 0
+      ? noDisponible("Duración de la parte desconocida")
+      : c.posesionesPropias + c.posesionesRival === 0
+        ? noDisponible("Sin posesiones registradas")
+        : disponible(((c.posesionesPropias + c.posesionesRival) / 2 / (2 * duracionParteMin)) * 60);
   const pctPerdidas: Metrica<number> =
     c.posesionesPropias > 0 ? disponible(c.perdidasPropias / c.posesionesPropias) : noDisponible("Sin posesiones nuestras registradas");
   return { conteo: c, eficienciaAtaque, eficienciaDefensa, diferencial, ritmo, pctPerdidas };
