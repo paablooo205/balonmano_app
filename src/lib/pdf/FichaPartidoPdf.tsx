@@ -137,8 +137,13 @@ export function FichaPartidoPdf({
   const idsJugadores = new Set(jugadores.map((j) => j.id));
   const huerfanos = eventos.filter((e) => e.jugador_id === null || !idsJugadores.has(e.jugador_id));
   const tirosHuerfanos = huerfanos.filter((e) => e.tipo === "tiro" && e.equipo_origen === "propio");
+  // La fila aparece con cualquier evento huérfano que la tabla cuente: tiro
+  // propio, pérdida/robo (cualquier equipo) o exclusión propia.
+  const hayHuerfanos = huerfanos.some(
+    (e) => (e.tipo === "tiro" && e.equipo_origen === "propio") || e.tipo === "perdida" || (e.tipo === "exclusion" && e.equipo_origen === "propio"),
+  );
   const jugadoresDeCampo: FilaJugadorPdf[] =
-    tirosHuerfanos.length > 0
+    hayHuerfanos
       ? [
           ...filasJugadores,
           {
@@ -150,7 +155,7 @@ export function FichaPartidoPdf({
             eficaciaPct: eficaciaConDetalle(tirosHuerfanos)?.pct ?? null,
             perdidas: huerfanos.filter((e) => e.tipo === "perdida" && e.equipo_origen === "propio").length,
             robos: huerfanos.filter((e) => e.tipo === "perdida" && e.equipo_origen === "rival").length,
-            exclusiones: huerfanos.filter((e) => e.tipo === "exclusion").length,
+            exclusiones: huerfanos.filter((e) => e.tipo === "exclusion" && e.equipo_origen === "propio").length,
             minutos: 0,
           },
         ]
