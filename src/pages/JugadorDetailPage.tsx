@@ -23,6 +23,7 @@ import {
   porcentajeParadas,
   resultadoPartido,
   robos,
+  esTiroRivalAPuerta,
 } from "@/lib/partidoStats";
 import { MIN_TIROS_RECIBIDOS } from "@/lib/valoracion";
 import { agruparPorPartido, cargarEventosEquipo } from "@/lib/eventos";
@@ -144,8 +145,8 @@ export function JugadorDetailPage() {
   const pctPenalti = tirosPenalti.length > 0 ? Math.round((desglosePenalti.gol / tirosPenalti.length) * 100) : null;
 
   // --- Temporada completa: paradas del portero, acumuladas ---
-  const tirosRivalJuego = eventosDelJugador.filter((e) => e.tipo === "tiro" && e.equipo_origen === "rival" && !e.es_penalti);
-  const tirosRivalPenalti = eventosDelJugador.filter((e) => e.tipo === "tiro" && e.equipo_origen === "rival" && e.es_penalti);
+  const tirosRivalJuego = eventosDelJugador.filter((e) => esTiroRivalAPuerta(e) && !e.es_penalti);
+  const tirosRivalPenalti = eventosDelJugador.filter((e) => esTiroRivalAPuerta(e) && e.es_penalti);
   const zonasRivalJuego = distribucionPorZona(tirosRivalJuego);
   const zonasRivalPenalti = distribucionPorZona(tirosRivalPenalti);
   const paradasZonasRivalJuego = distribucionPorZona(tirosRivalJuego.filter((e) => e.resultado === "parado"));

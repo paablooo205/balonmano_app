@@ -19,6 +19,7 @@ import {
   perdidas,
   porcentajeParadas,
   robos,
+  esTiroRivalAPuerta,
 } from "@/lib/partidoStats";
 import { dividirPorParte, generarInsights } from "@/lib/insights";
 import type { EventosRow, JugadoresRow, PartidosRow } from "@/types/database";
@@ -107,8 +108,8 @@ export function FichaTecnica({
   const golesZonasJuego = distribucionPorZona(tirosJuego.filter((e) => e.resultado === "gol"));
   const golesZonasPenalti = distribucionPorZona(tirosPenalti.filter((e) => e.resultado === "gol"));
 
-  const tirosRivalJuego = eventos.filter((e) => e.tipo === "tiro" && e.equipo_origen === "rival" && !e.es_penalti);
-  const tirosRivalPenalti = eventos.filter((e) => e.tipo === "tiro" && e.equipo_origen === "rival" && e.es_penalti);
+  const tirosRivalJuego = eventos.filter((e) => esTiroRivalAPuerta(e) && !e.es_penalti);
+  const tirosRivalPenalti = eventos.filter((e) => esTiroRivalAPuerta(e) && e.es_penalti);
   const zonasRivalJuego = distribucionPorZona(tirosRivalJuego);
   const zonasRivalPenalti = distribucionPorZona(tirosRivalPenalti);
   const paradasZonasRivalJuego = distribucionPorZona(tirosRivalJuego.filter((e) => e.resultado === "parado"));

@@ -24,10 +24,13 @@ export const BOTONES_TIRO_PROPIO: BotonTiro[] = [
   { resultado: "poste", equipoOrigen: "propio", label: "Poste", color: "var(--color-accent)" },
 ];
 
-/** Grupo "Porteros" — resultado de los lanzamientos del rival contra nosotros. */
+/** Grupo "Porteros" — resultado de los lanzamientos del rival contra nosotros.
+ * "Fuera" (incluye poste) no lleva zona y no cuenta en el % de paradas: sirve
+ * para contar las posesiones del rival (captura ampliada, spec §5). */
 export const BOTONES_TIRO_RIVAL: BotonTiro[] = [
   { resultado: "parado", equipoOrigen: "rival", label: "Parada", color: "#3d8ad6" },
   { resultado: "gol", equipoOrigen: "rival", label: "Gol en contra", color: "var(--color-accent)" },
+  { resultado: "fuera", equipoOrigen: "rival", label: "Fuera", color: "var(--color-text-faint)" },
 ];
 
 /** Un tiro necesita zona (arma la cuadrícula de portería) solo si va a
@@ -53,8 +56,17 @@ export function perdidas(eventos: EventosRow[]): number {
   return eventos.filter((e) => e.tipo === "perdida" && e.equipo_origen === "propio").length;
 }
 
+/** Exclusiones de 2' NUESTRAS — las del rival (botón "2' rival", sin
+ * jugador) van aparte y nunca suman aquí. */
 export function exclusiones(eventos: EventosRow[]): number {
-  return eventos.filter((e) => e.tipo === "exclusion").length;
+  return eventos.filter((e) => e.tipo === "exclusion" && e.equipo_origen === "propio").length;
+}
+
+/** Tiro del rival que va a portería (gol o parada). Los "fuera"/"poste" del
+ * rival existen desde la captura ampliada: cuentan como posesión del rival
+ * pero nunca en el % de paradas ni en goles evitados. */
+export function esTiroRivalAPuerta(e: EventosRow): boolean {
+  return e.tipo === "tiro" && e.equipo_origen === "rival" && (e.resultado === "gol" || e.resultado === "parado");
 }
 
 export function tarjetas(eventos: EventosRow[]): number {
@@ -143,16 +155,15 @@ export function esPortero(puesto: string | null): boolean {
   return !!puesto && puesto.toLowerCase().includes("portero");
 }
 
-/** Etiqueta de un evento de tiro (gol/fuera/parado/poste, propio o rival, con
- * o sin penalti) para la cronología — mismo texto que su botón en el panel
- * de acciones (ver `BOTONES_TIRO_PROPIO`/`BOTONES_TIRO_RIVAL`). */
+/** Etiqueta de un evento de tiro para la cronología — mismo texto que su
+ * botón; el fuera/poste del rival se distingue del nuestro. */
 export function etiquetaTiro(e: EventosRow): string {
   const propio = e.equipo_origen === "propio";
   let base: string;
   if (e.resultado === "gol") base = propio ? "Gol" : "Gol en contra";
   else if (e.resultado === "parado") base = propio ? "Parado" : "Parada";
-  else if (e.resultado === "fuera") base = "Fuera";
-  else base = "Poste";
+  else if (!propio) base = "Tiro rival fuera";
+  else base = e.resultado === "fuera" ? "Fuera" : "Poste";
   return `${base}${e.es_penalti ? " (7m)" : ""}`;
 }
 
@@ -342,10 +353,14 @@ export type ExclusionActiva = { eventoId: string; jugadorId: string | null; finS
  * la exclusión en pista). Solo las que tienen `segundo` registrado — las
  * anteriores a ese campo no se pueden situar. Ordenadas por la que antes
  * termina. */
-export function exclusionesActivas(eventos: EventosRow[], segundoAhora: number | null): ExclusionActiva[] {
+export function exclusionesActivas(
+  eventos: EventosRow[],
+  segundoAhora: number | null,
+  equipo: "propio" | "rival" = "propio",
+): ExclusionActiva[] {
   if (segundoAhora === null) return [];
   return eventos
-    .filter((e) => e.tipo === "exclusion" && e.segundo != null)
+    .filter((e) => e.tipo === "exclusion" && e.equipo_origen === equipo && e.segundo != null)
     .map((e) => ({
       eventoId: e.id,
       jugadorId: e.jugador_id,
@@ -419,7 +434,7 @@ export function minutosJugados(
   for (const e of propios) {
     const t = segundoDeToque(e);
     if (e.tipo === "entra_pista") {
-      entrada = t ?? entrada ?? 0;
+      if (entrada === null) entrada = t ?? 0;
     } else if (entrada !== null) {
       total += Math.max(0, (t ?? entrada) - entrada);
       entrada = null;
@@ -432,14 +447,14 @@ export function minutosJugados(
 /** Momento de un toque jsonb en segundos de partido: `segundo` si lo tiene,
  * si no `minuto` × 60 (histórico); null si se registró con el reloj sin
  * iniciar (titulares antes del pitido inicial → cuenta como 0). */
-function segundoDeToque(e: EventoPartido): number | null {
+export function segundoDeToque(e: EventoPartido): number | null {
   if (e.segundo != null) return e.segundo;
   return e.minuto != null ? e.minuto * 60 : null;
 }
 
 /** Entradas/salidas de pista en orden cronológico (por momento de partido y,
  * a igualdad, por orden de registro). */
-function toquesPista(eventosJsonb: EventoPartido[]): EventoPartido[] {
+export function toquesPista(eventosJsonb: EventoPartido[]): EventoPartido[] {
   return eventosJsonb
     .filter((e) => e.tipo === "entra_pista" || e.tipo === "sale_pista")
     .slice()
@@ -464,7 +479,7 @@ export function tiempoDePista(
   for (const e of propios) {
     const t = segundoDeToque(e);
     if (e.tipo === "entra_pista") {
-      entrada = t ?? entrada ?? 0;
+      if (entrada === null) entrada = t ?? 0;
     } else if (entrada !== null) {
       total += Math.max(0, (t ?? entrada) - entrada);
       entrada = null;
@@ -537,7 +552,7 @@ export function distribucionPorZona(eventos: EventosRow[]): Record<number, numbe
  * ambos en un % global (para la cifra protagonista). */
 export function porcentajeParadas(eventos: EventosRow[], opts?: { soloPenalti: boolean }): EficaciaDetalle {
   const rivales = eventos.filter(
-    (e) => e.tipo === "tiro" && e.equipo_origen === "rival" && (opts === undefined || e.es_penalti === opts.soloPenalti),
+    (e) => esTiroRivalAPuerta(e) && (opts === undefined || e.es_penalti === opts.soloPenalti),
   );
   const aciertos = rivales.filter((e) => e.resultado === "parado").length;
   const intentos = rivales.length;
@@ -627,4 +642,27 @@ export function serieMarcador(eventos: EventosRow[]): { ts: string; favor: numbe
     else contra++;
     return { ts: e.creado_en, favor, contra };
   });
+}
+
+/**
+ * Corrección SOLO DE LECTURA (nunca se reescribe la fila en la base): un tiro
+ * con origen "7m" es un penalti aunque no se activara el interruptor
+ * "Penalti" al registrarlo — antes de que el chip "7m" lo activara solo,
+ * hubo tiros guardados así, y contaban como juego abierto en la eficacia.
+ */
+export function normalizarEventos(eventos: EventosRow[]): EventosRow[] {
+  return eventos.map((e) => (e.tipo === "tiro" && e.origen === "7m" && !e.es_penalti ? { ...e, es_penalti: true } : e));
+}
+
+/** Tiempos muertos por equipo: 3 por partido, máximo 2 por parte. */
+export const MAX_TM_PARTIDO = 3;
+export const MAX_TM_PARTE = 2;
+
+/** Tiempos muertos que le quedan a un equipo en la parte en curso (el menor
+ * entre lo que queda de partido y lo que queda de la parte). */
+export function tiemposMuertosRestantes(eventos: EventosRow[], equipo: EquipoOrigenEvento, parte: 1 | 2, duracionParteMin: number): number {
+  const propios = eventos.filter((e) => e.tipo === "tiempo_muerto" && e.equipo_origen === equipo);
+  const corte = duracionParteMin * 60;
+  const enParte = propios.filter((e) => (parte === 1 ? (e.segundo ?? 0) < corte : (e.segundo ?? 0) >= corte)).length;
+  return Math.max(0, Math.min(MAX_TM_PARTIDO - propios.length, MAX_TM_PARTE - enParte));
 }

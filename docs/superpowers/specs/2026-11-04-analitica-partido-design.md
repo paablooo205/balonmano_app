@@ -73,7 +73,7 @@ Requiere `tienePista` y `tieneSegundo`.
 Requiere `tieneSegundo`. Intervalos de exclusión: `[segundo, segundo + 120)` (también tarjeta roja = 2' de inferioridad). Estado por instante = nº excluidos propios − nº excluidos rival → igualdad / inferioridad / superioridad. Por estado: segundos, goles a favor/en contra, posesiones, eficiencia. **Coste por exclusión** = (diferencial por minuto en igualdad − en inferioridad) × 2. Superioridad requiere `tieneExclusionesRival`.
 
 ### 4.5 Rachas, sequías y tiempos muertos (`rachas.ts`)
-Requiere `tieneSegundo` (o `minutoFiable` como degradado con resolución de minuto).
+Requiere `tieneSegundo` (sin segundo exacto: No disponible; el modo degradado por minuto queda para una fase posterior).
 - **Parcial**: secuencia de ≥ 3 goles consecutivos del mismo equipo; se guarda inicio/fin y contexto (eventos de exclusión, tiempo muerto, cambio o descanso en `[inicio − 60 s, fin]`).
 - **Sequía**: ≥ 300 s sin gol de un equipo.
 - **Tiempo muerto**: diferencial de goles en `[t − 300, t)` vs `(t, t + 300]`, por tiempo muerto; en temporada, media por equipo que lo pide.
@@ -86,8 +86,8 @@ Descomposición del diferencial de goles del partido frente al diferencial de re
 - **Acierto de tiro** = (goles − xG) − media de temporada de (goles − xG).
 - **Pérdidas** = (pctPerdidasRef − pctPerdidas) × posesionesPropias × eficienciaAtaqueRef.
 - **Portería** = goles evitados − media de temporada.
-- **Situaciones numéricas** = goles netos en inferioridad/superioridad − lo esperado por sus segundos a la eficiencia de igualdad.
-- **7 metros** = (goles 7m − xG 7m).
+- **Situaciones numéricas** = (goles netos en inferioridad/superioridad − lo esperado por sus segundos a la eficiencia de igualdad) − media de temporada de ese mismo valor.
+- **7 metros** = (goles 7m − xG 7m) − media de temporada de ese mismo valor.
 - **Residuo** = diferencial real − (referencia + Σ factores), mostrado como "otros" (la descomposición no es exacta y se dice).
 El **titular** se genera con el factor de mayor |valor| y el resultado: plantillas cerradas en español (sin texto libre generado), p. ej. "Ganamos 29-24 desde la portería: +3,1 goles evitados".
 

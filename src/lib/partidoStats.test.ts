@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  BOTONES_TIRO_RIVAL,
+  etiquetaTiro,
   cambiarParte,
+  esTiroRivalAPuerta,
+  exclusiones,
   exclusionesActivas,
   hayRegistroDePista,
   jugadoresEnPista,
@@ -9,8 +13,11 @@ import {
   minutoActual,
   minutosJugados,
   pausar,
+  porcentajeParadas,
   resultadoPartido,
   segundoActual,
+  tiempoDePista,
+  tiemposMuertosRestantes,
 } from "./partidoStats";
 import { normalizarEventos } from "./eventos";
 import type { CronometroPartido, EventoPartido, EventosRow, PartidosRow } from "@/types/database";
@@ -163,5 +170,67 @@ describe("pista y banquillo", () => {
     expect(minutosJugados(partidoConCambio, "a", 60)).toBe(10);
     expect(minutosJugados(partidoConCambio, "c", 60)).toBe(50);
     expect(minutosJugados(partidoConCambio, "c", 60, 25)).toBe(15);
+  });
+
+  it("doble entrada sin salida no reinicia el tramo: cuenta desde la primera entrada", () => {
+    const dobleEntrada = [toque("entra_pista", "a", 100), toque("entra_pista", "a", 500)];
+    expect(minutosJugados(dobleEntrada, "a", 60)).toBe(58);
+    expect(tiempoDePista(dobleEntrada, "a", 1000).tramoSeg).toBe(900);
+  });
+});
+
+describe("captura ampliada: exclusiones y tiros del rival", () => {
+  it("exclusiones() cuenta solo las nuestras", () => {
+    const evs = [
+      evento({ tipo: "exclusion", resultado: null, equipo_origen: "propio" }),
+      evento({ tipo: "exclusion", resultado: null, equipo_origen: "rival" }),
+    ];
+    expect(exclusiones(evs)).toBe(1);
+  });
+
+  it("exclusionesActivas separa propias y del rival", () => {
+    const evs = [
+      evento({ tipo: "exclusion", resultado: null, equipo_origen: "propio", jugador_id: "j1", segundo: 100 }),
+      evento({ tipo: "exclusion", resultado: null, equipo_origen: "rival", jugador_id: null, segundo: 110 }),
+    ];
+    expect(exclusionesActivas(evs, 150).map((x) => x.jugadorId)).toEqual(["j1"]);
+    expect(exclusionesActivas(evs, 150, "rival").map((x) => x.finSegundo)).toEqual([230]);
+  });
+
+  it("exclusionesActivas del rival: una exclusión sin jugador (jugador_id null) cuenta", () => {
+    const evs = [evento({ id: "rx", tipo: "exclusion", resultado: null, equipo_origen: "rival", jugador_id: null, segundo: 500 })];
+    expect(exclusionesActivas(evs, 560, "rival")).toEqual([{ eventoId: "rx", jugadorId: null, finSegundo: 620, restante: 60 }]);
+    expect(exclusionesActivas(evs, 560, "propio")).toEqual([]);
+    expect(exclusionesActivas(evs, 620, "rival")).toEqual([]);
+  });
+
+  it("un tiro rival fuera no cuenta en el % de paradas", () => {
+    const evs = [
+      evento({ equipo_origen: "rival", resultado: "parado" }),
+      evento({ equipo_origen: "rival", resultado: "gol" }),
+      evento({ equipo_origen: "rival", resultado: "fuera" }),
+    ];
+    expect(porcentajeParadas(evs)).toEqual({ pct: 50, aciertos: 1, intentos: 2 });
+    expect(evs.filter(esTiroRivalAPuerta)).toHaveLength(2);
+  });
+});
+
+describe("tiro rival fuera", () => {
+  it("existe el botón Fuera del rival y su etiqueta en la cronología", () => {
+    expect(BOTONES_TIRO_RIVAL.map((b) => b.label)).toEqual(["Parada", "Gol en contra", "Fuera"]);
+    expect(etiquetaTiro(evento({ equipo_origen: "rival", resultado: "fuera" }))).toBe("Tiro rival fuera");
+    expect(etiquetaTiro(evento({ equipo_origen: "propio", resultado: "fuera" }))).toBe("Fuera");
+  });
+});
+
+describe("tiemposMuertosRestantes", () => {
+  const tm = (equipo: "propio" | "rival", segundo: number) =>
+    evento({ tipo: "tiempo_muerto", resultado: null, equipo_origen: equipo, segundo });
+  it("3 por partido y máximo 2 por parte, por equipo", () => {
+    expect(tiemposMuertosRestantes([], "propio", 1, 30)).toBe(2);
+    expect(tiemposMuertosRestantes([tm("propio", 300), tm("propio", 900)], "propio", 1, 30)).toBe(0);
+    expect(tiemposMuertosRestantes([tm("propio", 300), tm("propio", 900)], "propio", 2, 30)).toBe(1);
+    expect(tiemposMuertosRestantes([tm("propio", 300), tm("propio", 2000)], "propio", 2, 30)).toBe(1);
+    expect(tiemposMuertosRestantes([tm("propio", 300)], "rival", 1, 30)).toBe(2);
   });
 });

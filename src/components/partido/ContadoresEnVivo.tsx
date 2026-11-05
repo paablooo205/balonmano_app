@@ -41,6 +41,7 @@ import {
   titularesDe,
   exclusionesActivas,
   tiempoDePista,
+  tiemposMuertosRestantes,
   type ExclusionActiva,
   type BotonTiro,
 } from "@/lib/partidoStats";
@@ -104,6 +105,7 @@ export function ContadoresEnVivo({
   useFullscreenHorizontal();
   const compacto = useMovilHorizontal();
   const [tick, setTick] = useState(0);
+  const [tiempoMuerto, setTiempoMuerto] = useState<{ equipo: EquipoOrigenEvento; finMs: number } | null>(null);
   const [jugadorSel, setJugadorSel] = useState<string | null>(null);
   const [sietePendiente, setSietePendiente] = useState(false);
   const [verTodasAcciones, setVerTodasAcciones] = useState(false);
@@ -199,6 +201,21 @@ export function ContadoresEnVivo({
         detalle: [e.zona ? `Z${e.zona}` : null, e.origen ? ETIQUETAS_ORIGEN[e.origen] : null].filter(Boolean).join(" · "),
       };
     }
+    if (e.tipo === "tiempo_muerto") {
+      return {
+        id: e.id,
+        origen: "tabla",
+        label: e.equipo_origen === "rival" ? "Tiempo muerto rival" : "Tiempo muerto",
+        color: "rgba(255,255,255,.35)",
+        jugadorId: null,
+        esRival: e.equipo_origen === "rival",
+        minuto: e.minuto,
+        segundo: e.segundo ?? null,
+        creadoEn: e.creado_en,
+        afectaMarcador: false,
+        detalle: "",
+      };
+    }
     if (e.tipo === "tarjeta") {
       const b = BOTONES_TARJETA.find((x) => x.color === e.color_tarjeta);
       return {
@@ -215,7 +232,7 @@ export function ContadoresEnVivo({
         detalle: "",
       };
     }
-    const label = e.tipo === "perdida" ? (e.equipo_origen === "rival" ? "Balón ganado" : "Balón perdido") : "Exclusión 2'";
+    const label = e.tipo === "perdida" ? (e.equipo_origen === "rival" ? "Balón ganado" : "Balón perdido") : e.equipo_origen === "rival" ? "Exclusión 2' rival" : "Exclusión 2'";
     const color = e.tipo === "perdida" ? (e.equipo_origen === "rival" ? "var(--color-success)" : "var(--color-warning)") : "var(--color-warning)";
     return {
       id: e.id,
@@ -298,6 +315,16 @@ export function ContadoresEnVivo({
     return () => clearInterval(id);
   }, [cronometro?.corriendo]);
   void tick;
+
+  // Cuenta atrás del tiempo muerto: refresca cada segundo y se cierra sola.
+  useEffect(() => {
+    if (!tiempoMuerto) return;
+    const id = setInterval(() => {
+      if (Date.now() >= tiempoMuerto.finMs) setTiempoMuerto(null);
+      else setTick((t) => t + 1);
+    }, 1000);
+    return () => clearInterval(id);
+  }, [tiempoMuerto]);
 
   // Al llegar a la duración configurada de la parte: para el cronómetro
   // automáticamente y, si era la 1ª parte, la deja lista (en pausa, a 0:00)
@@ -430,7 +457,8 @@ export function ContadoresEnVivo({
   }
 
   function registrarPerdidaRobo(equipoOrigen: EquipoOrigenEvento) {
-    if (finalizado || !jugadorSel) return;
+    if (finalizado) return;
+    if (equipoOrigen === "propio" && !jugadorSel) return;
     const nuevo: EventosRow = {
       id: crypto.randomUUID(),
       equipo_id: partido.equipo_id,
@@ -475,6 +503,60 @@ export function ContadoresEnVivo({
     onEventosActualizados([...eventos, nuevo]);
     void registrarEvento(nuevo);
     anular();
+  }
+
+  /** Exclusión del rival: sin jugador (botón "2' rival"). Abre la cuenta
+   * atrás bajo los goles del rival y alimenta la superioridad numérica. */
+  function registrarExclusionRival() {
+    if (finalizado) return;
+    const nuevo: EventosRow = {
+      id: crypto.randomUUID(),
+      equipo_id: partido.equipo_id,
+      partido_id: partido.id,
+      sesion_id: null,
+      jugador_id: null,
+      equipo_origen: "rival",
+      tipo: "exclusion",
+      resultado: null,
+      zona: null,
+      origen: null,
+      es_penalti: false,
+      color_tarjeta: null,
+      minuto: minutoActual(cronometro, duracionParteMin),
+      segundo: segundoActual(cronometro, duracionParteMin),
+      creado_en: new Date().toISOString(),
+    };
+    onEventosActualizados([...eventos, nuevo]);
+    void registrarEvento(nuevo);
+  }
+
+  /** Tiempo muerto (1 minuto): para el reloj, registra el evento y muestra la
+   * cuenta atrás a pantalla completa (cerrable). Se deshace como cualquier
+   * acción; deshacerlo no vuelve a poner el reloj en marcha. */
+  function registrarTiempoMuerto(equipo: EquipoOrigenEvento) {
+    const parte = (cronometro?.parte ?? 1) as 1 | 2;
+    if (finalizado || tiemposMuertosRestantes(eventos, equipo, parte, duracionParteMin) === 0) return;
+    if (cronometro?.corriendo) void persistirEstadisticas({ ...partido.estadisticas, cronometro: pausar(cronometro, duracionParteMin) });
+    const nuevo: EventosRow = {
+      id: crypto.randomUUID(),
+      equipo_id: partido.equipo_id,
+      partido_id: partido.id,
+      sesion_id: null,
+      jugador_id: null,
+      equipo_origen: equipo,
+      tipo: "tiempo_muerto",
+      resultado: null,
+      zona: null,
+      origen: null,
+      es_penalti: false,
+      color_tarjeta: null,
+      minuto: minutoActual(cronometro, duracionParteMin),
+      segundo: segundoActual(cronometro, duracionParteMin),
+      creado_en: new Date().toISOString(),
+    };
+    onEventosActualizados([...eventos, nuevo]);
+    void registrarEvento(nuevo);
+    setTiempoMuerto({ equipo, finMs: Date.now() + 60_000 });
   }
 
   function registrarTarjeta(color: ColorTarjeta) {
@@ -653,6 +735,8 @@ export function ContadoresEnVivo({
   // para con el reloj, como el tiempo de la exclusión en pista). Se pinta en
   // el marcador, en la tarjeta del jugador y en su panel de estadísticas.
   const excluidos = exclusionesActivas(eventos, segundoActual(cronometro, duracionParteMin));
+  const excluidosRival = exclusionesActivas(eventos, segundoActual(cronometro, duracionParteMin), "rival");
+  const exclusionesRival = eventos.filter((e) => e.tipo === "exclusion" && e.equipo_origen === "rival").length;
 
   /** Segunda línea de tiempo de cada tarjeta (solo si se llevan cambios):
    * en pista, mm:ss desde su última entrada (avanza con el reloj); en el
@@ -883,7 +967,7 @@ export function ContadoresEnVivo({
   // "Parado" (tiro nuestro) se confundía con "Parada" — había paradas
   // guardadas como tiros nuestros fallados. Mismo sitio, mismos botones.
   const grupoTiro = esJugadorActualPortero ? (
-    <GrupoBotones titulo="Portero · tiro del rival" cols={2}>
+    <GrupoBotones titulo="Portero · tiro del rival" cols={3}>
       {BOTONES_TIRO_RIVAL.map((b) => (
         <BotonAccion
           key={`${b.equipoOrigen}-${b.resultado}`}
@@ -937,7 +1021,6 @@ export function ContadoresEnVivo({
           count={contarBotonTiro(eventos, b)}
           armado={esBotonArmado(b)}
           disabled={finalizado}
-          className="col-span-2"
           onClick={() => tocarBotonTiro(b)}
         />
       ))
@@ -952,6 +1035,7 @@ export function ContadoresEnVivo({
           onClick={() => tocarBotonTiro(b)}
         />
       ));
+  const rellenoTiroCompacto = esJugadorActualPortero ? <span aria-hidden="true" /> : null;
 
   // Móvil apaisado: no caben los títulos de grupo sin hacer scroll, así que
   // los mismos botones van en una rejilla de 4×4 con el mismo orden de
@@ -959,6 +1043,7 @@ export function ContadoresEnVivo({
   const accionesCompacto = (
     <div className="grid grid-cols-4 gap-1.5">
       {botonesTiro}
+      {rellenoTiroCompacto}
       <button
         onClick={() => setSietePendiente((v) => !v)}
         disabled={finalizado}
@@ -970,7 +1055,7 @@ export function ContadoresEnVivo({
       >
         Penalti 7m
       </button>
-      <BotonAccion label="Robo" color="var(--color-success)" count={robos(eventos)} disabled={!jugadorSel || finalizado} onClick={() => registrarPerdidaRobo("rival")} />
+      <BotonAccion label="Robo" color="var(--color-success)" count={robos(eventos)} disabled={finalizado} onClick={() => registrarPerdidaRobo("rival")} />
       <BotonAccion label="Pérdida" color="var(--color-warning)" count={perdidas(eventos)} disabled={!jugadorSel || finalizado} onClick={() => registrarPerdidaRobo("propio")} />
       <BotonAccion label="2'" color="var(--color-warning)" count={exclusiones(eventos)} disabled={!jugadorSel || finalizado} onClick={registrarExclusion} />
       {BOTONES_TARJETA.map((b) => (
@@ -983,7 +1068,7 @@ export function ContadoresEnVivo({
           onClick={() => registrarTarjeta(b.color)}
         />
       ))}
-      <span aria-hidden="true" />
+      <BotonAccion label="2' rival" color="var(--color-warning)" count={exclusionesRival} disabled={finalizado} className="border-[var(--color-warning)]/70" onClick={registrarExclusionRival} />
       {ACCIONES_JSONB.map((a) => (
         <BotonAccion
           key={a.tipo}
@@ -1003,7 +1088,7 @@ export function ContadoresEnVivo({
       {botonPenalti}
       {grupoTiro}
       <GrupoBotones titulo="Pérdida / Robo" cols={2}>
-        <BotonAccion label="Robo" color="var(--color-success)" count={robos(eventos)} disabled={!jugadorSel || finalizado} onClick={() => registrarPerdidaRobo("rival")} />
+        <BotonAccion label="Robo" color="var(--color-success)" count={robos(eventos)} disabled={finalizado} onClick={() => registrarPerdidaRobo("rival")} />
         <BotonAccion label="Pérdida" color="var(--color-warning)" count={perdidas(eventos)} disabled={!jugadorSel || finalizado} onClick={() => registrarPerdidaRobo("propio")} />
       </GrupoBotones>
       <GrupoBotones titulo="Sanción" cols={4}>
@@ -1018,6 +1103,9 @@ export function ContadoresEnVivo({
             onClick={() => registrarTarjeta(b.color)}
           />
         ))}
+      </GrupoBotones>
+      <GrupoBotones titulo="Rival" cols={4}>
+        <BotonAccion label="2' rival" color="var(--color-warning)" count={exclusionesRival} disabled={finalizado} className="border-[var(--color-warning)]/70" onClick={registrarExclusionRival} />
       </GrupoBotones>
       <GrupoBotones titulo="Otros" cols={2}>
         {ACCIONES_JSONB.map((a) => (
@@ -1231,6 +1319,20 @@ export function ContadoresEnVivo({
         <div className="min-w-0 text-left">
           <div className="truncate text-[11px] font-semibold uppercase tracking-[0.08em] text-white/60">{partido.rival}</div>
           <div className={cn("stat-number leading-none text-white/60", compacto ? "text-[34px]" : "text-[56px]")}>{golesContra(eventos)}</div>
+          {/* Cuenta atrás de las exclusiones del rival, bajo sus goles. */}
+          {excluidosRival.length > 0 && (
+            <div className="mt-1 flex flex-wrap justify-start gap-1">
+              {excluidosRival.map((x) => (
+                <span
+                  key={x.eventoId}
+                  className="stat-number whitespace-nowrap rounded-[4px] bg-[var(--color-warning)] px-1.5 text-[13px] leading-snug text-[var(--color-ink)]"
+                  title={`Vuelve a las ${formatoReloj(x.finSegundo)}`}
+                >
+                  2' · {formatoReloj(x.restante)}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -1258,6 +1360,24 @@ export function ContadoresEnVivo({
             {compacto ? "2ª" : "2ª parte"}
           </button>
         )}
+        {/* Grupos separados (reloj | tiempos muertos | deshacer) para no tocar el vecino por error. */}
+        <span aria-hidden className="mx-1 h-8 w-px bg-white/15" />
+        {(["propio", "rival"] as const).map((eq) => {
+          const quedan = tiemposMuertosRestantes(eventos, eq, (cronometro?.parte ?? 1) as 1 | 2, duracionParteMin);
+          return (
+            <button
+              key={eq}
+              onClick={() => registrarTiempoMuerto(eq)}
+              disabled={finalizado || quedan === 0}
+              aria-label={`${eq === "propio" ? "Tiempo muerto nuestro" : "Tiempo muerto del rival"} (quedan ${quedan})`}
+              className="flex h-11 min-w-11 items-center justify-center gap-1 whitespace-nowrap rounded-[6px] bg-white/[.08] px-2 text-xs font-semibold text-white/80 disabled:pointer-events-none disabled:opacity-35"
+            >
+              {eq === "propio" ? "TM" : compacto ? `TM ${partido.rival.slice(0, 3).toUpperCase()}` : "TM rival"}
+              <span className="stat-number text-[11px] text-white">· {quedan}</span>
+            </button>
+          );
+        })}
+        <span aria-hidden className="mx-1 h-8 w-px bg-white/15" />
         <button
           onClick={deshacer}
           disabled={toquesDesc.length === 0}
@@ -1270,6 +1390,14 @@ export function ContadoresEnVivo({
     </div>
   );
 
+  const overlayTiempoMuerto = tiempoMuerto && (
+    <OverlayTiempoMuerto
+      equipo={tiempoMuerto.equipo === "rival" ? partido.rival : (equipoNombre ?? "Nuestro equipo")}
+      finMs={tiempoMuerto.finMs}
+      onCerrar={() => setTiempoMuerto(null)}
+    />
+  );
+
   // ── Móvil apaisado: pantalla fija a 4 columnas, sin scroll de página. Solo
   // la lista de jugadores y la cronología se desplazan dentro de su columna.
   // Sin panel de estadísticas (no cabe; está en la ficha técnica).
@@ -1280,6 +1408,7 @@ export function ContadoresEnVivo({
         style={{ paddingLeft: "env(safe-area-inset-left)", paddingRight: "env(safe-area-inset-right)" }}
       >
         {cabecera}
+        {overlayTiempoMuerto}
         <div className="shrink-0">{barraEstado}</div>
         <div className="grid min-h-0 flex-1 grid-cols-[112px_minmax(0,1fr)_minmax(0,250px)_132px] grid-rows-[minmax(0,1fr)] gap-2.5 p-2">
           <div className="min-h-0">{bloqueJugadores(true)}</div>
@@ -1297,6 +1426,7 @@ export function ContadoresEnVivo({
       style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       {cabecera}
+      {overlayTiempoMuerto}
       {/* Sticky: en el layout con scroll (móvil en vertical) la barra de
           estado/aviso se queda arriba; en pantalla fija ya no se mueve nada. */}
       <div className="sticky top-0 z-10 shrink-0">{barraEstado}</div>
@@ -1333,16 +1463,35 @@ export function ContadoresEnVivo({
   );
 }
 
+/** Cuenta atrás del tiempo muerto, a pantalla completa sobre el registro. */
+function OverlayTiempoMuerto({ equipo, finMs, onCerrar }: { equipo: string; finMs: number; onCerrar: () => void }) {
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Tiempo muerto"
+      className="fixed inset-0 z-[60] flex flex-col items-center justify-center gap-3 bg-[#0d0d0f]/95"
+    >
+      <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-accent)]">Tiempo muerto</div>
+      <div className="text-lg font-semibold text-white">{equipo}</div>
+      <div className="stat-number text-[120px] leading-none text-white">{formatoReloj(Math.max(0, Math.ceil((finMs - Date.now()) / 1000)))}</div>
+      <button onClick={onCerrar} className="h-11 rounded-[15px] bg-white px-8 text-sm font-semibold text-[var(--color-ink)]">
+        Cerrar
+      </button>
+    </div>
+  );
+}
+
 function GrupoBotones({
   titulo,
   cols,
   children,
 }: {
   titulo: string;
-  cols: 2 | 4;
+  cols: 2 | 3 | 4;
   children: React.ReactNode;
 }) {
-  const colsClass = cols === 2 ? "grid-cols-2" : "grid-cols-4";
+  const colsClass = cols === 2 ? "grid-cols-2" : cols === 3 ? "grid-cols-3" : "grid-cols-4";
   return (
     <div>
       <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.12em] text-white/60">{titulo}</div>
@@ -1373,9 +1522,10 @@ function BotonAccion({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        className,
         "flex h-11 flex-col items-center justify-center gap-0.5 rounded-[6px] border px-1 text-center transition-colors active:scale-[0.96] disabled:opacity-35 disabled:pointer-events-none",
         armado ? "border-[var(--color-accent)] bg-[var(--color-accent)]/20" : "border-white/[.1] bg-white/[.05]",
+        // Al final: lo que pasa el llamante (p. ej. un borde) prevalece sobre el por defecto.
+        className,
       )}
     >
       <span className="text-[11px] font-medium leading-[1.1] text-white/90">{label}</span>

@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabaseClient";
 import { traerTodo } from "@/lib/paginar";
+import { normalizarEventos } from "@/lib/partidoStats";
 import {
   aplicarPendientes,
   encolarOperacion,
@@ -11,6 +12,8 @@ import {
   sinColumnaSegundo,
 } from "@/lib/offline/queue";
 import type { Database, EventosRow } from "@/types/database";
+
+export { normalizarEventos } from "@/lib/partidoStats";
 
 type EventoInsert = Database["public"]["Tables"]["eventos"]["Insert"];
 
@@ -26,16 +29,6 @@ export async function cargarEventosEquipo(equipoId: string): Promise<EventosRow[
   if (data) void guardarCache("eventos", equipoId, data);
   const cola = await obtenerCola();
   return normalizarEventos(aplicarPendientes("eventos", base, cola));
-}
-
-/**
- * Corrección SOLO DE LECTURA (nunca se reescribe la fila en la base): un tiro
- * con origen "7m" es un penalti aunque no se activara el interruptor
- * "Penalti" al registrarlo — antes de que el chip "7m" lo activara solo,
- * hubo tiros guardados así, y contaban como juego abierto en la eficacia.
- */
-export function normalizarEventos(eventos: EventosRow[]): EventosRow[] {
-  return eventos.map((e) => (e.tipo === "tiro" && e.origen === "7m" && !e.es_penalti ? { ...e, es_penalti: true } : e));
 }
 
 /** Indexa una lista de eventos por partido_id, para pintar/leer por partido sin volver a consultar. */

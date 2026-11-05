@@ -18,6 +18,7 @@ import {
   marcadorPartido,
   porcentajeParadas,
   resultadoPartido,
+  esTiroRivalAPuerta,
 } from "@/lib/partidoStats";
 import { agruparPorPartido, cargarEventosEquipo } from "@/lib/eventos";
 import type { EventosRow, JugadoresRow, PartidosRow, RivalesRow } from "@/types/database";
@@ -112,8 +113,8 @@ export function RivalDetailPage() {
 
   // --- Dónde nos tira este rival, acumulado (misma lógica que el bloque
   // "Nuestra portería" de FichaTecnica.tsx, sin filtrar por jugador) ---
-  const tirosRivalJuego = eventosVsRival.filter((e) => e.tipo === "tiro" && e.equipo_origen === "rival" && !e.es_penalti);
-  const tirosRivalPenalti = eventosVsRival.filter((e) => e.tipo === "tiro" && e.equipo_origen === "rival" && e.es_penalti);
+  const tirosRivalJuego = eventosVsRival.filter((e) => esTiroRivalAPuerta(e) && !e.es_penalti);
+  const tirosRivalPenalti = eventosVsRival.filter((e) => esTiroRivalAPuerta(e) && e.es_penalti);
   const zonasRivalJuego = distribucionPorZona(tirosRivalJuego);
   const zonasRivalPenalti = distribucionPorZona(tirosRivalPenalti);
   const paradasZonasRivalJuego = distribucionPorZona(tirosRivalJuego.filter((e) => e.resultado === "parado"));
